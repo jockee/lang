@@ -4,7 +4,7 @@
 -- TODO: map lambdas on lists
 
 -- TODO: Maybe
--- TODO: named functions
+-- TODO: named functions / bound values
 -- TODO: string interpolation
 -- TODO: where clause
 -- TODO: Static typing

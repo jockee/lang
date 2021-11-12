@@ -9,7 +9,6 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 expr :: Parser Expr
 expr =
   ( ifthen
-      <|> try pipe
       <|> letin
       <|> try ternary
       <|> try lambda
@@ -27,7 +26,9 @@ formula = whitespace >> buildExpressionParser table juxta <?> "expression"
         [addOp, subOp],
         [eqOp],
         [andOp],
-        [orOp]
+        [orOp],
+        [pipeOp],
+        [assignOp]
       ]
     prefix name fun = Prefix (do reservedOp name; return fun)
     neg n = case n of
@@ -39,6 +40,8 @@ formula = whitespace >> buildExpressionParser table juxta <?> "expression"
     mulOp = Infix (reservedOp "*" >> return mulExpr) AssocLeft
     andOp = Infix (reservedOp "&&" >> return andExpr) AssocLeft
     orOp = Infix (reservedOp "||" >> return orExpr) AssocLeft
+    assignOp = Infix (reservedOp "=" >> return pipeExpr) AssocLeft
+    pipeOp = Infix (reservedOp "|>" >> return pipeExpr) AssocLeft
 
 langDef :: Tok.LanguageDef ()
 langDef =
@@ -112,23 +115,16 @@ parseList = do
   char ']'
   return x
 
-pipe :: Parser Expr
-pipe = do
-  x <- atom -- FIXME: should be expr? samma som nedan?
-  reservedOp "|>"
-  e2 <- expr
-  return (App e2 x)
-
 letin :: Parser Expr
 letin = do
   reserved "let"
   x <- identifier
   reservedOp "="
-  -- FIXME: juxta borde funka här. atom gör det, dock
+  -- FIXME: juxta borde funka här. för att kunda binda en funktion, t ex
   e1 <- atom
   reservedOp "in"
   e2 <- expr
-  return (App (Bind [x] e2) e1)
+  return (App (Lambda [x] e2) e1)
 
 variable :: Parser Expr
 variable = Atom `fmap` identifier
@@ -137,7 +133,7 @@ lambda :: Parser Expr
 lambda = do
   x <- identifier
   reservedOp ":"
-  Bind [x] <$> expr
+  Lambda [x] <$> expr
 
 ifthen :: Parser Expr
 ifthen = do

@@ -80,6 +80,9 @@ test = hspec $ do
       it "nested lambda application" $ do
         eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
 
+      it "pipe to pipe" $ do
+        eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
+
   describe "Parser" $ do
     it "true" $ do
       showVal (parseExpr "true") `shouldBe` showVal (LBool True)
@@ -121,22 +124,22 @@ test = hspec $ do
       showVal (parseExpr "if true then 1 else 2") `shouldBe` showVal (If (LBool True) (LInteger 1) (LInteger 2))
 
     it "let-in" $ do
-      showVal (parseExpr "let x = 5 in x + 1") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+      showVal (parseExpr "let x = 5 in x + 1") `shouldBe` showVal (App (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
 
     it "lambda" $ do
-      showVal (parseExpr "(x: x + 1)") `shouldBe` showVal (Bind ["x"] (Binop Add (Atom "x") (LInteger 1)))
+      showVal (parseExpr "(x: x + 1)") `shouldBe` showVal (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1)))
 
     it "pipe to lambda" $ do
-      showVal (parseExpr "5 |> (x: x + 1)") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+      showVal (parseExpr "5 |> (x: x + 1)") `shouldBe` showVal (Binop Pipe (LInteger 5) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))))
 
     it "lambda application" $ do
-      showVal (parseExpr "(x: x + 1) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+      showVal (parseExpr "(x: x + 1) 5") `shouldBe` showVal (App (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
 
     it "pipe to pipe" $ do
-      showVal (parseExpr "5 |> (y: y + 1) |> (x: x + 1)") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
-
-    it "nested lambda application 2" $ do
-      showVal (parseExpr "(x: x + (y: y + 1)) 2) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
+      showVal (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` showVal (Binop Pipe (Binop Pipe (LInteger 5) (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1)))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 2))))
 
     it "nested lambda application" $ do
-      showVal (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
+      showVal (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` showVal (App (Lambda ["x"] (Binop Add (App (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1))) (Atom "x")) (LInteger 2))) (LInteger 5))
+
+    it "nested lambda application 2" $ do
+      showVal (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` showVal (App (Lambda ["x"] (Binop Add (Atom "x") (App (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))

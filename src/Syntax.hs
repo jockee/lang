@@ -6,7 +6,7 @@ import Data.List
 
 type Id = String
 
-data Op = Add | Sub | Mul | Eql | And | Or
+data Op = Add | Sub | Mul | Eql | And | Or | Pipe | Assign
   deriving (Show)
 
 data Expr
@@ -17,7 +17,7 @@ data Expr
   | LString String
   | LBool Bool
   | If Expr Expr Expr
-  | Bind [Id] Expr
+  | Lambda [Id] Expr
   | App Expr Expr
   | Binop Op Expr Expr
 
@@ -39,6 +39,12 @@ andExpr = Binop And
 orExpr :: Expr -> Expr -> Expr
 orExpr = Binop Or
 
+pipeExpr :: Expr -> Expr -> Expr
+pipeExpr = Binop Pipe
+
+assignOp :: Expr -> Expr -> Expr
+assignOp = Binop Assign
+
 instance Show Expr where show = showVal
 
 showVal :: Expr -> String
@@ -51,7 +57,7 @@ showVal (LBool False) = "(LBool False)"
 showVal (List contents) = "[" ++ unwordsList contents ++ "]"
 showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
 showVal (App e1 e2) = "(App " ++ showVal e1 ++ showVal e2 ++ ")"
-showVal (Bind ids e) = "(Bind [" ++ show (intercalate "," ids) ++ "] " ++ showVal e ++ ")"
+showVal (Lambda ids e) = "(Lambda [" ++ show (intercalate "," ids) ++ "] " ++ showVal e ++ ")"
 showVal (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
 showVal _ = "UNKNOWN"
 

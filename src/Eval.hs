@@ -59,12 +59,10 @@ instance Arith Val where
 evalIn :: Env -> Expr -> Val
 evalIn env (If (LBool True) c _) = evalIn env c
 evalIn env (If (LBool False) _ a) = evalIn env a
-evalIn env (Bind ids e) = FunVal env ids e
-evalIn env (App e1 e2) = case evalIn env e1 of
-  FunVal env' xs e3 ->
-    let v2 = evalIn env e2
-     in evalIn (extend env' xs v2) e3
-  _ -> error "Cannot apply value"
+evalIn env (Lambda ids e) = FunVal env ids e
+evalIn env (App e1 e2) = runFun env e1 e2
+evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
+-- evalIn env (Binop Assign k v) = evalIn (extend env k v)
 evalIn env (Atom x) = env x
 evalIn _ (LFloat n) = FloatVal n
 evalIn _ (LInteger n) = IntVal n
@@ -75,6 +73,12 @@ evalIn env (Binop op e1 e2) =
       x = evalOp op
    in v1 `x` v2
 evalIn _ a = trace ("calling f with x = " ++ show a) $ IntVal 99
+
+runFun env e1 e2 = case evalIn env e1 of
+  FunVal env' xs e3 ->
+    let v2 = evalIn env e2
+     in evalIn (extend env' xs v2) e3
+  _ -> error "Cannot apply value"
 
 eval :: Expr -> Val
 eval = evalIn empty
