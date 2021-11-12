@@ -40,7 +40,7 @@ formula = whitespace >> buildExpressionParser table juxta <?> "expression"
     mulOp = Infix (reservedOp "*" >> return mulExpr) AssocLeft
     andOp = Infix (reservedOp "&&" >> return andExpr) AssocLeft
     orOp = Infix (reservedOp "||" >> return orExpr) AssocLeft
-    assignOp = Infix (reservedOp "=" >> return pipeExpr) AssocLeft
+    assignOp = Infix (reservedOp "=" >> return pipeExpr) AssocRight
     pipeOp = Infix (reservedOp "|>" >> return pipeExpr) AssocLeft
 
 langDef :: Tok.LanguageDef ()

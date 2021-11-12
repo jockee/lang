@@ -72,7 +72,7 @@ evalIn env (Binop op e1 e2) =
       v2 = evalIn env e2
       x = evalOp op
    in v1 `x` v2
-evalIn _ a = trace ("calling f with x = " ++ show a) $ IntVal 99
+evalIn _ a = trace ("failed to find match in evalIn" ++ show a) $ IntVal 99
 
 runFun env e1 e2 = case evalIn env e1 of
   FunVal env' xs e3 ->
