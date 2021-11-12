@@ -16,6 +16,7 @@ expr =
       <|> try lambda
       <|> list
       <|> formula
+      <|> try fnAp
   )
     <* whitespace <?> "expr"
 
@@ -116,6 +117,14 @@ list = do
   x <- try listContents
   char ']'
   return x
+
+fnAp :: Parser Expr
+fnAp = do
+  -- _ <- trace ("calling f with x = ")
+  a1 <- atom
+  whitespace
+  a2 <- expr
+  return (App a1 a2)
 
 mapfn :: Parser Expr
 mapfn = do

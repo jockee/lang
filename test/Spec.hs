@@ -99,6 +99,15 @@ test = hspec $ do
       it "evals works for one expression" $ do
         evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
 
+      it "keeps env between expressions" $ do
+        evals [parseExpr "a = 1", parseExpr "a + 1"] `shouldBe` IntVal 2
+
+      it "bound lambda" $ do
+        evals [parseExpr "a = (x: x + 1)", parseExpr "a 1"] `shouldBe` IntVal 2
+
+      it "bound lambda on bound constant" $ do
+        evals [parseExpr "f = (x: x + 1)", parseExpr "b = 1", parseExpr "f b"] `shouldBe` IntVal 2
+
   describe "Parser" $ do
     it "true" $ do
       showVal (parseExpr "true") `shouldBe` showVal (LBool True)

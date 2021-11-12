@@ -1,6 +1,7 @@
+-- TODO: how to know which atoms (reserved/identifiers) to try to partially apply? atom followed by atom or expr?
 -- TODO: partial mapfn (to enable pipe)
 -- TODO: general case of partially applied named function? don't make map anything special
--- TODO: named functions / bound names
+-- TODO: pretty syntax for bound functions
 -- TODO: Ord (GT LT EQ)
 -- TODO: case expression
 -- TODO: cons to list
