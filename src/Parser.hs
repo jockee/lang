@@ -9,7 +9,9 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 expr :: Parser Expr
 expr =
   ( ifthen
+      <|> try pipe
       <|> letin
+      <|> try ternary
       <|> try lambda
       <|> parseList
       <|> formula
@@ -50,7 +52,7 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = ["in", "->", "\\", "+", "*", "-", "="],
+      Tok.reservedOpNames = ["in", "|>", "\\", "+", "*", "-", "=", "=="],
       Tok.caseSensitive = True
     }
 
@@ -110,6 +112,13 @@ parseList = do
   char ']'
   return x
 
+pipe :: Parser Expr
+pipe = do
+  x <- atom -- FIXME: should be expr? samma som nedan?
+  reservedOp "|>"
+  e2 <- expr
+  return (App e2 x)
+
 letin :: Parser Expr
 letin = do
   reserved "let"
@@ -119,7 +128,7 @@ letin = do
   e1 <- atom
   reservedOp "in"
   e2 <- expr
-  return (App (Abs [x] e2) e1)
+  return (App (Bind [x] e2) e1)
 
 variable :: Parser Expr
 variable = Atom `fmap` identifier
@@ -128,7 +137,7 @@ lambda :: Parser Expr
 lambda = do
   x <- identifier
   reservedOp ":"
-  Abs [x] <$> expr
+  Bind [x] <$> expr
 
 ifthen :: Parser Expr
 ifthen = do
@@ -137,6 +146,14 @@ ifthen = do
   reservedOp "then"
   tr <- atom
   reserved "else"
+  If cond tr <$> atom
+
+ternary :: Parser Expr
+ternary = do
+  cond <- atom
+  reservedOp "?"
+  tr <- atom
+  reserved ":"
   If cond tr <$> atom
 
 parseFloat :: Parser Expr

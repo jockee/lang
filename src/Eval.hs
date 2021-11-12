@@ -2,12 +2,9 @@
 
 module Eval (Val (..), eval) where
 
-import Data.Functor
 import Data.Map qualified as Map
-import Data.Maybe
 import Debug.Trace
 import Syntax
-import Text.Parsec.Error
 
 data Val
   = FunVal Env [Id] Expr
@@ -52,13 +49,17 @@ instance Arith Val where
   evalOp Sub = (-)
   evalOp Mul = (*)
   evalOp Eql = \a b -> BoolVal $ a == b
-  evalOp And = \a b -> BoolVal True
-  evalOp Or = \a b -> BoolVal True
+  evalOp And = \a b -> case (a, b) of
+    ((BoolVal a), (BoolVal b)) -> BoolVal $ a && b
+    otherwise -> BoolVal False
+  evalOp Or = \a b -> case (a, b) of
+    ((BoolVal a), (BoolVal b)) -> BoolVal $ a || b
+    otherwise -> BoolVal False
 
 evalIn :: Env -> Expr -> Val
 evalIn env (If (LBool True) c _) = evalIn env c
 evalIn env (If (LBool False) _ a) = evalIn env a
-evalIn env (Abs ids e) = FunVal env ids e
+evalIn env (Bind ids e) = FunVal env ids e
 evalIn env (App e1 e2) = case evalIn env e1 of
   FunVal env' xs e3 ->
     let v2 = evalIn env e2
@@ -72,9 +73,7 @@ evalIn env (Binop op e1 e2) =
   let v1 = evalIn env e1
       v2 = evalIn env e2
       x = evalOp op
-   in case (v1, v2) of
-        (n1, n2) -> n1 `x` n2
-        _ -> error "Not a number"
+   in v1 `x` v2
 evalIn _ a = trace ("calling f with x = " ++ show a) $ IntVal 99
 
 eval :: Expr -> Val

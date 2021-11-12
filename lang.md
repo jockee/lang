@@ -1,16 +1,15 @@
--- TODO: And
--- TODO: or
--- TODO: pipe
--- TODO: lambda syntax
-
+-- TODO: map as eval env
+-- TODO: multiple argument lambda
+-- TODO: pipe (reverse order function application?)
+-- TODO: map lambdas on lists
 
 -- TODO: Maybe
--- TODO: modules
+-- TODO: named functions
 -- TODO: string interpolation
 -- TODO: where clause
--- TODO: ternary
 -- TODO: Static typing
 -- TODO: Pattern matching
+-- TODO: modules
 -- TODO: REPL
 
 maybeNum = Some 1 :  Maybe Integer // Maybe = Nothing | Some a

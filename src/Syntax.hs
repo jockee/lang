@@ -17,7 +17,7 @@ data Expr
   | LString String
   | LBool Bool
   | If Expr Expr Expr
-  | Abs [Id] Expr
+  | Bind [Id] Expr
   | App Expr Expr
   | Binop Op Expr Expr
 
@@ -42,17 +42,17 @@ orExpr = Binop Or
 instance Show Expr where show = showVal
 
 showVal :: Expr -> String
-showVal (LString contents) = "\"" ++ contents ++ "\""
-showVal (Atom name) = name ++ "(Atom)"
-showVal (LInteger contents) = show contents ++ "(Int)"
-showVal (LFloat contents) = show contents ++ "(Float)"
-showVal (LBool True) = "true(Bool)"
-showVal (LBool False) = "false(Bool)"
+showVal (LString contents) = "(LString \"" ++ contents ++ "\")"
+showVal (Atom name) = "(Atom \"" ++ name ++ "\")"
+showVal (LInteger contents) = "(LInteger " ++ show contents ++ ")"
+showVal (LFloat contents) = "(LFloat " ++ show contents ++ ")"
+showVal (LBool True) = "(LBool True)"
+showVal (LBool False) = "(LBool False)"
 showVal (List contents) = "[" ++ unwordsList contents ++ "]"
-showVal (If cond e1 e2) = "if "
-showVal (App e1 e2) = "(App " ++ showVal e1 ++ showVal e2
-showVal (Abs ids e) = "(Abs " ++ show (intercalate "," ids) ++ ": " ++ showVal e
-showVal (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " & " ++ show d ++ ")"
+showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
+showVal (App e1 e2) = "(App " ++ showVal e1 ++ showVal e2 ++ ")"
+showVal (Bind ids e) = "(Bind [" ++ show (intercalate "," ids) ++ "] " ++ showVal e ++ ")"
+showVal (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
 showVal _ = "UNKNOWN"
 
 unwordsList :: [Expr] -> String

@@ -5,20 +5,26 @@ import Syntax
 import Test.Hspec
 
 main :: IO ()
-main = hspec $ do
+main = test
+
+test :: IO ()
+test = hspec $ do
   describe "Eval" $ do
     describe "Boolean" $ do
-      xit "boolean and true" $ do
+      it "boolean and true" $ do
         eval (parseExpr "true && true") `shouldBe` BoolVal True
 
-      xit "boolean and false" $ do
+      it "boolean and false" $ do
         eval (parseExpr "true && false") `shouldBe` BoolVal False
 
-      xit "boolean or true" $ do
+      it "boolean or true" $ do
         eval (parseExpr "true || false") `shouldBe` BoolVal True
 
-      xit "boolean or false" $ do
-        eval (parseExpr "true || false") `shouldBe` BoolVal False
+      it "boolean or false" $ do
+        eval (parseExpr "true || false") `shouldBe` BoolVal True
+
+      it "boolean false or false" $ do
+        eval (parseExpr "false || false") `shouldBe` BoolVal False
 
     describe "Equality" $ do
       it "true" $ do
@@ -71,6 +77,9 @@ main = hspec $ do
       xit "lambda two arguments" $ do
         eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
 
+      it "nested lambda application" $ do
+        eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
+
   describe "Parser" $ do
     it "true" $ do
       showVal (parseExpr "true") `shouldBe` showVal (LBool True)
@@ -105,14 +114,29 @@ main = hspec $ do
     it "string" $ do
       showVal (parseExpr "\"test\"") `shouldBe` showVal (LString "test")
 
+    it "ternary" $ do
+      showVal (parseExpr "true ? 1 : 2") `shouldBe` showVal (If (LBool True) (LInteger 1) (LInteger 2))
+
     it "if-then-else" $ do
       showVal (parseExpr "if true then 1 else 2") `shouldBe` showVal (If (LBool True) (LInteger 1) (LInteger 2))
 
     it "let-in" $ do
-      showVal (parseExpr "let x = 5 in x + 1") `shouldBe` showVal (App (Abs ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+      showVal (parseExpr "let x = 5 in x + 1") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
 
     it "lambda" $ do
-      showVal (parseExpr "(x: x + 1)") `shouldBe` showVal (Abs ["x"] (Binop Add (Atom "x") (LInteger 1)))
+      showVal (parseExpr "(x: x + 1)") `shouldBe` showVal (Bind ["x"] (Binop Add (Atom "x") (LInteger 1)))
+
+    it "pipe to lambda" $ do
+      showVal (parseExpr "5 |> (x: x + 1)") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
 
     it "lambda application" $ do
-      showVal (parseExpr "(x: x + 1) 5") `shouldBe` showVal (App (Abs ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+      showVal (parseExpr "(x: x + 1) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 5))
+
+    it "pipe to pipe" $ do
+      showVal (parseExpr "5 |> (y: y + 1) |> (x: x + 1)") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
+
+    it "nested lambda application 2" $ do
+      showVal (parseExpr "(x: x + (y: y + 1)) 2) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
+
+    it "nested lambda application" $ do
+      showVal (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` showVal (App (Bind ["x"] (Binop Add (Atom "x") (App (Bind ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
