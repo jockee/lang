@@ -1,6 +1,7 @@
 import Control.Exception (evaluate)
 import Data.Map qualified as Map
 import Eval
+import Lang
 import Parser
 import Syntax
 import Test.Hspec
@@ -45,6 +46,19 @@ test = hspec $ do
 
       it "mismatching types are unequal" $ do
         eval (parseExpr "true == 1") `shouldBe` BoolVal False
+
+    describe "Lists" $ do
+      it "list" $ do
+        eval (parseExpr "[1]") `shouldBe` ListVal [IntVal 1]
+
+      it "concatenation" $ do
+        eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
+
+      it "fold function" $ do
+        eval (parseExpr "fold (acc x: x + 1) 0 [1]") `shouldBe` IntVal 2
+
+      it "let-in binding list" $ do
+        eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
 
     describe "Arithmetic" $ do
       it "negative integer " $ do
@@ -172,6 +186,9 @@ test = hspec $ do
     it "bind function to name in let-in" $ do
       showVal (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showVal (App (Lambda ["k"] (App (Atom "k") (LInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))))
 
+    it "fold function" $ do
+      showVal (parseExpr "fold (acc x: x + 1) 0 [1]") `shouldBe` showVal (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (List [(LInteger 1)]))
+
     it "map function" $ do
       showVal (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showVal (LMap (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))) (List [(LInteger 1), (LInteger 2)]))
 
@@ -181,11 +198,11 @@ test = hspec $ do
     it "multiple argument lambda" $ do
       showVal (parseExpr "(x y: x + y + 1)") `shouldBe` showVal (Lambda ["x", "y"] (Binop Add (Binop Add (Atom "x") (Atom "y")) (LInteger 1)))
 
-    xit "bind name" $ do
+    it "bind name" $ do
       showVal (parseExpr "a = 2") `shouldBe` showVal (Binop Assign (Atom "a") (LInteger 2))
-
-    xit "bind function" $ do
-      showVal (parseExpr "fn n = n * 2") `shouldBe` showVal (Binop Assign (Atom "a") (LInteger 2))
 
     xit "partially applied map" $ do
       showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)
+
+    it "concatenation" $ do
+      showVal (parseExpr "[1] ++ [2]") `shouldBe` showVal (LConcat (List [(LInteger 1)]) (List [(LInteger 2)]))

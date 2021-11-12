@@ -10,10 +10,12 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 expr :: Parser Expr
 expr =
   ( ifthen
+      <|> lFold
       <|> mapfn
       <|> letin
       <|> try ternary
       <|> try lambda
+      <|> try lConcat
       <|> list
       <|> formula
       <|> try fnAp
@@ -58,7 +60,7 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = ["in", "|>", "\\", "+", "*", "-", "=", "=="],
+      Tok.reservedOpNames = ["in", "|>", "\\", "+", "++", "*", "-", "=", "=="],
       Tok.caseSensitive = True
     }
 
@@ -120,11 +122,27 @@ list = do
 
 fnAp :: Parser Expr
 fnAp = do
-  -- _ <- trace ("calling f with x = ")
   a1 <- atom
   whitespace
   a2 <- expr
   return (App a1 a2)
+
+lConcat :: Parser Expr
+lConcat = do
+  l1 <- list <|> atom
+  whitespace
+  reservedOp "++"
+  whitespace
+  l2 <- list <|> atom
+  return (LConcat l1 l2)
+
+lFold :: Parser Expr
+lFold = do
+  reserved "fold"
+  f <- parens lambda <|> atom
+  initValue <- expr
+  xs <- list <|> atom
+  return (LFold f initValue xs)
 
 mapfn :: Parser Expr
 mapfn = do
@@ -138,8 +156,8 @@ letin = do
   reserved "let"
   x <- identifier
   reservedOp "="
-  -- FIXME: juxta borde funka här. för att kunda binda en funktion, t ex
-  e1 <- atom
+  e1 <- atom <|> list
+  whitespace
   reservedOp "in"
   e2 <- expr
   return (App (Lambda [x] e2) e1)

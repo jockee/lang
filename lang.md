@@ -1,10 +1,12 @@
--- TODO: how to know which atoms (reserved/identifiers) to try to partially apply? atom followed by atom or expr?
+-- TODO: fold as special case
+  -- TODO: implement map in 'lang'. begin evalInEnv with reading in standard library
+
 -- TODO: partial mapfn (to enable pipe)
 -- TODO: general case of partially applied named function? don't make map anything special
 -- TODO: pretty syntax for bound functions
 -- TODO: Ord (GT LT EQ)
 -- TODO: case expression
--- TODO: cons to list
+
 
 -- TODO: Maybe
 -- TODO: string interpolation

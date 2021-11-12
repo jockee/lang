@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Eval (Val (..), eval, evals) where
+module Eval (Val (..), eval, evals, evalInEnv) where
 
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -64,7 +64,15 @@ evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (If (LBool True) c _) = evalIn env c
 evalIn env (If (LBool False) _ a) = evalIn env a
 evalIn env (Lambda ids e) = (FunVal env ids e, env)
+evalIn env (LConcat e1 e2) =
+  let (ListVal xs, _) = evalIn env e1
+      (ListVal ys, _) = evalIn env e2
+   in (ListVal $ xs ++ ys, env)
 evalIn env (LMap f (List xs)) = (ListVal $ map (fst . evalIn env . App f) xs, env)
+evalIn env (LFold f initExpr (List listExp)) =
+  let initValue = fst $ evalIn env initExpr
+      fl acc x = fst . evalIn env $ App f x
+   in (foldl fl initValue listExp, env) -- FIXME: does not work
 evalIn env (App e1 e2) = runFun env e1 e2
 evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
 evalIn env (Binop Assign (Atom a) v) =
@@ -74,6 +82,7 @@ evalIn env (Binop Assign (Atom a) v) =
 evalIn env (Atom x) = (fromJust $ Map.lookup x env, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (List es) = (ListVal $ map (fst . evalIn env) es, env)
 evalIn env (LBool n) = (BoolVal n, env)
 evalIn env (Binop op e1 e2) =
   let (v1, _) = evalIn env e1
