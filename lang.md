@@ -1,5 +1,9 @@
--- TODO: functions/lambda
+-- TODO: And
+-- TODO: or
 -- TODO: pipe
+-- TODO: lambda syntax
+
+
 -- TODO: Maybe
 -- TODO: modules
 -- TODO: string interpolation

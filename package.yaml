@@ -28,9 +28,11 @@ dependencies:
 - transformers
 - mtl
 - pretty
+- hspec
+- containers
 
 library:
-  default-extensions:
+  default-extensions: &lang-default-extensions
     LambdaCase
     GeneralizedNewtypeDeriving
     ScopedTypeVariables
@@ -41,7 +43,8 @@ library:
     QuasiQuotes
     TypeFamilies
     MultiParamTypeClasses
-   source-dirs: src
+  source-dirs: src
+  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns
 
 executables:
   lang-exe:
@@ -57,7 +60,8 @@ executables:
 tests:
   lang-test:
     main:                Spec.hs
-    source-dirs:         test
+    default-extensions: *lang-default-extensions
+    source-dirs:         test, src
     ghc-options:
     - -threaded
     - -rtsopts

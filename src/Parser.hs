@@ -1,51 +1,43 @@
 module Parser where
 
-import Control.Monad
-import Data.Functor.Identity
-import Numeric
 import Syntax
-import Text.Parsec.Expr qualified as Ex
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
-import Text.ParserCombinators.Parsec.Language
 import Text.ParserCombinators.Parsec.Token qualified as Token
 
 expr :: Parser Expr
 expr =
   ( ifthen
       <|> letin
-      <|> lambda
+      <|> try lambda
       <|> parseList
       <|> formula
   )
     <* whitespace <?> "expr"
 
 formula :: Parser Expr
-formula = whitespace >> (buildExpressionParser table juxta) <?> "expression"
+formula = whitespace >> buildExpressionParser table juxta <?> "expression"
   where
     table =
       [ [prefix "-" neg],
         [mulOp],
         [addOp, subOp],
-        [eqOp]
+        [eqOp],
+        [andOp],
+        [orOp]
       ]
     prefix name fun = Prefix (do reservedOp name; return fun)
     neg n = case n of
-      Integer x -> Integer $ negate x
-      Float x -> Float $ negate x
+      LInteger x -> LInteger $ negate x
+      LFloat x -> LFloat $ negate x
     eqOp = Infix (reservedOp "==" >> return eqExpr) AssocLeft
     subOp = Infix (reservedOp "-" >> return subExpr) AssocLeft
     addOp = Infix (reservedOp "+" >> return addExpr) AssocLeft
     mulOp = Infix (reservedOp "*" >> return mulExpr) AssocLeft
+    andOp = Infix (reservedOp "&&" >> return andExpr) AssocLeft
+    orOp = Infix (reservedOp "||" >> return orExpr) AssocLeft
 
--- [binary "==" eq],
--- [binary "&&" and],
--- [binary "||" or]
--- binary c op = Infix (op <$ (whitespace >> string c >> whitespace)) AssocLeft
--- eq v1 v2 = Bool $ v1 == v2
--- and (Bool x) (Bool y) = Bool $ x && y
--- or (Bool x) (Bool y) = Bool $ x || y
 langDef :: Tok.LanguageDef ()
 langDef =
   Tok.LanguageDef
@@ -68,6 +60,7 @@ lexer = Tok.makeTokenParser langDef
 parens :: Parser a -> Parser a
 parens = Tok.parens lexer
 
+whitespace :: Parser ()
 whitespace = Tok.whiteSpace lexer
 
 reserved :: String -> Parser ()
@@ -83,7 +76,7 @@ identifier :: Parser String
 identifier = Token.identifier lexer
 
 juxta :: Parser Expr
-juxta = (foldl1 App) `fmap` (many1 atom)
+juxta = foldl1 App <$> many1 atom
 
 atom :: Parser Expr
 atom =
@@ -102,8 +95,8 @@ parseAtom = do
   rest <- many (letter <|> digit)
   let atom = first : rest
   return $ case atom of
-    "true" -> Bool True
-    "false" -> Bool False
+    "true" -> LBool True
+    "false" -> LBool False
     _ -> Atom atom
 
 parseListContents :: Parser Expr
@@ -112,6 +105,7 @@ parseListContents = List <$> juxta `sepBy` many (space <|> char ',')
 parseList :: Parser Expr
 parseList = do
   char '['
+  whitespace
   x <- try parseListContents
   char ']'
   return x
@@ -125,18 +119,16 @@ letin = do
   e1 <- atom
   reservedOp "in"
   e2 <- expr
-  return (App (Abs x e2) e1)
+  return (App (Abs [x] e2) e1)
 
 variable :: Parser Expr
-variable = Var `fmap` identifier
+variable = Atom `fmap` identifier
 
 lambda :: Parser Expr
 lambda = do
-  reservedOp "\\"
   x <- identifier
-  reservedOp "->"
-  e <- expr
-  return (Abs x e)
+  reservedOp ":"
+  Abs [x] <$> expr
 
 ifthen :: Parser Expr
 ifthen = do
@@ -145,20 +137,19 @@ ifthen = do
   reservedOp "then"
   tr <- atom
   reserved "else"
-  e <- atom
-  return (If cond tr e)
+  If cond tr <$> atom
 
 parseFloat :: Parser Expr
 parseFloat = do
   whole <- many1 digit
   char '.'
   decimal <- many1 digit
-  return $ Float (read (whole ++ "." ++ decimal))
+  return $ LFloat (read (whole ++ "." ++ decimal))
 
 parseInteger :: Parser Expr
 parseInteger = do
   whole <- many1 digit
-  return $ Integer $ read (whole)
+  return $ LInteger $ read whole
 
 allOf :: Parser a -> Parser a
 allOf p = do
@@ -178,7 +169,7 @@ parseString = do
   char '"'
   s <- many (escapedChars <|> noneOf ['\\', '"'])
   char '"'
-  return $ String s
+  return $ LString s
 
 escapedChars :: Parser Char
 escapedChars = do

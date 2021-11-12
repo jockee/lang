@@ -34,9 +34,12 @@ library
       src
   default-extensions:
       LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
+  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns
   build-depends:
       base >=4.7 && <5
+    , containers
     , haskeline
+    , hspec
     , mtl
     , parsec
     , pretty
@@ -54,7 +57,9 @@ executable lang-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , haskeline
+    , hspec
     , lang
     , mtl
     , parsec
@@ -70,11 +75,15 @@ test-suite lang-test
   other-modules:
       Paths_lang
   hs-source-dirs:
-      test
+      test, src
+  default-extensions:
+      LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , haskeline
+    , hspec
     , lang
     , mtl
     , parsec
