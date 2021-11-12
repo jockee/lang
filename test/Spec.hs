@@ -92,9 +92,12 @@ test = hspec $ do
 
       it "maps over list" $ do
         eval (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
-
       xit "pipes as last argument" $ do
         eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+
+    describe "Multiple expressions" $ do
+      it "evals works for one expression" $ do
+        evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
 
   describe "Parser" $ do
     it "true" $ do
@@ -168,6 +171,12 @@ test = hspec $ do
 
     it "multiple argument lambda" $ do
       showVal (parseExpr "(x y: x + y + 1)") `shouldBe` showVal (Lambda ["x", "y"] (Binop Add (Binop Add (Atom "x") (Atom "y")) (LInteger 1)))
+
+    xit "bind name" $ do
+      showVal (parseExpr "a = 2") `shouldBe` showVal (Binop Assign (Atom "a") (LInteger 2))
+
+    xit "bind function" $ do
+      showVal (parseExpr "fn n = n * 2") `shouldBe` showVal (Binop Assign (Atom "a") (LInteger 2))
 
     xit "partially applied map" $ do
       showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)

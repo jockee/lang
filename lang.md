@@ -1,9 +1,11 @@
--- TODO: partial mapfn
+-- TODO: partial mapfn (to enable pipe)
 -- TODO: general case of partially applied named function? don't make map anything special
--- TODO: pipes and partial mapfn
+-- TODO: named functions / bound names
+-- TODO: Ord (GT LT EQ)
+-- TODO: case expression
+-- TODO: cons to list
 
 -- TODO: Maybe
--- TODO: named functions / bound values
 -- TODO: string interpolation
 -- TODO: where clause
 -- TODO: Static typing

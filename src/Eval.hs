@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Eval (Val (..), eval) where
+module Eval (Val (..), eval, evals) where
 
-import Data.List
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
@@ -13,13 +13,14 @@ data Val
   | BoolVal Bool
   | IntVal Integer
   | FloatVal Float
+  | Undefined
   | ListVal [Val]
 
 instance Show Val where
   show FunVal {} = "<fun>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show (ListVal ns) = "[" ++ intercalate ", " (map show ns) ++ "]"
+  show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (BoolVal n) = show n
 
 type Env = Map.Map String Val
@@ -54,34 +55,38 @@ instance Arith Val where
   evalOp Eql = \a b -> BoolVal $ a == b
   evalOp And = \a b -> case (a, b) of
     (BoolVal a, BoolVal b) -> BoolVal $ a && b
-    otherwise -> BoolVal False
+    _ -> BoolVal False
   evalOp Or = \a b -> case (a, b) of
     (BoolVal a, BoolVal b) -> BoolVal $ a || b
-    otherwise -> BoolVal False
+    _ -> BoolVal False
 
-evalIn :: Env -> Expr -> Val
+evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (If (LBool True) c _) = evalIn env c
 evalIn env (If (LBool False) _ a) = evalIn env a
-evalIn env (Lambda ids e) = FunVal env ids e
-evalIn env (LMap f (List xs)) = ListVal $ map (evalIn env . App f) xs
+evalIn env (Lambda ids e) = (FunVal env ids e, env)
+evalIn env (LMap f (List xs)) = (ListVal $ map (fst . evalIn env . App f) xs, env)
 evalIn env (App e1 e2) = runFun env e1 e2
 evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
-evalIn env (Atom x) = fromJust $ Map.lookup x env
-evalIn _ (LFloat n) = FloatVal n
-evalIn _ (LInteger n) = IntVal n
-evalIn _ (LBool n) = BoolVal n
+evalIn env (Binop Assign (Atom a) v) =
+  let (value, env') = evalIn env v
+      env'' = extend env' [a] value
+   in (value, env'')
+evalIn env (Atom x) = (fromJust $ Map.lookup x env, env)
+evalIn env (LFloat n) = (FloatVal n, env)
+evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (LBool n) = (BoolVal n, env)
 evalIn env (Binop op e1 e2) =
-  let v1 = evalIn env e1
-      v2 = evalIn env e2
+  let (v1, _) = evalIn env e1
+      (v2, _) = evalIn env e2
       x = evalOp op
-   in v1 `x` v2
-evalIn _ a = trace ("failed to find match in evalIn" ++ show a) $ IntVal 99
+   in (v1 `x` v2, env)
+evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
 
-runFun :: Env -> Expr -> Expr -> Val
+runFun :: Env -> Expr -> Expr -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
-  FunVal env' xs e3 ->
+  (FunVal env' xs e3, _) ->
     let v2 = evalIn env e2
-        env'' = extend env' xs v2
+        env'' = extend env' xs (fst v2)
         missingArgs = filter (\x -> not $ Map.member x env'') xs
      in if null missingArgs
           then evalIn env'' e3
@@ -89,4 +94,12 @@ runFun env e1 e2 = case evalIn env e1 of
   _ -> error "Cannot apply value"
 
 eval :: Expr -> Val
-eval = evalIn Map.empty
+eval = fst . evalInEnv Map.empty
+
+evalInEnv :: Env -> Expr -> (Val, Env)
+evalInEnv = evalIn
+
+evals :: [Expr] -> Val
+evals exprs = fst $ foldl fl (Undefined, Map.empty) exprs
+  where
+    fl (_val, env) ex = evalInEnv env ex
