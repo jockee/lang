@@ -1,5 +1,6 @@
 module Parser where
 
+import Debug.Trace
 import Syntax
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec
@@ -9,10 +10,11 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 expr :: Parser Expr
 expr =
   ( ifthen
+      <|> mapfn
       <|> letin
       <|> try ternary
       <|> try lambda
-      <|> parseList
+      <|> list
       <|> formula
   )
     <* whitespace <?> "expr"
@@ -40,7 +42,7 @@ formula = whitespace >> buildExpressionParser table juxta <?> "expression"
     mulOp = Infix (reservedOp "*" >> return mulExpr) AssocLeft
     andOp = Infix (reservedOp "&&" >> return andExpr) AssocLeft
     orOp = Infix (reservedOp "||" >> return orExpr) AssocLeft
-    assignOp = Infix (reservedOp "=" >> return pipeExpr) AssocRight
+    assignOp = Infix (reservedOp "=" >> return assignExpr) AssocRight
     pipeOp = Infix (reservedOp "|>" >> return pipeExpr) AssocLeft
 
 langDef :: Tok.LanguageDef ()
@@ -104,16 +106,23 @@ parseAtom = do
     "false" -> LBool False
     _ -> Atom atom
 
-parseListContents :: Parser Expr
-parseListContents = List <$> juxta `sepBy` many (space <|> char ',')
+listContents :: Parser Expr
+listContents = List <$> juxta `sepBy` many (space <|> char ',')
 
-parseList :: Parser Expr
-parseList = do
+list :: Parser Expr
+list = do
   char '['
   whitespace
-  x <- try parseListContents
+  x <- try listContents
   char ']'
   return x
+
+mapfn :: Parser Expr
+mapfn = do
+  reserved "map"
+  f <- (parens lambda) <|> atom
+  xs <- expr
+  return (LMap f xs)
 
 letin :: Parser Expr
 letin = do
@@ -131,9 +140,9 @@ variable = Atom `fmap` identifier
 
 lambda :: Parser Expr
 lambda = do
-  x <- identifier
+  xs <- identifier `sepBy` many space
   reservedOp ":"
-  Lambda [x] <$> expr
+  Lambda xs <$> expr
 
 ifthen :: Parser Expr
 ifthen = do

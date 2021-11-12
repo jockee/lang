@@ -16,6 +16,7 @@ data Expr
   | LFloat Float
   | LString String
   | LBool Bool
+  | LMap Expr Expr
   | If Expr Expr Expr
   | Lambda [Id] Expr
   | App Expr Expr
@@ -42,8 +43,8 @@ orExpr = Binop Or
 pipeExpr :: Expr -> Expr -> Expr
 pipeExpr = Binop Pipe
 
-assignOp :: Expr -> Expr -> Expr
-assignOp = Binop Assign
+assignExpr :: Expr -> Expr -> Expr
+assignExpr = Binop Assign
 
 instance Show Expr where show = showVal
 
@@ -54,10 +55,11 @@ showVal (LInteger contents) = "(LInteger " ++ show contents ++ ")"
 showVal (LFloat contents) = "(LFloat " ++ show contents ++ ")"
 showVal (LBool True) = "(LBool True)"
 showVal (LBool False) = "(LBool False)"
-showVal (List contents) = "[" ++ unwordsList contents ++ "]"
+showVal (List contents) = "(List [" ++ unwordsList contents ++ "])"
 showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
+showVal (LMap f xs) = "(LMap " ++ showVal f ++ showVal xs ++ ")"
 showVal (App e1 e2) = "(App " ++ showVal e1 ++ showVal e2 ++ ")"
-showVal (Lambda ids e) = "(Lambda [" ++ show (intercalate "," ids) ++ "] " ++ showVal e ++ ")"
+showVal (Lambda ids e) = "(Lambda [\"" ++ (intercalate "\", \"" ids) ++ "\"] " ++ showVal e ++ ")"
 showVal (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
 showVal _ = "UNKNOWN"
 

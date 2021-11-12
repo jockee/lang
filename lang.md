@@ -1,7 +1,6 @@
--- TODO: map as eval env
--- TODO: multiple argument lambda
--- TODO: pipe (reverse order function application?)
--- TODO: map lambdas on lists
+-- TODO: partial mapfn
+-- TODO: general case of partially applied named function? don't make map anything special
+-- TODO: pipes and partial mapfn
 
 -- TODO: Maybe
 -- TODO: named functions / bound values
