@@ -1,4 +1,5 @@
 import Control.Exception (evaluate)
+import Data.Map qualified as Map
 import Eval
 import Parser
 import Syntax
@@ -74,7 +75,10 @@ test = hspec $ do
       it "lambda one argument" $ do
         eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
 
-      xit "lambda two arguments" $ do
+      it "lambda partially applied" $ do
+        eval (parseExpr "(x b: x + b) 2") `shouldBe` FunVal (Map.fromList [("x", IntVal 2)]) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
+
+      it "lambda fully applied two arguments" $ do
         eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
 
       it "nested lambda application" $ do
@@ -82,6 +86,15 @@ test = hspec $ do
 
       it "pipe to pipe" $ do
         eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
+
+      it "nested let-in" $ do
+        eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
+
+      it "maps over list" $ do
+        eval (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+
+      xit "pipes as last argument" $ do
+        eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
   describe "Parser" $ do
     it "true" $ do
@@ -143,3 +156,18 @@ test = hspec $ do
 
     it "nested lambda application 2" $ do
       showVal (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` showVal (App (Lambda ["x"] (Binop Add (Atom "x") (App (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1))) (LInteger 2)))) (LInteger 5))
+
+    it "bind function to name in let-in" $ do
+      showVal (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showVal (App (Lambda ["k"] (App (Atom "k") (LInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))))
+
+    it "map function" $ do
+      showVal (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showVal (LMap (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))) (List [(LInteger 1), (LInteger 2)]))
+
+    it "partially applied lambda" $ do
+      showVal (parseExpr "(x y: x + y) 1") `shouldBe` showVal (App (Lambda ["x", "y"] (Binop Add (Atom "x") (Atom "y"))) (LInteger 1))
+
+    it "multiple argument lambda" $ do
+      showVal (parseExpr "(x y: x + y + 1)") `shouldBe` showVal (Lambda ["x", "y"] (Binop Add (Binop Add (Atom "x") (Atom "y")) (LInteger 1)))
+
+    xit "partially applied map" $ do
+      showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)
