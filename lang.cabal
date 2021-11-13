@@ -28,6 +28,7 @@ library
       Eval
       Lang
       Parser
+      Repl
       Syntax
   other-modules:
       Paths_lang

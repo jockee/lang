@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Eval (Val (..), eval, evals, evalInEnv) where
+module Eval (Val (..), eval, evals, evalInEnv, Env) where
 
 import Data.List qualified as List
 import Data.Map qualified as Map

@@ -1,22 +1,28 @@
--- TODO: fold as special case
+-- TODO: repl
+-- TODO: repl with env
+
+
+-- TODO: `foldInternal` as special case
   -- TODO: implement map in 'lang'. begin evalInEnv with reading in standard library
 
 -- TODO: partial mapfn (to enable pipe)
--- TODO: general case of partially applied named function? don't make map anything special
+-- TODO: general case of partially applied named function? don't make map anything special. do so by
+-- having everything in stdlib? the exposed fold should be a stdlib one. how about partial application
+-- of regular operators? not initially? (x: x + 1) is as good as (+1)
+-- TODO: dict/record/map
+-- TODO: list index/at
 -- TODO: pretty syntax for bound functions
 -- TODO: Ord (GT LT EQ)
 -- TODO: case expression
 
--- TODO: discover tests
-
 
 -- TODO: Maybe
+-- TODO: string concatenation
 -- TODO: string interpolation
 -- TODO: where clause
 -- TODO: Static typing
 -- TODO: Pattern matching
 -- TODO: modules
--- TODO: REPL
 
 maybeNum = Some 1 :  Maybe Integer // Maybe = Nothing | Some a
 
