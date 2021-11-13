@@ -7,6 +7,8 @@
 -- TODO: Ord (GT LT EQ)
 -- TODO: case expression
 
+-- TODO: discover tests
+
 
 -- TODO: Maybe
 -- TODO: string interpolation

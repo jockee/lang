@@ -30,6 +30,7 @@ dependencies:
 - pretty
 - hspec
 - containers
+- hspec-discover
 
 library:
   default-extensions: &lang-default-extensions
@@ -59,7 +60,7 @@ executables:
 
 tests:
   lang-test:
-    main:                Spec.hs
+    main:                Main.hs
     default-extensions: *lang-default-extensions
     source-dirs:         test, src
     ghc-options:

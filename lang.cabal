@@ -41,6 +41,7 @@ library
     , containers
     , haskeline
     , hspec
+    , hspec-discover
     , mtl
     , parsec
     , pretty
@@ -61,6 +62,7 @@ executable lang-exe
     , containers
     , haskeline
     , hspec
+    , hspec-discover
     , lang
     , mtl
     , parsec
@@ -72,7 +74,7 @@ executable lang-exe
 
 test-suite lang-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Main.hs
   other-modules:
       Paths_lang
   hs-source-dirs:
@@ -85,6 +87,7 @@ test-suite lang-test
     , containers
     , haskeline
     , hspec
+    , hspec-discover
     , lang
     , mtl
     , parsec
