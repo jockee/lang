@@ -11,6 +11,7 @@ import Syntax
 data Val
   = FunVal Env [Id] Expr
   | BoolVal Bool
+  | StringVal String
   | IntVal Integer
   | FloatVal Float
   | Undefined
@@ -21,6 +22,7 @@ instance Show Val where
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
+  show (StringVal n) = show n
   show (BoolVal n) = show n
 
 type Env = Map.Map String Val
@@ -69,10 +71,10 @@ evalIn env (LConcat e1 e2) =
       (ListVal ys, _) = evalIn env e2
    in (ListVal $ xs ++ ys, env)
 evalIn env (LMap f (List xs)) = (ListVal $ map (fst . evalIn env . App f) xs, env)
-evalIn env (LFold f initExpr (List listExp)) =
-  let initValue = fst $ evalIn env initExpr
-      fl acc x = fst . evalIn env $ App f x
-   in (foldl fl initValue listExp, env) -- FIXME: does not work
+evalIn env (LFold f initExpr (List listExprs)) =
+  let foldFun :: Expr -> Expr -> Expr
+      foldFun acc x = App (App f acc) x
+   in evalIn env $ foldl foldFun initExpr listExprs
 evalIn env (App e1 e2) = runFun env e1 e2
 evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
 evalIn env (Binop Assign (Atom a) v) =
@@ -80,6 +82,7 @@ evalIn env (Binop Assign (Atom a) v) =
       env'' = extend env' [a] value
    in (value, env'')
 evalIn env (Atom x) = (fromJust $ Map.lookup x env, env)
+evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
 evalIn env (List es) = (ListVal $ map (fst . evalIn env) es, env)
@@ -91,6 +94,9 @@ evalIn env (Binop op e1 e2) =
    in (v1 `x` v2, env)
 evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
 
+appVal :: Env -> Expr -> (Val, Env)
+appVal env (App e1 v) = (IntVal 9, env)
+
 runFun :: Env -> Expr -> Expr -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
   (FunVal env' xs e3, _) ->
@@ -100,7 +106,7 @@ runFun env e1 e2 = case evalIn env e1 of
      in if null missingArgs
           then evalIn env'' e3
           else evalIn env'' (Lambda missingArgs e3)
-  _ -> error "Cannot apply value"
+  val -> trace ("cannot apply val: " ++ show val) error "Cannot apply value"
 
 eval :: Expr -> Val
 eval = fst . evalInEnv Map.empty

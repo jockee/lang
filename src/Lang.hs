@@ -3,6 +3,7 @@ module Lang where
 import Control.Monad
 import Data.List qualified as List
 import Data.Map qualified as Map
+import Data.Typeable
 import Eval
 import Parser
 import Syntax
@@ -26,11 +27,8 @@ replWithEnv env = forever $ do
   putStr "> "
   expr <- getLine
   let (val, newenv) = evalsWithLibAndEnv env [parseExpr expr]
-  print val
+  putStrLn $ show val ++ " : " ++ show (typeOf val)
   replWithEnv newenv
 
 stdLib :: [String]
-stdLib = ["global = 0"]
-
--- stdLib = ["map = (f xs: fold (acc x: acc ++ [f x]) [])"]
--- TODO: Read from file(s)
+stdLib = ["global = 0"] -- ["fmap = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)"]

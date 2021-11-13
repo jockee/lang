@@ -9,24 +9,25 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 
 expr :: Parser Expr
 expr =
-  ( ifthen
-      <|> lFold
-      <|> mapfn
-      <|> letin
-      <|> try ternary
-      <|> try lambda
-      <|> try lConcat
-      <|> list
-      <|> formula
-      <|> try fnAp
-  )
+  whitespace
+    >> ( ifthen
+           <|> lFold
+           <|> mapfn
+           <|> letin
+           <|> try ternary
+           <|> try lambda
+           <|> try funAp
+           <|> try lConcat
+           <|> list
+           <|> formula
+       )
     <* whitespace <?> "expr"
 
 formula :: Parser Expr
-formula = whitespace >> buildExpressionParser table juxta <?> "expression"
+formula = whitespace >> buildExpressionParser table (juxta <|> list) <?> "expression"
   where
     table =
-      [ [prefix "-" neg],
+      [ [prefix "-" neg, prefix "!" not],
         [mulOp],
         [addOp, subOp],
         [eqOp],
@@ -39,6 +40,9 @@ formula = whitespace >> buildExpressionParser table juxta <?> "expression"
     neg n = case n of
       LInteger x -> LInteger $ negate x
       LFloat x -> LFloat $ negate x
+    not n = case n of -- NOTE: replace with regular not function?
+      LBool True -> LBool False
+      LBool False -> LBool True
     eqOp = Infix (reservedOp "==" >> return eqExpr) AssocLeft
     subOp = Infix (reservedOp "-" >> return subExpr) AssocLeft
     addOp = Infix (reservedOp "+" >> return addExpr) AssocLeft
@@ -120,9 +124,9 @@ list = do
   char ']'
   return x
 
-fnAp :: Parser Expr
-fnAp = do
-  a1 <- atom
+funAp :: Parser Expr
+funAp = do
+  a1 <- variable <|> parens lambda
   whitespace
   a2 <- expr
   return (App a1 a2)
@@ -138,10 +142,10 @@ lConcat = do
 
 lFold :: Parser Expr
 lFold = do
-  reserved "fold"
-  f <- parens lambda <|> atom
+  reserved "foldInternal"
+  f <- parens lambda <|> variable
   initValue <- expr
-  xs <- list <|> atom
+  xs <- list <|> variable
   return (LFold f initValue xs)
 
 mapfn :: Parser Expr
@@ -156,7 +160,7 @@ letin = do
   reserved "let"
   x <- identifier
   reservedOp "="
-  e1 <- atom <|> list
+  e1 <- atom <|> list -- NOTE: can't bind to higher order things?
   whitespace
   reservedOp "in"
   e2 <- expr
@@ -167,9 +171,10 @@ variable = Atom `fmap` identifier
 
 lambda :: Parser Expr
 lambda = do
-  xs <- identifier `sepBy` many space
+  identifiers <- identifier `sepBy` many space
   reservedOp ":"
-  Lambda xs <$> expr
+  fn <- expr
+  return (Lambda identifiers fn)
 
 ifthen :: Parser Expr
 ifthen = do
@@ -202,7 +207,6 @@ parseInteger = do
 
 allOf :: Parser a -> Parser a
 allOf p = do
-  Token.whiteSpace lexer
   r <- p
   eof
   return r

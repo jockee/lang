@@ -17,7 +17,7 @@ data Expr
   | LString String
   | LBool Bool
   | LMap Expr Expr -- FIXME: express map in terms of fold in stdlib
-  | LConcat Expr Expr -- FIXME: express map in terms of fold in stdlib
+  | LConcat Expr Expr
   | LFold Expr Expr Expr
   | If Expr Expr Expr
   | Lambda [Id] Expr

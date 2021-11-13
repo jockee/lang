@@ -11,6 +11,9 @@ import Test.Hspec
 spec :: Spec
 spec = describe "Eval" $ do
   describe "Boolean" $ do
+    it "negation of bool" $ do
+      eval (parseExpr "!true") `shouldBe` BoolVal False
+
     it "boolean and true" $ do
       eval (parseExpr "true && true") `shouldBe` BoolVal True
 
@@ -52,8 +55,17 @@ spec = describe "Eval" $ do
     it "concatenation" $ do
       eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
 
-    xit "fold function" $ do
-      eval (parseExpr "fold (acc x: x + 1) 0 [1]") `shouldBe` IntVal 2
+    it "fold function" $ do
+      eval (parseExpr "foldInternal (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
+
+    it "inline partially applied mapping fold function" $ do
+      eval (parseExpr "(f: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+
+    it "inline fully applied mapping fold function" $ do
+      eval (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+
+    it "fold reverse list" $ do
+      eval (parseExpr "foldInternal (acc x: [x] ++ acc) [] [1, 2]") `shouldBe` ListVal [IntVal 2, IntVal 1]
 
     it "let-in binding list" $ do
       eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
@@ -104,6 +116,7 @@ spec = describe "Eval" $ do
 
     it "maps over list" $ do
       eval (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+
     xit "pipes as last argument" $ do
       eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
 

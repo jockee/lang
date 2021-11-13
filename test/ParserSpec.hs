@@ -70,7 +70,7 @@ spec = describe "Parser" $ do
     showVal (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showVal (App (Lambda ["k"] (App (Atom "k") (LInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))))
 
   it "fold function" $ do
-    showVal (parseExpr "fold (acc x: x + 1) 0 [1]") `shouldBe` showVal (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (List [(LInteger 1)]))
+    showVal (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showVal (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (List [(LInteger 1)]))
 
   it "map function" $ do
     showVal (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showVal (LMap (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))) (List [(LInteger 1), (LInteger 2)]))
@@ -83,6 +83,23 @@ spec = describe "Parser" $ do
 
   it "bind name" $ do
     showVal (parseExpr "a = 2") `shouldBe` showVal (Binop Assign (Atom "a") (LInteger 2))
+
+  it "assign list" $ do
+    showVal (parseExpr "xs = [1]") `shouldBe` showVal (Binop Assign (Atom "xs") (List [(LInteger 1)]))
+
+  it "apply list to lambda" $ do
+    showVal (parseExpr "(s: s) [1]") `shouldBe` showVal (App (Lambda ["s"] (Atom "s")) (List [(LInteger 1)]))
+
+  -- XXX: the problem is that funAp captures `(x: x*2) a` the second time around. funap can't be recursive?
+  -- XXX: can it be replaced with something more general: always assuming two juxtaposed expressions are function application, two at a time
+  it "function application" $ do
+    showVal (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showVal (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (Atom "a"))
+
+  it "map expressed as foldInternal" $ do
+    showVal (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showVal (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (LConcat (Atom "acc") (List [(App (Atom "f") (Atom "x"))]))) (List []) (Atom "xs")))
+
+  xit "pass list as function argument" $ do
+    showVal (parseExpr "testFun [1]") `shouldBe` showVal (App (Atom "testFun") (List [(LInteger 1)]))
 
   xit "partially applied map" $ do
     showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)
