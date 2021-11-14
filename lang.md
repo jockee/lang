@@ -1,8 +1,7 @@
+-- TODO: implement map in 'lang' (stdlib).
   -- TODO: implement map in 'lang' (stdlib). begin evalInEnv with reading in standard library
+  -- TODO: remove mapfn
 -- TODO: Read stdlib from file(s)
-
--- TODO: list equality
--- TODO: LConcat as binop in table?
 
 -- TODO: partial mapfn (to enable pipe)
 -- TODO: general case of partially applied named function? don't make map anything special. do so by having everything in stdlib? the exposed fold should be a stdlib one. how about partial application of regular operators? not initially? (x: x + 1) is as good as (+1)

@@ -72,9 +72,6 @@ spec = describe "Parser" $ do
   it "fold function" $ do
     showVal (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showVal (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (List [(LInteger 1)]))
 
-  it "map function" $ do
-    showVal (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showVal (LMap (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))) (List [(LInteger 1), (LInteger 2)]))
-
   it "partially applied lambda" $ do
     showVal (parseExpr "(x y: x + y) 1") `shouldBe` showVal (App (Lambda ["x", "y"] (Binop Add (Atom "x") (Atom "y"))) (LInteger 1))
 
@@ -96,11 +93,14 @@ spec = describe "Parser" $ do
   it "map expressed as foldInternal" $ do
     showVal (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showVal (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (List [(App (Atom "f") (Atom "x"))]))) (List []) (Atom "xs")))
 
-  xit "pass list as function argument" $ do
+  it "pass list as function argument" $ do
     showVal (parseExpr "testFun [1]") `shouldBe` showVal (App (Atom "testFun") (List [(LInteger 1)]))
 
-  xit "partially applied map" $ do
-    showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)
+  it "map function" $ do
+    showVal (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showVal (App (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (List [(LInteger 1), (LInteger 2)]))
+
+  it "partially applied map" $ do
+    showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (App (Atom "map") (Lambda ["n"] (Binop Mul (Atom "n") (LInteger 2))))
 
   it "list concatenation" $ do
     showVal (parseExpr "[1] ++ [2]") `shouldBe` showVal (Binop Concat (List [(LInteger 1)]) (List [(LInteger 2)]))

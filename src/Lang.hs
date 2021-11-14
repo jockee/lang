@@ -9,8 +9,11 @@ import Parser
 import Syntax
 import System.IO
 
+evalWithLib :: Expr -> Val
+evalWithLib expr = fst $ evalsWithLibAndEnv emptyEnv [expr]
+
 evalsWithLib :: [Expr] -> (Val, Env)
-evalsWithLib = evalsWithLibAndEnv Map.empty
+evalsWithLib = evalsWithLibAndEnv emptyEnv
 
 evalsWithLibAndEnv :: Env -> [Expr] -> (Val, Env)
 evalsWithLibAndEnv env exprs = Prelude.foldl fl (Undefined, env) allExprs
@@ -19,7 +22,7 @@ evalsWithLibAndEnv env exprs = Prelude.foldl fl (Undefined, env) allExprs
     fl (_val, env) ex = evalInEnv env ex
 
 repl :: IO ()
-repl = replWithEnv (Map.empty :: Env)
+repl = replWithEnv emptyEnv
 
 replWithEnv :: Env -> IO ()
 replWithEnv env = forever $ do
@@ -31,6 +34,4 @@ replWithEnv env = forever $ do
   replWithEnv newenv
 
 stdLib :: [String]
-stdLib = ["fmap = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)"]
-
--- stdLib = ["global = 0"]
+stdLib = ["map = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)"]

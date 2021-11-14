@@ -100,7 +100,7 @@ spec = describe "Eval" $ do
       eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
 
     it "lambda partially applied" $ do
-      eval (parseExpr "(x b: x + b) 2") `shouldBe` FunVal (Map.fromList [("x", IntVal 2)]) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
+      eval (parseExpr "(x b: x + b) 2") `shouldBe` FunVal (Map.fromList [("x", IntVal 2)], Map.empty) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
 
     it "lambda fully applied two arguments" $ do
       eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
@@ -114,11 +114,14 @@ spec = describe "Eval" $ do
     it "nested let-in" $ do
       eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
-    it "maps over list" $ do
-      eval (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
-
     xit "pipes as last argument" $ do
       eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+  describe "Stdlib" $ do
+    it "applied fmap" $ do
+      evalWithLib (parseExpr "map (n: n * 2) [1]") `shouldBe` ListVal [IntVal 2]
+
+    it "maps over list" $ do
+      evalWithLib (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do

@@ -12,7 +12,7 @@ expr =
   whitespace
     >> ( ifthen
            <|> lFold
-           <|> mapfn
+           -- <|> mapfn
            <|> letin
            <|> try ternary
            <|> try lambda
@@ -135,11 +135,11 @@ lFold = do
   xs <- list <|> term
   return (LFold f initValue xs)
 
-mapfn :: Parser Expr
-mapfn = do
-  reserved "map"
-  f <- parens lambda <|> term
-  LMap f <$> expr
+-- mapfn :: Parser Expr
+-- mapfn = do
+--   reserved "map"
+--   f <- parens lambda <|> term
+--   LMap f <$> expr
 
 letin :: Parser Expr
 letin = do
