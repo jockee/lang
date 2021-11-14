@@ -16,7 +16,6 @@ expr =
            <|> letin
            <|> try ternary
            <|> try lambda
-           <|> try funAp
            <|> try lConcat
            <|> list
            <|> formula
@@ -124,13 +123,6 @@ list = do
   char ']'
   return x
 
-funAp :: Parser Expr
-funAp = do
-  a1 <- variable <|> parens lambda
-  whitespace
-  a2 <- expr
-  return (App a1 a2)
-
 lConcat :: Parser Expr
 lConcat = do
   l1 <- list <|> atom
@@ -213,9 +205,9 @@ allOf p = do
 
 parseExpr :: String -> Expr
 parseExpr t =
-  case parse (allOf expr) "stdin" t of
+  case parse (many expr) "stdin" t of
     Left err -> error (show err)
-    Right ast -> ast
+    Right exprs -> foldl1 App exprs
 
 parseString :: Parser Expr
 parseString = do

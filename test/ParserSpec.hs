@@ -90,8 +90,6 @@ spec = describe "Parser" $ do
   it "apply list to lambda" $ do
     showVal (parseExpr "(s: s) [1]") `shouldBe` showVal (App (Lambda ["s"] (Atom "s")) (List [(LInteger 1)]))
 
-  -- XXX: the problem is that funAp captures `(x: x*2) a` the second time around. funap can't be recursive?
-  -- XXX: can it be replaced with something more general: always assuming two juxtaposed expressions are function application, two at a time
   it "function application" $ do
     showVal (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showVal (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (Atom "a"))
 

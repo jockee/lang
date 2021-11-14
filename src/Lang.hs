@@ -31,4 +31,6 @@ replWithEnv env = forever $ do
   replWithEnv newenv
 
 stdLib :: [String]
-stdLib = ["global = 0"] -- ["fmap = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)"]
+stdLib = ["fmap = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)"]
+
+-- stdLib = ["global = 0"]
