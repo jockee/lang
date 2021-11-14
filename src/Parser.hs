@@ -9,18 +9,18 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 
 expr :: Parser Expr
 expr =
-  whitespace
-    >> ( ifthen
-           <|> lFold
-           <|> letin
-           <|> try ternary
-           <|> try lambda
-           <|> formula
-       )
-    <* whitespace <?> "expr"
+  lexeme
+    ( ifthen
+        <|> lFold
+        <|> letin
+        <|> try ternary
+        <|> try lambda
+        <|> formula
+    )
+    <?> "expr"
 
 formula :: Parser Expr
-formula = whitespace >> buildExpressionParser table juxta <?> "expression"
+formula = buildExpressionParser table juxta <?> "expression"
   where
     table =
       [ [prefix "-" neg, prefix "!" not'],
@@ -60,12 +60,15 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = ["in", "|>", "\\", "+", "++", "*", "-", "=", "=="],
+      Tok.reservedOpNames = ["in", "|>", "+", "++", "*", "-", "=", "=="],
       Tok.caseSensitive = True
     }
 
 lexer :: Tok.TokenParser ()
 lexer = Tok.makeTokenParser langDef
+
+lexeme :: Parser a -> Parser a
+lexeme = Tok.lexeme lexer
 
 parens :: Parser a -> Parser a
 parens = Tok.parens lexer
@@ -185,15 +188,15 @@ parseInteger = do
 
 allOf :: Parser a -> Parser a
 allOf p = do
+  whitespace
   r <- p
   eof
   return r
 
 parseExpr :: String -> Expr
-parseExpr t =
-  case parse (many expr) "stdin" t of
-    Left err -> error (show err)
-    Right exprs -> foldl1 App exprs
+parseExpr s = case parse (allOf $ many expr) "stdin" s of
+  Left err -> error (show err)
+  Right exprs -> foldl1 App exprs
 
 parseString :: Parser Expr
 parseString = do

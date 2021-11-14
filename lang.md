@@ -1,5 +1,3 @@
--- TODO: implement map in 'lang' (stdlib).
-  -- TODO: implement map in 'lang' (stdlib). begin evalInEnv with reading in standard library
 -- TODO: Read stdlib from file(s)
 
 -- TODO: general case of partially applied named function? don't make map anything special. do so by having everything in stdlib? the exposed fold should be a stdlib one. how about partial application of regular operators? not initially? (x: x + 1) is as good as (+1)

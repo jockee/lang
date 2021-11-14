@@ -1,0 +1,2 @@
+// asd
+map = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)

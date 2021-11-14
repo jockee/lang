@@ -118,10 +118,12 @@ spec = describe "Eval" $ do
       eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
   describe "Stdlib" $ do
     it "applied fmap" $ do
-      evalWithLib (parseExpr "map (n: n * 2) [1]") `shouldBe` ListVal [IntVal 2]
+      ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
+      ev `shouldBe` ListVal [IntVal 2]
 
     it "maps over list" $ do
-      evalWithLib (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+      ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
+      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
 
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
