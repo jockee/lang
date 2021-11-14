@@ -1,19 +1,18 @@
   -- TODO: implement map in 'lang' (stdlib). begin evalInEnv with reading in standard library
 -- TODO: Read stdlib from file(s)
 
+-- TODO: list equality
 -- TODO: LConcat as binop in table?
-
-
 
 -- TODO: partial mapfn (to enable pipe)
 -- TODO: general case of partially applied named function? don't make map anything special. do so by having everything in stdlib? the exposed fold should be a stdlib one. how about partial application of regular operators? not initially? (x: x + 1) is as good as (+1)
 -- TODO: dict/record/map
--- TODO: list index/at
 -- TODO: pretty syntax for bound functions
 -- TODO: Ord (GT LT EQ)
 
 -- TODO: Maybe
--- TODO: string concatenation ("ok" + "ok")
+  -- TODO: list index/at
+-- TODO: string concatenation ("ok" ++ "ok") [fix syntax later]
 -- TODO: string interpolation
 
 -- TODO: where clause

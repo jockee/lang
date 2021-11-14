@@ -16,22 +16,21 @@ expr =
            <|> letin
            <|> try ternary
            <|> try lambda
-           <|> try lConcat
-           <|> list
            <|> formula
        )
     <* whitespace <?> "expr"
 
 formula :: Parser Expr
-formula = whitespace >> buildExpressionParser table (juxta <|> list) <?> "expression"
+formula = whitespace >> buildExpressionParser table juxta <?> "expression"
   where
     table =
-      [ [prefix "-" neg, prefix "!" not],
+      [ [prefix "-" neg, prefix "!" not'],
         [mulOp],
         [addOp, subOp],
         [eqOp],
         [andOp],
         [orOp],
+        [concatOp],
         [pipeOp],
         [assignOp]
       ]
@@ -39,17 +38,16 @@ formula = whitespace >> buildExpressionParser table (juxta <|> list) <?> "expres
     neg n = case n of
       LInteger x -> LInteger $ negate x
       LFloat x -> LFloat $ negate x
-    not n = case n of -- NOTE: replace with regular not function?
-      LBool True -> LBool False
-      LBool False -> LBool True
-    eqOp = Infix (reservedOp "==" >> return eqExpr) AssocLeft
-    subOp = Infix (reservedOp "-" >> return subExpr) AssocLeft
-    addOp = Infix (reservedOp "+" >> return addExpr) AssocLeft
-    mulOp = Infix (reservedOp "*" >> return mulExpr) AssocLeft
-    andOp = Infix (reservedOp "&&" >> return andExpr) AssocLeft
-    orOp = Infix (reservedOp "||" >> return orExpr) AssocLeft
-    assignOp = Infix (reservedOp "=" >> return assignExpr) AssocRight
-    pipeOp = Infix (reservedOp "|>" >> return pipeExpr) AssocLeft
+    not' (LBool b) = LBool $ not b
+    eqOp = Infix (reservedOp "==" >> return (Binop Eql)) AssocLeft
+    subOp = Infix (reservedOp "-" >> return (Binop Sub)) AssocLeft
+    addOp = Infix (try $ reservedOp "+" <* notFollowedBy (char '+') >> return (Binop Add)) AssocLeft
+    mulOp = Infix (reservedOp "*" >> return (Binop Mul)) AssocLeft
+    andOp = Infix (reservedOp "&&" >> return (Binop And)) AssocLeft
+    orOp = Infix (reservedOp "||" >> return (Binop Or)) AssocLeft
+    concatOp = Infix (reservedOp "++" >> return (Binop Concat)) AssocLeft
+    assignOp = Infix (reservedOp "=" >> return (Binop Assign)) AssocRight
+    pipeOp = Infix (reservedOp "|>" >> return (Binop Pipe)) AssocLeft
 
 langDef :: Tok.LanguageDef ()
 langDef =
@@ -89,31 +87,37 @@ identifier :: Parser String
 identifier = Token.identifier lexer
 
 juxta :: Parser Expr
-juxta = foldl1 App <$> many1 atom
+juxta = foldl1 App <$> many1 term
 
-atom :: Parser Expr
-atom =
+term :: Parser Expr
+term =
   ( try parseFloat
       <|> try parseInteger
+      <|> list
       <|> parseAtom
       <|> parseString
       <|> variable
       <|> parens expr
   )
-    <* whitespace <?> "atom"
+    <* whitespace <?> "term"
 
 parseAtom :: Parser Expr
 parseAtom = do
   first <- letter
   rest <- many (letter <|> digit)
-  let atom = first : rest
-  return $ case atom of
+  let term = first : rest
+  return $ case term of
     "true" -> LBool True
     "false" -> LBool False
-    _ -> Atom atom
+    _ -> Atom term
 
 listContents :: Parser Expr
 listContents = List <$> juxta `sepBy` many (space <|> char ',')
+
+lista :: Parser Expr
+lista = do
+  string "List(1)"
+  return (List [LInteger 1])
 
 list :: Parser Expr
 list = do
@@ -123,36 +127,26 @@ list = do
   char ']'
   return x
 
-lConcat :: Parser Expr
-lConcat = do
-  l1 <- list <|> atom
-  whitespace
-  reservedOp "++"
-  whitespace
-  l2 <- list <|> atom
-  return (LConcat l1 l2)
-
 lFold :: Parser Expr
 lFold = do
   reserved "foldInternal"
   f <- parens lambda <|> variable
-  initValue <- expr
-  xs <- list <|> variable
+  initValue <- term
+  xs <- list <|> term
   return (LFold f initValue xs)
 
 mapfn :: Parser Expr
 mapfn = do
   reserved "map"
-  f <- (parens lambda) <|> atom
-  xs <- expr
-  return (LMap f xs)
+  f <- parens lambda <|> term
+  LMap f <$> expr
 
 letin :: Parser Expr
 letin = do
   reserved "let"
   x <- identifier
   reservedOp "="
-  e1 <- atom <|> list -- NOTE: can't bind to higher order things?
+  e1 <- term
   whitespace
   reservedOp "in"
   e2 <- expr
@@ -165,25 +159,24 @@ lambda :: Parser Expr
 lambda = do
   identifiers <- identifier `sepBy` many space
   reservedOp ":"
-  fn <- expr
-  return (Lambda identifiers fn)
+  Lambda identifiers <$> expr
 
 ifthen :: Parser Expr
 ifthen = do
   reserved "if"
-  cond <- atom
+  cond <- term
   reservedOp "then"
-  tr <- atom
+  tr <- term
   reserved "else"
-  If cond tr <$> atom
+  If cond tr <$> term
 
 ternary :: Parser Expr
 ternary = do
-  cond <- atom
+  cond <- term
   reservedOp "?"
-  tr <- atom
+  tr <- term
   reserved ":"
-  If cond tr <$> atom
+  If cond tr <$> term
 
 parseFloat :: Parser Expr
 parseFloat = do

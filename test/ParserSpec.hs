@@ -94,7 +94,7 @@ spec = describe "Parser" $ do
     showVal (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showVal (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (Atom "a"))
 
   it "map expressed as foldInternal" $ do
-    showVal (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showVal (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (LConcat (Atom "acc") (List [(App (Atom "f") (Atom "x"))]))) (List []) (Atom "xs")))
+    showVal (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showVal (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (List [(App (Atom "f") (Atom "x"))]))) (List []) (Atom "xs")))
 
   xit "pass list as function argument" $ do
     showVal (parseExpr "testFun [1]") `shouldBe` showVal (App (Atom "testFun") (List [(LInteger 1)]))
@@ -102,5 +102,5 @@ spec = describe "Parser" $ do
   xit "partially applied map" $ do
     showVal (parseExpr "map (n: n * 2)") `shouldBe` showVal (LBool True)
 
-  it "concatenation" $ do
-    showVal (parseExpr "[1] ++ [2]") `shouldBe` showVal (LConcat (List [(LInteger 1)]) (List [(LInteger 2)]))
+  it "list concatenation" $ do
+    showVal (parseExpr "[1] ++ [2]") `shouldBe` showVal (Binop Concat (List [(LInteger 1)]) (List [(LInteger 2)]))

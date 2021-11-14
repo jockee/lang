@@ -66,16 +66,16 @@ evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (If (LBool True) c _) = evalIn env c
 evalIn env (If (LBool False) _ a) = evalIn env a
 evalIn env (Lambda ids e) = (FunVal env ids e, env)
-evalIn env (LConcat e1 e2) =
-  let (ListVal xs, _) = evalIn env e1
-      (ListVal ys, _) = evalIn env e2
-   in (ListVal $ xs ++ ys, env)
 evalIn env (LMap f (List xs)) = (ListVal $ map (fst . evalIn env . App f) xs, env)
 evalIn env (LFold f initExpr (List listExprs)) =
   let foldFun :: Expr -> Expr -> Expr
       foldFun acc x = App (App f acc) x
    in evalIn env $ foldl foldFun initExpr listExprs
 evalIn env (App e1 e2) = runFun env e1 e2
+evalIn env (Binop Concat e1 e2) =
+  let (ListVal xs, _) = evalIn env e1
+      (ListVal ys, _) = evalIn env e2
+   in (ListVal $ xs ++ ys, env)
 evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
 evalIn env (Binop Assign (Atom a) v) =
   let (value, env') = evalIn env v
