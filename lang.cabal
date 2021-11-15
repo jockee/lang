@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Eval
+      Exceptions
       Lang
       Parser
       Repl
@@ -40,6 +41,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , exceptions
     , haskeline
     , hspec
     , hspec-discover
@@ -61,6 +63,7 @@ executable lang-exe
   build-depends:
       base >=4.7 && <5
     , containers
+    , exceptions
     , haskeline
     , hspec
     , hspec-discover
@@ -86,6 +89,7 @@ test-suite lang-test
   build-depends:
       base >=4.7 && <5
     , containers
+    , exceptions
     , haskeline
     , hspec
     , hspec-discover

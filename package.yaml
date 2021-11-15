@@ -31,6 +31,8 @@ dependencies:
 - hspec
 - containers
 - hspec-discover
+- haskeline
+- exceptions
 
 library:
   default-extensions: &lang-default-extensions

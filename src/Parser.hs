@@ -1,6 +1,7 @@
 module Parser where
 
 import Debug.Trace
+import Exceptions
 import Syntax
 import Text.Parsec.Error
 import Text.Parsec.Token qualified as Tok
@@ -103,6 +104,8 @@ term =
   lexeme
     ( try parseFloat
         <|> try parseInteger
+        <|> dictAccess
+        <|> dict
         <|> list
         <|> true
         <|> false
@@ -117,6 +120,40 @@ true = try $ string "true" >> return (LBool True)
 
 false :: Parser Expr
 false = try $ string "false" >> return (LBool False)
+
+dictContents :: Parser Expr
+dictContents = do
+  pairs <- pair `sepBy` many (space <|> char ',')
+  return (Dict pairs)
+  where
+    pair = do
+      key <- dictKey
+      char ':'
+      whitespace
+      val <- expr
+      return (key, val)
+
+dict :: Parser Expr
+dict = do
+  char '{'
+  whitespace
+  x <- try dictContents
+  char '}'
+  return x
+
+dictAccess :: Parser Expr
+dictAccess = underscoreDot <|> try dictDotKey
+  where
+    underscoreDot = do
+      string "_."
+      x <- dictKey
+      dct <- variable <|> dict
+      return (DictAccess x dct)
+    dictDotKey = do
+      dct <- variable <|> dict
+      char '.'
+      x <- dictKey
+      return (DictAccess x dct)
 
 listContents :: Parser Expr
 listContents = List <$> juxta `sepBy` many (space <|> char ',')
@@ -150,6 +187,9 @@ letin = do
 
 variable :: Parser Expr
 variable = Atom `fmap` identifier
+
+dictKey :: Parser Expr
+dictKey = DictKey `fmap` identifier
 
 lambda :: Parser Expr
 lambda = do
@@ -202,9 +242,12 @@ allOf p =
     <?> "EOF"
 
 parseExpr :: String -> Expr
-parseExpr s = case parse (try noop <|> allOf expr) "stdin" s of
-  Left err -> error (show err)
+parseExpr s = case parseExpr' s of
+  Left err -> error $ show err
   Right expr -> expr
+
+parseExpr' :: String -> Either ParseError Expr
+parseExpr' s = parse (try noop <|> allOf expr) "stdin" s
 
 parseString :: Parser Expr
 parseString = do

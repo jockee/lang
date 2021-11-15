@@ -110,3 +110,15 @@ spec = describe "Parser" $ do
 
   it "greater than" $ do
     showVal (parseExpr "1 > 0") `shouldBe` showVal (Cmp ">" (LInteger 1) (LInteger 0))
+
+  it "dict" $ do
+    showVal (parseExpr "{a: 1, b: 2}") `shouldBe` showVal (Dict [((DictKey "a"), (LInteger 1)), ((DictKey "b"), (LInteger 2))])
+
+  it "dict access on atom" $ do
+    showVal (parseExpr "_.key exampledict") `shouldBe` showVal (DictAccess (Atom "key") (Atom "exampledict"))
+
+  it "underscore dict access on inline dict" $ do
+    showVal (parseExpr "_.key {a: 1}") `shouldBe` showVal (DictAccess (DictKey "key") (Dict [((DictKey "a"), (LInteger 1))]))
+
+  it "dict access" $ do
+    showVal (parseExpr "exampledict.key") `shouldBe` showVal (DictAccess (DictKey "key") (Atom "exampledict"))

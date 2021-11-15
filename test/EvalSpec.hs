@@ -89,90 +89,105 @@ spec = describe "Eval" $ do
       it "let-in binding list" $ do
         eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
 
-    describe "Arithmetic" $ do
-      it "negative integer " $ do
-        eval (parseExpr "-1") `shouldBe` IntVal (-1)
+  describe "Arithmetic" $ do
+    it "negative integer " $ do
+      eval (parseExpr "-1") `shouldBe` IntVal (-1)
 
-      it "integer addition" $ do
-        eval (parseExpr "1+1") `shouldBe` IntVal 2
+    it "integer addition" $ do
+      eval (parseExpr "1+1") `shouldBe` IntVal 2
 
-      it "float addition" $ do
-        eval (parseExpr "1.0+1.0") `shouldBe` FloatVal 2
+    it "float addition" $ do
+      eval (parseExpr "1.0+1.0") `shouldBe` FloatVal 2
 
-      it "integer subtraction" $ do
-        eval (parseExpr "12-4") `shouldBe` IntVal 8
+    it "integer subtraction" $ do
+      eval (parseExpr "12-4") `shouldBe` IntVal 8
 
-      it "float subtraction" $ do
-        eval (parseExpr "12.0-4.0") `shouldBe` FloatVal 8.0
+    it "float subtraction" $ do
+      eval (parseExpr "12.0-4.0") `shouldBe` FloatVal 8.0
 
-      it "integer multiplication" $ do
-        eval (parseExpr "2*4") `shouldBe` IntVal 8
+    it "integer multiplication" $ do
+      eval (parseExpr "2*4") `shouldBe` IntVal 8
 
-      it "float multiplication" $ do
-        eval (parseExpr "2.0*4.0") `shouldBe` FloatVal 8.0
+    it "float multiplication" $ do
+      eval (parseExpr "2.0*4.0") `shouldBe` FloatVal 8.0
 
-    describe "Function application" $ do
-      it "let-in with lambda" $ do
-        eval (parseExpr "let x = 5 in x + 2") `shouldBe` IntVal 7
+  describe "Function application" $ do
+    it "let-in with lambda" $ do
+      eval (parseExpr "let x = 5 in x + 2") `shouldBe` IntVal 7
 
-      it "lambda one argument" $ do
-        eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
+    it "lambda one argument" $ do
+      eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
 
-      it "lambda partially applied" $ do
-        eval (parseExpr "(x b: x + b) 2") `shouldBe` FunVal (Map.fromList [("x", IntVal 2)], Map.empty) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
+    it "lambda partially applied" $ do
+      eval (parseExpr "(x b: x + b) 2") `shouldBe` FunVal (Map.fromList [("x", IntVal 2)], Map.empty) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
 
-      it "lambda fully applied two arguments" $ do
-        eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
+    it "lambda fully applied two arguments" $ do
+      eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
 
-      it "nested lambda application" $ do
-        eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
+    it "nested lambda application" $ do
+      eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
 
-      it "pipe to pipe" $ do
-        eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
+    it "pipe to pipe" $ do
+      eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
 
-      it "nested let-in" $ do
-        eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
+    it "nested let-in" $ do
+      eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
-      xit "pipes as last argument" $ do
-        eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+    xit "pipes as last argument" $ do
+      eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
-    describe "Stdlib" $ do
-      xit "stdlib fold function leveraging foldInternal" $ do
-        eval (parseExpr "fold (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
+  describe "Stdlib" $ do
+    xit "stdlib fold function leveraging foldInternal" $ do
+      eval (parseExpr "fold (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
 
-      it "applied fmap" $ do
-        ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
-        ev `shouldBe` ListVal [IntVal 2]
+    it "applied fmap" $ do
+      ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
+      ev `shouldBe` ListVal [IntVal 2]
 
-      it "maps over list" $ do
-        ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
-        ev `shouldBe` ListVal [IntVal 2, IntVal 4]
+    it "maps over list" $ do
+      ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
+      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
 
-      it "filters list" $ do
-        ev <- evalWithLib (parseExpr "filter (x: x == 2) [1,2]")
-        ev `shouldBe` ListVal [IntVal 2]
+    it "filters list" $ do
+      ev <- evalWithLib (parseExpr "filter (x: x == 2) [1,2]")
+      ev `shouldBe` ListVal [IntVal 2]
 
-      it "rejects list" $ do
-        ev <- evalWithLib (parseExpr "reject (x: x == 2) [1,2]")
-        ev `shouldBe` ListVal [IntVal 1]
+    it "rejects list" $ do
+      ev <- evalWithLib (parseExpr "reject (x: x == 2) [1,2]")
+      ev `shouldBe` ListVal [IntVal 1]
 
-      it "list length" $ do
-        ev <- evalWithLib (parseExpr "length [1,2]")
-        ev `shouldBe` IntVal 2
+    it "list length" $ do
+      ev <- evalWithLib (parseExpr "length [1,2]")
+      ev `shouldBe` IntVal 2
 
-      it "take" $ do
-        ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
-        ev `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+    it "take" $ do
+      ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
+      ev `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
-    describe "Multiple expressions" $ do
-      it "evals works for one expression" $ do
-        evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
+  describe "Multiple expressions" $ do
+    it "evals works for one expression" $ do
+      evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
 
-      it "keeps env between expressions" $ do
-        evals [parseExpr "a = 1", parseExpr "a + 1"] `shouldBe` IntVal 2
+    it "keeps env between expressions" $ do
+      evals [parseExpr "a = 1", parseExpr "a + 1"] `shouldBe` IntVal 2
 
-      it "bound lambda" $ do
-        evals [parseExpr "a = (x: x + 1)", parseExpr "a 1"] `shouldBe` IntVal 2
+    it "bound lambda" $ do
+      evals [parseExpr "a = (x: x + 1)", parseExpr "a 1"] `shouldBe` IntVal 2
 
-      it "bound lambda on bound constant" $ do
-        evals [parseExpr "f = (x: x + 1)", parseExpr "b = 1", parseExpr "f b"] `shouldBe` IntVal 2
+    it "bound lambda on bound constant" $ do
+      evals [parseExpr "f = (x: x + 1)", parseExpr "b = 1", parseExpr "f b"] `shouldBe` IntVal 2
+
+  describe "Dict" $ do
+    it "dict" $ do
+      eval (parseExpr "{a: 1}") `shouldBe` DictVal [((DictKeyVal "a", IntVal 1))]
+
+    xit "dict lookup using _. on atom" $ do
+      evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "_.a dict"] `shouldBe` IntVal 1
+    xit "dict lookup using _. on dict" $ do
+      eval (parseExpr "_.a {a: 1, b: 2}") `shouldBe` IntVal 1
+
+    xit "dict lookup using dict.key" $ do
+      eval (parseExpr "{a: 1, b: 2}.a") `shouldBe` IntVal 1
+
+    xit "dict lookup using dict.key on atom" $ do
+      evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1

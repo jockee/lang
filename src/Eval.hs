@@ -2,10 +2,12 @@
 
 module Eval (Val (..), eval, evals, evalInEnv, Env, emptyEnv) where
 
+import Control.Exception
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
+import Exceptions
 import Syntax
 
 data Val
@@ -13,7 +15,9 @@ data Val
   | BoolVal Bool
   | StringVal String
   | IntVal Integer
+  | DictVal [(Val, Val)]
   | FloatVal Float
+  | DictKeyVal String
   | Undefined
   | ListVal [Val]
 
@@ -22,6 +26,8 @@ instance Show Val where
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
+  show (DictVal n) = show n
+  show (DictKeyVal n) = show n
   show (StringVal n) = show n
   show (BoolVal n) = show n
 
@@ -58,6 +64,8 @@ instance Eq Val where
   (BoolVal True) == (BoolVal True) = True
   (BoolVal False) == (BoolVal False) = True
   (ListVal xs) == (ListVal ys) = xs == ys
+  (DictVal xs) == (DictVal ys) = xs == ys
+  (DictKeyVal a) == (DictKeyVal b) = a == b
   (FunVal (valEnv1, exprEnv1) ids1 e1) == (FunVal (valEnv2, exprEnv2) ids2 e2) = valEnv1 == valEnv2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
@@ -97,10 +105,17 @@ evalIn env (Binop Assign (Atom a) v) =
   let env'' = extend env' [a] v
       (value, env') = evalIn env v
    in (value, env'')
-evalIn env (Atom x) = (fromJust $ Map.lookup x $ fst env, env)
+evalIn env (Atom x) = case Map.lookup x $ fst env of
+  Nothing -> throw $ EvalException $ "Atom " ++ x ++ " does not exist in env"
+  Just a -> (a, env)
 evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (DictKey k) = (DictKeyVal k, env)
+-- XXX: atom keys should not be substituted. change parser or eval?
+evalIn env (Dict pairs) =
+  let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
+   in (DictVal $ map fn pairs, env)
 evalIn env (List es) = (ListVal $ map (fst . evalIn env) es, env)
 evalIn env (LBool n) = (BoolVal n, env)
 evalIn env (Binop op e1 e2) =
@@ -132,9 +147,9 @@ runFun env e1 e2 = case evalIn env e1 of
   val -> trace ("cannot apply val: " ++ show val) error "Cannot apply value"
 
 atomToExpr :: Env -> String -> [Expr]
-atomToExpr env atomId = case fromJust $ Map.lookup atomId (snd env) of
-  List listExprs -> listExprs
-  _ -> error "Can't traverse non-list"
+atomToExpr env atomId = case Map.lookup atomId (snd env) of
+  Nothing -> throw $ EvalException "Can't traverse non-list"
+  Just (List listExprs) -> listExprs
 
 eval :: Expr -> Val
 eval = fst . evalInEnv emptyEnv

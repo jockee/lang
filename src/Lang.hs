@@ -1,5 +1,6 @@
 module Lang where
 
+import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.List qualified as List
@@ -7,8 +8,10 @@ import Data.Map qualified as Map
 import Data.Typeable
 import Debug.Trace
 import Eval
+import Exceptions
 import Parser
 import Syntax
+import System.Console.Haskeline
 import System.IO
 
 evalWithLib :: Expr -> IO Val
@@ -30,13 +33,24 @@ repl :: IO ()
 repl = replWithEnv emptyEnv
 
 replWithEnv :: Env -> IO ()
-replWithEnv env = forever $ do
-  hSetBuffering stdin LineBuffering
-  putStr "> "
-  expr <- getLine
-  (val, newenv) <- evalsWithLibAndEnv env [parseExpr expr]
-  putStrLn $ show val ++ " : " ++ show (typeOf val)
-  replWithEnv newenv
+replWithEnv env = runInputT defaultSettings $ do
+  input <- getInputLine "lang > "
+  case input of
+    Nothing -> outputStrLn "Noop"
+    Just "quit" -> return ()
+    Just finput -> do
+      case parseExpr' finput of -- catches parsing errors, but not evaluation errors
+        Left e -> do
+          outputStrLn "\n-- PARSE ERROR\n"
+          outputStrLn $ show e ++ "\n"
+          liftIO $ replWithEnv env
+        Right expr -> do
+          result <- liftIO $ try $ evalsWithLibAndEnv env [expr] :: InputT IO (Either LangException (Val, Env))
+          case result of
+            Left e -> outputStrLn "\n-- EVAL ERROR\n"
+            Right (val, newenv) -> do
+              outputStrLn $ show val ++ " : " ++ show (typeOf val)
+              liftIO $ replWithEnv newenv
 
 stdLib :: IO [String]
 stdLib = do

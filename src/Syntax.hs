@@ -12,6 +12,9 @@ data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
 data Expr
   = Atom String
   | List [Expr]
+  | Dict [(Expr, Expr)]
+  | DictAccess Expr Expr
+  | DictKey String
   | LInteger Integer
   | LFloat Float
   | LString String
@@ -35,6 +38,8 @@ showVal (LBool True) = "(LBool True)"
 showVal (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
 showVal (Noop) = "(Noop)"
 showVal (LBool False) = "(LBool False)"
+showVal (Dict pairs) = "(Dict [" ++ intercalate ", " (map show pairs) ++ "])"
+showVal (DictKey k) = "(DictKey \"" ++ show k ++ "\")"
 showVal (List contents) = "(List [" ++ intercalate ", " (map show contents) ++ "])"
 showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
 showVal (LFold f i xs) = "(LFold " ++ showVal f ++ showVal i ++ showVal xs ++ ")"

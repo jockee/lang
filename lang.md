@@ -1,17 +1,21 @@
--- TODO: looks like every internal variable leaks into global scope
--- TODO: newline can't be breaking every expression. consider piping
-
--- TODO: `filter` if-then-else without comma around predicate and then
+-- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
+-- TODO: repl backspace and move cursor
+-- TODO: repl catch eval error and continue
 -- TODO: dict/record/map
     book = {title: "Foucault's pendulum", author: "Umberto Eco"}
     -- Access properties
     book.title -- "Foucault's pendulum"
+
+-- mid prio
+-- TODO: newline can't be breaking every expression. consider piping
+-- TODO: `filter` if-then-else without comma around predicate and then
 -- TODO: pretty syntax for bound functions: `empty xs = xs == []`?
 
 -- TODO: Maybe
   -- TODO: list index/at
 -- TODO: string interpolation "#{intval}"
 
+-- low prio
 -- TODO: where clause
 -- TODO: Pattern matching
 -- TODO: case expression

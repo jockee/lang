@@ -5,6 +5,7 @@ reject = (f xs: foldInternal (acc x: (f x) ? acc : (acc ++ [x])) [] xs)
 length = (xs: foldInternal (acc x: acc + 1) 0 xs)
 take = (n xs: foldInternal (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs)
 empty? = (xs: xs == [])
+includes? = (x xs: foldInternal (acc p: (p == x) ? true : false) false xs)
 // sort = (xs: foldInternal (acc x: ()) [] xs)
 
 // partial
