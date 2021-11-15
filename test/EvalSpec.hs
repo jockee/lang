@@ -1,8 +1,10 @@
 module EvalSpec where
 
+import Control.Exception
 import Data.Map qualified as Map
 import Debug.Trace
 import Eval
+import Exceptions
 import Lang
 import Parser
 import ParserSpec
@@ -139,8 +141,9 @@ spec = describe "Eval" $ do
       eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
-    xit "stdlib fold function leveraging foldInternal" $ do
-      eval (parseExpr "fold (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
+    it "stdlib fold function leveraging foldInternal" $ do
+      ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
+      ev `shouldBe` IntVal 6
 
     it "applied map" $ do
       ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
@@ -208,24 +211,29 @@ spec = describe "Eval" $ do
 
   describe "General" $ do
     it "adds to global scope" $ do
-      (val, env) <- evalsWithLib [parseExpr "folder = (f init xs: foldInternal f init xs)", parseExpr "folder (acc x: acc) 1 [1]"]
+      (val, env) <- evalsWithLib $ parseExprs "folder = (f init xs: foldInternal f init xs); folder (acc x: acc) 1 [1]"
       Map.keys (envValues env) `shouldContain` ["global:folder"]
 
-    xit "does not leak state" $ do
-      (val, env) <- evalsWithLib [parseExpr "fn = (f: f)", parseExpr "fn 1"]
-      Map.keys (envValues env) `shouldNotContain` ["f"]
+    it "assignment in lambda does not leak" $ do
+      (val, env) <- evalsWithLib $ parseExprs "fn = (x: f = 1); fn 1"
+      Map.keys (envValues env) `shouldNotContain` ["global:f"]
 
-    xit "let-in does not leak state" $ do
-      (val, env) <- evalsWithLib [parseExpr "let x = 2 in x"]
-      Map.keys (envValues env) `shouldNotContain` ["x"]
+    it "moves back up to global" $ do
+      (val, env) <- evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
+      Map.keys (envValues env) `shouldContain` ["global:a"]
 
-    xit "fold does not leak state" $ do
-      (val, env) <- evalsWithLib [parseExpr "foldInternal (acc x: acc) 1 [1]"]
-      Map.keys (envValues env) `shouldNotContain` ["x"]
-      Map.keys (envValues env) `shouldNotContain` ["acc"]
+    it "does not leak state" $ do
+      (val, env) <- evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
+      Map.keys (envValues env) `shouldNotContain` ["global:f"]
 
-    xit "does not leak nested scope (perhaps contrived?)" $ do
-      -- evalsWithLib [parseExpr "fn (x: (let b = 1 in b) b)"] `shouldThrow` (== (EvalException ""))
-      (val, env) <- evalsWithLib [parseExpr "fn (x: (let b = 1 in b) b)"]
-      Map.keys (envValues env) `shouldNotContain` ["b"]
-      Map.keys (envValues env) `shouldNotContain` ["acc"]
+    it "let-in does not leak state" $ do
+      (val, env) <- evalsWithLib $ parseExprs "let x = 2 in x"
+      Map.keys (envValues env) `shouldNotContain` ["global:x"]
+
+    it "fold does not leak state" $ do
+      (val, env) <- evalsWithLib $ parseExprs "foldInternal (acc x: acc) 1 [1]"
+      Map.keys (envValues env) `shouldNotContain` ["global:x"]
+      Map.keys (envValues env) `shouldNotContain` ["global:acc"]
+
+    xit "does not leak nested scope" $ do
+      evaluate (evalsWithLib $ parseExprs "fn (x: (let b = 1 in b) b)") `shouldThrow` anyException

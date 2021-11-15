@@ -1,13 +1,4 @@
 -- KEY
--- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
-  * if var only exists in scope, remove it after application
-  * currently we're only adding to scope.
-  * nested named function could definitely have the same argument names. those shouldn't be mixed up. see how `unique` uses `includes?`
-  * when we're as deeply nested as possible, we need to step back up and remove scope?
-  * how to know when to release var?
-  * not just global scope, but nested scope as well (let-in in lambda, for instance)
-
-  * if it still leaks, look at hash key generation
 
 -- MID
 -- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
@@ -35,6 +26,9 @@
 
 -- TODO: modules/namespacing. reqscope
 -- TODO: replace string with T.Text?
+
+
+-- XXX: ON SCOPE LEAK: if it still leaks, look at hash key generation
 
 -- COULD BE MOVED TO STDLIB
 * dict update merger. could it, though? how would we modify the dict?
