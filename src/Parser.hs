@@ -11,15 +11,18 @@ import Text.ParserCombinators.Parsec.Token qualified as Token
 
 expr :: Parser Expr
 expr =
-  lexeme
-    ( ifthen
-        <|> try function
-        <|> lFold
-        <|> letin
-        <|> try ternary
-        <|> try lambda
-        <|> formula
-    )
+  whitespace
+    >> ( lexeme
+           ( ifthen
+               <|> try function
+               <|> lFold
+               <|> letin
+               <|> try ternary
+               <|> try lambda
+               <|> formula
+           )
+           <|> noop
+       )
     <?> "expr"
 
 formula :: Parser Expr
@@ -69,7 +72,7 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = [":=", "in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
+      Tok.reservedOpNames = [";", ":=", "in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
       Tok.caseSensitive = True
     }
 
@@ -105,6 +108,7 @@ term =
   lexeme
     ( try parseFloat
         <|> try parseInteger
+        <|> parseMaybe
         <|> dictAccess
         <|> try dict
         <|> try dictUpdate
@@ -238,6 +242,18 @@ ternary = do
   reserved ":"
   If cond tr <$> term
 
+parseMaybe :: Parser Expr
+parseMaybe = nothing <|> just
+  where
+    nothing = do
+      string "Nothing"
+      return LNothing
+    just = do
+      string "Just"
+      whitespace
+      justVal <- expr
+      return $ LJust justVal
+
 parseFloat :: Parser Expr
 parseFloat = do
   whole <- many1 digit
@@ -252,26 +268,27 @@ parseInteger = do
 
 noop :: Parser Expr
 noop = do
-  whitespace
   lexeme eof
   return Noop
 
 allOf :: Parser a -> Parser a
 allOf p =
   do
-    whitespace
     r <- p
     eof
     return r
     <?> "EOF"
 
 parseExpr :: String -> Expr
-parseExpr s = case parseExpr' s of
-  Left err -> error $ show err
-  Right expr -> expr
+parseExpr e = head $ parseExprs e
 
-parseExpr' :: String -> Either ParseError Expr
-parseExpr' s = parse (try noop <|> allOf expr) "stdin" s
+parseExprs :: String -> [Expr]
+parseExprs s = case parseExprs' s of
+  Left err -> error $ show err
+  Right exprs -> exprs
+
+parseExprs' :: String -> Either ParseError [Expr]
+parseExprs' = parse (allOf (expr `sepBy` char ';')) "stdin"
 
 parseString :: Parser Expr
 parseString = do

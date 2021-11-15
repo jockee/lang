@@ -42,6 +42,7 @@ library
       base >=4.7 && <5
     , containers
     , exceptions
+    , hashable
     , haskeline
     , hspec
     , hspec-discover
@@ -64,6 +65,7 @@ executable lang-exe
       base >=4.7 && <5
     , containers
     , exceptions
+    , hashable
     , haskeline
     , hspec
     , hspec-discover
@@ -90,6 +92,7 @@ test-suite lang-test
       base >=4.7 && <5
     , containers
     , exceptions
+    , hashable
     , haskeline
     , hspec
     , hspec-discover

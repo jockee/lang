@@ -33,6 +33,7 @@ dependencies:
 - hspec-discover
 - haskeline
 - exceptions
+- hashable
 
 library:
   default-extensions: &lang-default-extensions

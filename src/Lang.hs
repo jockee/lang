@@ -26,7 +26,7 @@ evalsWithLib = evalsWithLibAndEnv emptyEnv
 evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
 evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
   where
-    allExprs lib = map parseExpr lib ++ exprs
+    allExprs lib = parseExprs lib ++ exprs
     fl (_val, env) ex = evalInEnv env ex
 
 repl :: IO ()
@@ -39,20 +39,18 @@ replWithEnv env = runInputT defaultSettings $ do
     Nothing -> outputStrLn "Noop"
     Just "quit" -> return ()
     Just finput -> do
-      case parseExpr' finput of -- catches parsing errors, but not evaluation errors
+      case parseExprs' finput of -- catches parsing errors, but not evaluation errors
         Left e -> do
           outputStrLn "\n-- PARSE ERROR\n"
           outputStrLn $ show e ++ "\n"
           liftIO $ replWithEnv env
-        Right expr -> do
-          result <- liftIO $ try $ evalsWithLibAndEnv env [expr] :: InputT IO (Either LangException (Val, Env))
+        Right exprs -> do
+          result <- liftIO $ try $ evalsWithLibAndEnv env exprs :: InputT IO (Either LangException (Val, Env))
           case result of
             Left e -> outputStrLn "\n-- EVAL ERROR\n"
             Right (val, newenv) -> do
               outputStrLn $ show val ++ " : " ++ show (typeOf val)
               liftIO $ replWithEnv newenv
 
-stdLib :: IO [String]
-stdLib = do
-  content <- readFile "src/stdlib/stdlib.lang"
-  pure $ filter (not . null) $ lines content
+stdLib :: IO String
+stdLib = do readFile "src/stdlib/stdlib.lang"

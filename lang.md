@@ -1,37 +1,39 @@
 -- KEY
 -- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
-  -- TODO: if var only exists in scope, remove it after application
-  -- TODO: currently we're only adding to scope.
-  -- TODO: nested named function could definitely have the same argument names. those shouldn't be mixed up. see how `unique` uses `includes?`
+  * if var only exists in scope, remove it after application
+  * currently we're only adding to scope.
+  * nested named function could definitely have the same argument names. those shouldn't be mixed up. see how `unique` uses `includes?`
+  * when we're as deeply nested as possible, we need to step back up and remove scope?
+  * how to know when to release var?
+  * not just global scope, but nested scope as well (let-in in lambda, for instance)
 
-when we're as deeply nested as possible, we need to step back up and remove scope?
-
-how to know when to release var?
-* not just global scope, but nested scope as well (let-in in lambda, for instance)
-
-
--- TODO: repl catch eval error and continue
+  * if it still leaks, look at hash key generation
 
 -- MID
--- TODO: newline can't be breaking every expression. consider piping
--- TODO: `filter` if-then-else without comma around predicate and then
-
+-- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
+-- TODO: `filter` if-then-else without comma around predicate
 -- TODO: Maybe
-  -- TODO: case expression. after maybe
-  -- TODO: list index/at
+  * maybe function. requires type knowledge? if is a Nothing
+  * case expression. after maybe. depends on expressions reaching over lines
+  * list index/at
 -- TODO: string interpolation "#{intval}"
-  * Could be LString ["val of a: ", (Atom "a"), "!"]
+  * Could be LString ["val of a: ", (Atom "a"), "!"]?
 
 -- BACKLOG
+-- TODO: sort function
+-- TODO: repl catch eval error and continue
 -- TODO: use `=` for function definition as well
 -- TODO: types
 -- TODO: Pattern matching
   * allow multiple bindings of same name
--- TODO: where clause
--- TODO: guard clause
+-- TODO: where clause. reqscope
+-- TODO: guard clause.
+  fun x a
+  | x > 1 = true
 -- TODO: Static typing
+  * i guess inference is hard, so everything needs to be typed?
 
--- TODO: modules/namespacing
+-- TODO: modules/namespacing. reqscope
 -- TODO: replace string with T.Text?
 
 -- COULD BE MOVED TO STDLIB

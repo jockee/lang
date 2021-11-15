@@ -18,6 +18,8 @@ data Expr
   | DictKey String
   | LInteger Integer
   | LFloat Float
+  | LJust Expr
+  | LNothing
   | LString String
   | LBool Bool
   | LFold Expr Expr Expr
@@ -41,7 +43,8 @@ showExpr Noop = "(Noop)"
 showExpr (LBool False) = "(LBool False)"
 showExpr (Dict pairs) = "(Dict [" ++ showDictContents pairs ++ "])"
 showExpr (DictUpdate dict update) = "(DictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
-showExpr (DictKey k) = "(DictKey \"" ++ k ++ "\")"
+showExpr (LNothing) = "(LNothing)"
+showExpr (LJust e) = "(LJust " ++ show e ++ ")"
 showExpr (List contents) = "(List [" ++ intercalate ", " (map show contents) ++ "])"
 showExpr (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
 showExpr (LFold f i xs) = "(LFold " ++ showExpr f ++ showExpr i ++ showExpr xs ++ ")"

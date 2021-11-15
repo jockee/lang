@@ -1,14 +1,14 @@
-fold f init xs := foldInternal f init xs
-map f xs := foldInternal (acc x: acc ++ [f x]) [] xs
-filter f xs := foldInternal (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
-reject f xs := foldInternal (acc x: (f x) ? acc : (acc ++ [x])) [] xs
-length xs := foldInternal (acc x: acc + 1) 0 xs
-take n xs := foldInternal (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs
-empty? xs := xs == []
+fold f init xs := foldInternal f init xs;
+map f xs := foldInternal (acc x: acc ++ [f x]) [] xs;
+filter f xs := foldInternal (acc x: (f x) ? (acc ++ [x]) : acc) [] xs;
+reject f xs := foldInternal (acc x: (f x) ? acc : (acc ++ [x])) [] xs;
+length xs := foldInternal (acc x: acc + 1) 0 xs;
+take n xs := foldInternal (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs;
+empty? xs := xs == [];
 // empty? [] := true
 // empty? s := false
-includes? x xs := foldInternal (acc p: (p == x) ? true : false) false xs
-unique := foldInternal (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
+includes? x xs := foldInternal (acc p: (p == x) ? true : false) false xs;
+unique := foldInternal (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs;
 
 // sort = (xs: foldInternal (acc x: ()) [] xs) NOTE: needs head?
 // merge

@@ -134,3 +134,9 @@ spec = describe "Parser" $ do
 
   it "function definiton" $ do
     showExpr (parseExpr "s x := x * 2") `shouldBe` showExpr (Binop Assign (Atom "s") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))))
+
+  it "nothing" $ do
+    showExpr (parseExpr "Nothing") `shouldBe` showExpr (LNothing)
+
+  it "just something" $ do
+    showExpr (parseExpr "Just 1") `shouldBe` showExpr (LJust (LInteger 1))

@@ -1,14 +1,20 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Eval (Val (..), eval, evals, evalInEnv, Env, emptyEnv) where
+module Eval (Val (..), eval, evals, evalInEnv, Env (..), emptyEnv) where
 
 import Control.Exception
+import Data.Foldable (asum)
+import Data.Hashable
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Syntax
+
+instance Hashable Env where
+  hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v
 
 data Val
   = FunVal Env [Id] Expr
@@ -31,16 +37,40 @@ instance Show Val where
   show (StringVal n) = show n
   show (BoolVal n) = show n
 
-type Env = (Map.Map String Val, Map.Map String Expr)
+data Env = Env
+  { envValues :: Map.Map String Val,
+    envExpressions :: Map.Map String Expr,
+    envScopes :: [String]
+  }
+  deriving (Show)
 
-emptyEnv :: (Map.Map String Val, Map.Map String Expr)
-emptyEnv = (Map.empty, Map.empty)
+emptyEnv :: Env
+emptyEnv = Env {envValues = Map.empty, envExpressions = Map.empty, envScopes = ["global"]}
 
 extend :: Env -> [Id] -> Expr -> Env
 extend env xs ex =
-  ( Map.insert (head xs) (fst $ evalIn env ex) (fst env),
-    Map.insert (head xs) ex (snd env)
-  )
+  env
+    { envValues = Map.insert key (fst $ evalIn env ex) (envValues env),
+      envExpressions = Map.insert key ex (envExpressions env)
+    }
+  where
+    key = (last $ envScopes env) ++ ":" ++ head xs
+
+withScope :: Int -> Env -> Env
+withScope newScope env = trace ("withScope " ++ show newScope ++ show newenv) $ newenv
+  where
+    newenv = env {envScopes = envScopes env ++ [show newScope]}
+
+-- XXX: merge/generalize inScopeE/inScopeV
+inScopeE :: Env -> String -> Maybe Expr
+inScopeE env atomId = trace ("inScopeE " ++ show scopeKeys ++ show (envExpressions env)) $ asum $ map (\k -> Map.lookup k (envExpressions env)) scopeKeys
+  where
+    scopeKeys = map (\k -> k ++ ":" ++ atomId) $ reverse $ envScopes env
+
+inScopeV :: Env -> String -> Maybe Val
+inScopeV env atomId = trace ("inScopeV " ++ show scopeKeys ++ show (envValues env)) $ asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
+  where
+    scopeKeys = map (\k -> k ++ ":" ++ atomId) $ reverse $ envScopes env
 
 class Num a => Arith a where
   cmpOp :: String -> (a -> a -> Val)
@@ -67,7 +97,7 @@ instance Eq Val where
   (ListVal xs) == (ListVal ys) = xs == ys
   (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKeyVal a) == (DictKeyVal b) = a == b
-  (FunVal (valEnv1, exprEnv1) ids1 e1) == (FunVal (valEnv2, exprEnv2) ids2 e2) = valEnv1 == valEnv2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
+  (FunVal env1 ids1 e1) == (FunVal env2 ids2 e2) = envValues env1 == envValues env2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where
@@ -96,18 +126,19 @@ evalIn env (If condition ifTrue ifFalse) =
 evalIn env (Lambda ids e) = (FunVal env ids e, env)
 evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
 evalIn env (LFold f initExpr (List listExprs)) = doFold env f initExpr listExprs
-evalIn env (App e1 e2) = trace ("VALENV: " ++ show (fst env) ++ "; " ++ show e1) $ runFun env e1 e2
+-- evalIn env (App e1 e2) = trace ("VALENV: " ++ show (envValues env) ++ "; " ++ show e1) $ runFun env e1 e2
+evalIn env (App e1 e2) = runFun (withScope (hash env) env) e1 e2
 evalIn env (Binop Concat e1 e2) =
   let (ListVal xs, _) = evalIn env e1
       (ListVal ys, _) = evalIn env e2
    in (ListVal $ xs ++ ys, env)
-evalIn env (Binop Pipe e1 e2) = runFun env e2 e1
+evalIn env (Binop Pipe e1 e2) = runFun (withScope (hash env) env) e2 e1
 evalIn env (Binop Assign (Atom a) v) =
   let env'' = extend env' [a] v
       (value, env') = evalIn env v
    in (value, env'')
-evalIn env (Atom x) = case Map.lookup x $ fst env of
-  Nothing -> throw $ EvalException $ "Atom " ++ x ++ " does not exist in env"
+evalIn env (Atom atomId) = case inScopeV env atomId of
+  Nothing -> throw $ EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   Just a -> (a, env)
 evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
@@ -148,14 +179,14 @@ runFun :: Env -> Expr -> Expr -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
   (FunVal _ xs e3, env') ->
     let env'' = extend env' xs e2
-        missingArgs = filter (\x -> not $ Map.member x $ fst env'') xs
-     in if null missingArgs
+        missingArgs = filter (isNothing . inScopeV env'') xs
+     in if trace ("missingargs" ++ show missingArgs) $ null missingArgs
           then evalIn env'' e3
           else evalIn env'' (Lambda missingArgs e3)
   val -> trace ("cannot apply val: " ++ show val) error "Cannot apply value"
 
 atomToExpr :: Env -> String -> [Expr]
-atomToExpr env atomId = case Map.lookup atomId (snd env) of
+atomToExpr env atomId = trace ("atomToExpr" ++ show atomId) $ case inScopeE env atomId of
   Nothing -> throw $ EvalException "Can't traverse non-list"
   Just (List listExprs) -> listExprs
 
