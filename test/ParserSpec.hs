@@ -63,6 +63,9 @@ spec = describe "Parser" $ do
   it "pipe to pipe" $ do
     showExpr (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` showExpr (Binop Pipe (Binop Pipe (LInteger 5) (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1)))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 2))))
 
+  it "pipe partial application" $ do
+    showExpr (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` showExpr (Binop Pipe (List [(LInteger 1), (LInteger 2)]) (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))))
+
   it "nested lambda application" $ do
     showExpr (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` showExpr (App (Lambda ["x"] (Binop Add (App (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1))) (Atom "x")) (LInteger 2))) (LInteger 5))
 
@@ -128,3 +131,6 @@ spec = describe "Parser" $ do
 
   it "dict update alternative syntax (merge)" $ do
     showExpr (parseExpr "{ {a: 1} | {a:2} }") `shouldBe` showExpr (DictUpdate (Dict [((DictKey "a"), (LInteger 1))]) (Dict [((DictKey "a"), (LInteger 2))]))
+
+  it "function definiton" $ do
+    showExpr (parseExpr "s x := x * 2") `shouldBe` showExpr (Binop Assign (Atom "s") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2))))

@@ -13,6 +13,7 @@ expr :: Parser Expr
 expr =
   lexeme
     ( ifthen
+        <|> try function
         <|> lFold
         <|> letin
         <|> try ternary
@@ -68,7 +69,7 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = ["in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
+      Tok.reservedOpNames = [":=", "in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
       Tok.caseSensitive = True
     }
 
@@ -205,6 +206,14 @@ variable = Atom `fmap` identifier
 
 dictKey :: Parser Expr
 dictKey = DictKey `fmap` identifier
+
+function :: Parser Expr
+function = do
+  bindings <- identifier `sepBy` many space
+  reservedOp ":="
+  body <- expr
+  let (name : args) = bindings
+  return $ Binop Assign (Atom name) (Lambda args body)
 
 lambda :: Parser Expr
 lambda = do

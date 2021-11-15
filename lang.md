@@ -2,40 +2,40 @@
 -- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
   -- TODO: if var only exists in scope, remove it after application
   -- TODO: currently we're only adding to scope.
-  when we're as deeply nested as possible, we need to step back up and remove scope?
+  -- TODO: nested named function could definitely have the same argument names. those shouldn't be mixed up. see how `unique` uses `includes?`
 
-
+when we're as deeply nested as possible, we need to step back up and remove scope?
 
 how to know when to release var?
 * not just global scope, but nested scope as well (let-in in lambda, for instance)
 
 
-
 -- TODO: repl catch eval error and continue
--- TODO: do we want/need string keys in dicts?
-
 
 -- MID
 -- TODO: newline can't be breaking every expression. consider piping
--- TODO: print
 -- TODO: `filter` if-then-else without comma around predicate and then
--- TODO: pretty syntax for bound functions: `empty xs = xs == []`?
 
 -- TODO: Maybe
+  -- TODO: case expression. after maybe
   -- TODO: list index/at
 -- TODO: string interpolation "#{intval}"
+  * Could be LString ["val of a: ", (Atom "a"), "!"]
 
 -- BACKLOG
--- TODO: where clause
+-- TODO: use `=` for function definition as well
+-- TODO: types
 -- TODO: Pattern matching
--- TODO: case expression
+  * allow multiple bindings of same name
+-- TODO: where clause
+-- TODO: guard clause
 -- TODO: Static typing
 
 -- TODO: modules/namespacing
 -- TODO: replace string with T.Text?
 
 -- COULD BE MOVED TO STDLIB
-* dict update merger
+* dict update merger. could it, though? how would we modify the dict?
 
 ----
 
@@ -51,12 +51,10 @@ maybeNum
 |> map (n: n * 2)
 
 // type classes
-// '::' as cons opens up '#' for other use
-// '|>' passes pre-operator value as last value (unless '#1' is included?)
+// '::' as cons opens up ':' for other use
 // no significant whitespace (for indentation, maybe required for calling functions)
 // no '$' function, but keep '.' for composition?
 // pure?
-// definitely functional. higher order functions
 // very basic type inference. passing [Integer] to `map`, `map` should know it's getting integers
 // where clauses
 // Not point-free initially, unless it comes for free

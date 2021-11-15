@@ -134,8 +134,8 @@ spec = describe "Eval" $ do
     it "nested let-in" $ do
       eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
-    xit "pipes as last argument" $ do
-      eval (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+    it "pipes as last argument" $ do
+      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
     xit "stdlib fold function leveraging foldInternal" $ do
@@ -177,6 +177,9 @@ spec = describe "Eval" $ do
 
     it "bound lambda on bound constant" $ do
       evals [parseExpr "f = (x: x + 1)", parseExpr "b = 1", parseExpr "f b"] `shouldBe` IntVal 2
+
+    it "evals works for one expression" $ do
+      evals [parseExpr "s x := x * 2", parseExpr "s 2"] `shouldBe` IntVal 4
 
   describe "Dict" $ do
     it "dict" $ do
