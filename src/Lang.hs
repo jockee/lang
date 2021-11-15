@@ -23,7 +23,7 @@ evalsWithLib = evalsWithLibAndEnv emptyEnv
 evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
 evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
   where
-    allExprs lib = trace ("calling f with x = " ++ show lib) $ map parseExpr lib ++ exprs
+    allExprs lib = map parseExpr lib ++ exprs
     fl (_val, env) ex = evalInEnv env ex
 
 repl :: IO ()

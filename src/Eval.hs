@@ -30,9 +30,6 @@ type Env = (Map.Map String Val, Map.Map String Expr)
 emptyEnv :: (Map.Map String Val, Map.Map String Expr)
 emptyEnv = (Map.empty, Map.empty)
 
--- extendExpr :: ExprEnv -> [Id] -> Expr -> ExprEnv
--- extendExpr env xs v = Map.insert (head xs) v env
-
 extend :: Env -> [Id] -> Expr -> Env
 extend env xs ex =
   ( Map.insert (head xs) (fst $ evalIn env ex) (fst env),
@@ -40,6 +37,7 @@ extend env xs ex =
   )
 
 class Num a => Arith a where
+  cmpOp :: String -> (a -> a -> Val)
   evalOp :: Op -> (a -> a -> Val)
 
 instance Num Val where
@@ -50,20 +48,29 @@ instance Num Val where
   (FloatVal i1) - (FloatVal i2) = FloatVal (i1 - i2)
   (IntVal i1) - (IntVal i2) = IntVal (i1 - i2)
 
+instance Ord Val where
+  compare (FloatVal i1) (FloatVal i2) = compare i1 i2
+  compare (IntVal i1) (IntVal i2) = compare i1 i2
+
 instance Eq Val where
   (FloatVal i1) == (FloatVal i2) = i1 == i2
   (IntVal i1) == (IntVal i2) = i1 == i2
   (BoolVal True) == (BoolVal True) = True
   (BoolVal False) == (BoolVal False) = True
   (ListVal xs) == (ListVal ys) = xs == ys
-  (FunVal (valEnv1, exprEnv1) ids1 e1) == (FunVal (valEnv2, exprEnv2) ids2 e2) = valEnv1 == valEnv2 -- && exprEnv1 == exprEnv2 -- for testing purposes. lambda function equality is probably not very useful
+  (FunVal (valEnv1, exprEnv1) ids1 e1) == (FunVal (valEnv2, exprEnv2) ids2 e2) = valEnv1 == valEnv2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where
+  cmpOp ">" = \a b -> BoolVal $ a > b
+  cmpOp "<" = \a b -> BoolVal $ a < b
+  cmpOp ">=" = \a b -> BoolVal $ a >= b
+  cmpOp "<=" = \a b -> BoolVal $ a <= b
   evalOp Add = (+)
   evalOp Sub = (-)
   evalOp Mul = (*)
   evalOp Eql = \a b -> BoolVal $ a == b
+  evalOp NotEql = \a b -> BoolVal $ a /= b
   evalOp And = \a b -> case (a, b) of
     (BoolVal a, BoolVal b) -> BoolVal $ a && b
     _ -> BoolVal False
@@ -72,8 +79,11 @@ instance Arith Val where
     _ -> BoolVal False
 
 evalIn :: Env -> Expr -> (Val, Env)
-evalIn env (If (LBool True) c _) = evalIn env c
-evalIn env (If (LBool False) _ a) = evalIn env a
+evalIn env (If (LBool True) t _) = evalIn env t
+evalIn env (If (LBool False) _ f) = evalIn env f
+evalIn env (If condition ifTrue ifFalse) =
+  let (val, env') = evalIn env condition
+   in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
 evalIn env (Lambda ids e) = (FunVal env ids e, env)
 evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
 evalIn env (LFold f initExpr (List listExprs)) = doFold env f initExpr listExprs
@@ -98,6 +108,12 @@ evalIn env (Binop op e1 e2) =
       (v2, _) = evalIn env e2
       x = evalOp op
    in (v1 `x` v2, env)
+evalIn env (Cmp op e1 e2) =
+  let (v1, _) = evalIn env e1
+      (v2, _) = evalIn env e2
+      x = cmpOp op
+   in (v1 `x` v2, env)
+evalIn env Noop = (Undefined, env)
 evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
 
 doFold :: Foldable t => Env -> Expr -> Expr -> t Expr -> (Val, Env)

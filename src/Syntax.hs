@@ -6,7 +6,7 @@ import Data.List
 
 type Id = String
 
-data Op = Add | Sub | Mul | Eql | And | Or | Pipe | Assign | Concat
+data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
   deriving (Show)
 
 data Expr
@@ -21,6 +21,8 @@ data Expr
   | Lambda [Id] Expr
   | App Expr Expr
   | Binop Op Expr Expr
+  | Cmp String Expr Expr
+  | Noop
 
 instance Show Expr where show = showVal
 
@@ -30,6 +32,8 @@ showVal (Atom name) = "(Atom \"" ++ name ++ "\")"
 showVal (LInteger contents) = "(LInteger " ++ show contents ++ ")"
 showVal (LFloat contents) = "(LFloat " ++ show contents ++ ")"
 showVal (LBool True) = "(LBool True)"
+showVal (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
+showVal (Noop) = "(Noop)"
 showVal (LBool False) = "(LBool False)"
 showVal (List contents) = "(List [" ++ intercalate ", " (map show contents) ++ "])"
 showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"

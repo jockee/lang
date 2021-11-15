@@ -1,22 +1,24 @@
--- TODO: Read stdlib from file(s)
+-- TODO: looks like every internal variable leaks into global scope
+-- TODO: newline can't be breaking every expression. consider piping
 
--- TODO: general case of partially applied named function? don't make map anything special. do so by having everything in stdlib? the exposed fold should be a stdlib one. how about partial application of regular operators? not initially? (x: x + 1) is as good as (+1)
+-- TODO: `filter` if-then-else without comma around predicate and then
 -- TODO: dict/record/map
--- TODO: pretty syntax for bound functions
--- TODO: Ord (GT LT EQ)
+    book = {title: "Foucault's pendulum", author: "Umberto Eco"}
+    -- Access properties
+    book.title -- "Foucault's pendulum"
+-- TODO: pretty syntax for bound functions: `empty xs = xs == []`?
 
 -- TODO: Maybe
   -- TODO: list index/at
--- TODO: string concatenation ("ok" ++ "ok") [fix syntax later]
--- TODO: string interpolation
+-- TODO: string interpolation "#{intval}"
 
 -- TODO: where clause
 -- TODO: Pattern matching
 -- TODO: case expression
 -- TODO: Static typing
 
--- TODO: modules
--- TODO: replace string with text?
+-- TODO: modules/namespacing
+-- TODO: replace string with T.Text?
 
 maybeNum = Some 1 :  Maybe Integer // Maybe = Nothing | Some a
 

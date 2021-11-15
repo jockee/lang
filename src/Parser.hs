@@ -2,6 +2,7 @@ module Parser where
 
 import Debug.Trace
 import Syntax
+import Text.Parsec.Error
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -20,15 +21,16 @@ expr =
     <?> "expr"
 
 formula :: Parser Expr
-formula = buildExpressionParser table juxta <?> "expression"
+formula = buildExpressionParser table juxta <?> "formula"
   where
     table =
       [ [prefix "-" neg, prefix "!" not'],
         [mulOp],
         [addOp, subOp],
-        [eqOp],
+        [eqOp, notEqOp],
         [andOp],
         [orOp],
+        [gteOp, lteOp, gtOp, ltOp],
         [concatOp],
         [pipeOp],
         [assignOp]
@@ -38,11 +40,16 @@ formula = buildExpressionParser table juxta <?> "expression"
       LInteger x -> LInteger $ negate x
       LFloat x -> LFloat $ negate x
     not' (LBool b) = LBool $ not b
+    notEqOp = Infix (reservedOp "!=" >> return (Binop NotEql)) AssocLeft
     eqOp = Infix (reservedOp "==" >> return (Binop Eql)) AssocLeft
     subOp = Infix (reservedOp "-" >> return (Binop Sub)) AssocLeft
     addOp = Infix (try $ reservedOp "+" <* notFollowedBy (char '+') >> return (Binop Add)) AssocLeft
     mulOp = Infix (reservedOp "*" >> return (Binop Mul)) AssocLeft
     andOp = Infix (reservedOp "&&" >> return (Binop And)) AssocLeft
+    gtOp = Infix (reservedOp ">" >> return (Cmp ">")) AssocLeft
+    ltOp = Infix (reservedOp "<" >> return (Cmp "<")) AssocLeft
+    gteOp = Infix (reservedOp ">=" >> return (Cmp ">=")) AssocLeft
+    lteOp = Infix (reservedOp "<=" >> return (Cmp "<=")) AssocLeft
     orOp = Infix (reservedOp "||" >> return (Binop Or)) AssocLeft
     concatOp = Infix (reservedOp "++" >> return (Binop Concat)) AssocLeft
     assignOp = Infix (reservedOp "=" >> return (Binop Assign)) AssocRight
@@ -56,11 +63,11 @@ langDef =
       Tok.commentLine = "//",
       Tok.nestedComments = True,
       Tok.identStart = letter,
-      Tok.identLetter = alphaNum <|> oneOf "_'",
+      Tok.identLetter = alphaNum <|> oneOf "_'?",
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = ["in", "|>", "+", "++", "*", "-", "=", "=="],
+      Tok.reservedOpNames = ["in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
       Tok.caseSensitive = True
     }
 
@@ -93,33 +100,26 @@ juxta = foldl1 App <$> many1 term
 
 term :: Parser Expr
 term =
-  ( try parseFloat
-      <|> try parseInteger
-      <|> list
-      <|> parseAtom
-      <|> parseString
-      <|> variable
-      <|> parens expr
-  )
-    <* whitespace <?> "term"
+  lexeme
+    ( try parseFloat
+        <|> try parseInteger
+        <|> list
+        <|> true
+        <|> false
+        <|> parseString
+        <|> variable
+        <|> parens expr
+    )
+    <?> "term"
 
-parseAtom :: Parser Expr
-parseAtom = do
-  first <- letter
-  rest <- many (letter <|> digit)
-  let term = first : rest
-  return $ case term of
-    "true" -> LBool True
-    "false" -> LBool False
-    _ -> Atom term
+true :: Parser Expr
+true = try $ string "true" >> return (LBool True)
+
+false :: Parser Expr
+false = try $ string "false" >> return (LBool False)
 
 listContents :: Parser Expr
 listContents = List <$> juxta `sepBy` many (space <|> char ',')
-
-lista :: Parser Expr
-lista = do
-  string "List(1)"
-  return (List [LInteger 1])
 
 list :: Parser Expr
 list = do
@@ -186,17 +186,25 @@ parseInteger = do
   whole <- many1 digit
   return $ LInteger $ read whole
 
-allOf :: Parser a -> Parser a
-allOf p = do
+noop :: Parser Expr
+noop = do
   whitespace
-  r <- p
-  eof
-  return r
+  lexeme eof
+  return Noop
+
+allOf :: Parser a -> Parser a
+allOf p =
+  do
+    whitespace
+    r <- p
+    eof
+    return r
+    <?> "EOF"
 
 parseExpr :: String -> Expr
-parseExpr s = case parse (allOf $ many expr) "stdin" s of
+parseExpr s = case parse (try noop <|> allOf expr) "stdin" s of
   Left err -> error (show err)
-  Right exprs -> foldl1 App exprs
+  Right expr -> expr
 
 parseString :: Parser Expr
 parseString = do

@@ -27,6 +27,9 @@ spec = describe "Parser" $ do
   it "double equals" $ do
     showVal (parseExpr "1 == 1") `shouldBe` showVal (Binop Eql (LInteger 1) (LInteger 1))
 
+  it "not equals" $ do
+    showVal (parseExpr "1 != 1") `shouldBe` showVal (Binop NotEql (LInteger 1) (LInteger 1))
+
   it "plus" $ do
     showVal (parseExpr "1 + 1") `shouldBe` showVal (Binop Add (LInteger 1) (LInteger 1))
 
@@ -104,3 +107,6 @@ spec = describe "Parser" $ do
 
   it "list concatenation" $ do
     showVal (parseExpr "[1] ++ [2]") `shouldBe` showVal (Binop Concat (List [(LInteger 1)]) (List [(LInteger 2)]))
+
+  it "greater than" $ do
+    showVal (parseExpr "1 > 0") `shouldBe` showVal (Cmp ">" (LInteger 1) (LInteger 0))

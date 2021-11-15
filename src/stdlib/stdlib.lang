@@ -1,2 +1,16 @@
-// asd
+fold = (f init xs: foldInternal f init xs)
 map = (f xs: foldInternal (acc x: acc ++ [f x]) [] xs)
+filter = (f xs: foldInternal (acc x: (f x) ? (acc ++ [x]) : acc) [] xs)
+reject = (f xs: foldInternal (acc x: (f x) ? acc : (acc ++ [x])) [] xs)
+length = (xs: foldInternal (acc x: acc + 1) 0 xs)
+take = (n xs: foldInternal (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs)
+empty? = (xs: xs == [])
+// sort = (xs: foldInternal (acc x: ()) [] xs)
+
+// partial
+  // list `at`
+  // head
+  // last
+  // find
+  // min
+  // max
