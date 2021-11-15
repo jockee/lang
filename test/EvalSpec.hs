@@ -179,15 +179,15 @@ spec = describe "Eval" $ do
 
   describe "Dict" $ do
     it "dict" $ do
-      eval (parseExpr "{a: 1}") `shouldBe` DictVal [((DictKeyVal "a", IntVal 1))]
+      eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
 
-    xit "dict lookup using _. on atom" $ do
+    it "dict lookup using _. on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "_.a dict"] `shouldBe` IntVal 1
-    xit "dict lookup using _. on dict" $ do
+    it "dict lookup using _. on dict" $ do
       eval (parseExpr "_.a {a: 1, b: 2}") `shouldBe` IntVal 1
 
-    xit "dict lookup using dict.key" $ do
+    it "dict lookup using inline dict.key" $ do
       eval (parseExpr "{a: 1, b: 2}.a") `shouldBe` IntVal 1
 
-    xit "dict lookup using dict.key on atom" $ do
+    it "dict lookup using dict.key on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1

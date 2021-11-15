@@ -15,7 +15,7 @@ data Val
   | BoolVal Bool
   | StringVal String
   | IntVal Integer
-  | DictVal [(Val, Val)]
+  | DictVal (Map.Map Val Val)
   | FloatVal Float
   | DictKeyVal String
   | Undefined
@@ -26,7 +26,7 @@ instance Show Val where
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
-  show (DictVal n) = show n
+  show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKeyVal n) = show n
   show (StringVal n) = show n
   show (BoolVal n) = show n
@@ -55,6 +55,7 @@ instance Num Val where
   (IntVal i1) - (IntVal i2) = IntVal (i1 - i2)
 
 instance Ord Val where
+  compare (DictKeyVal i1) (DictKeyVal i2) = compare i1 i2
   compare (FloatVal i1) (FloatVal i2) = compare i1 i2
   compare (IntVal i1) (IntVal i2) = compare i1 i2
 
@@ -64,7 +65,7 @@ instance Eq Val where
   (BoolVal True) == (BoolVal True) = True
   (BoolVal False) == (BoolVal False) = True
   (ListVal xs) == (ListVal ys) = xs == ys
-  (DictVal xs) == (DictVal ys) = xs == ys
+  (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKeyVal a) == (DictKeyVal b) = a == b
   (FunVal (valEnv1, exprEnv1) ids1 e1) == (FunVal (valEnv2, exprEnv2) ids2 e2) = valEnv1 == valEnv2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
@@ -111,11 +112,14 @@ evalIn env (Atom x) = case Map.lookup x $ fst env of
 evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (DictAccess k dict) =
+  let (DictVal m) = fst $ evalIn env dict
+      kv = fst $ evalIn env k
+   in (fromJust (Map.lookup kv m), env)
 evalIn env (DictKey k) = (DictKeyVal k, env)
--- XXX: atom keys should not be substituted. change parser or eval?
 evalIn env (Dict pairs) =
   let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
-   in (DictVal $ map fn pairs, env)
+   in (DictVal $ Map.fromList $ map fn pairs, env)
 evalIn env (List es) = (ListVal $ map (fst . evalIn env) es, env)
 evalIn env (LBool n) = (BoolVal n, env)
 evalIn env (Binop op e1 e2) =
