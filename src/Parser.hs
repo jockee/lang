@@ -154,7 +154,7 @@ dictUpdate = do
   updates <- try dictContents
   char '}'
   optional $ many (space <|> (char '}'))
-  return (DictUpdate dct updates)
+  return (DictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
 
 dictAccess :: Parser Expr
 dictAccess = dotKey <|> try dictDotKey

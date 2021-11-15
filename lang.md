@@ -34,6 +34,11 @@ how to know when to release var?
 -- TODO: modules/namespacing
 -- TODO: replace string with T.Text?
 
+-- COULD BE MOVED TO STDLIB
+* dict update merger
+
+----
+
 maybeNum = Some 1 :  Maybe Integer // Maybe = Nothing | Some a
 
 maybeNum
