@@ -6,6 +6,6 @@ import Text.Parsec.Error
 data LangException
   = ParseException ParseError
   | EvalException String
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Exception LangException

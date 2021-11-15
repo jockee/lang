@@ -13,6 +13,7 @@ data Expr
   = Atom String
   | List [Expr]
   | Dict [(Expr, Expr)]
+  | DictUpdate Expr Expr
   | DictAccess Expr Expr
   | DictKey String
   | LInteger Integer
@@ -27,23 +28,26 @@ data Expr
   | Cmp String Expr Expr
   | Noop
 
-instance Show Expr where show = showVal
+instance Show Expr where show = showExpr
 
-showVal :: Expr -> String
-showVal (LString contents) = "(LString \"" ++ contents ++ "\")"
-showVal (Atom name) = "(Atom \"" ++ name ++ "\")"
-showVal (LInteger contents) = "(LInteger " ++ show contents ++ ")"
-showVal (LFloat contents) = "(LFloat " ++ show contents ++ ")"
-showVal (LBool True) = "(LBool True)"
-showVal (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
-showVal (Noop) = "(Noop)"
-showVal (LBool False) = "(LBool False)"
-showVal (Dict pairs) = "(Dict [" ++ intercalate ", " (map show pairs) ++ "])"
-showVal (DictKey k) = "(DictKey \"" ++ show k ++ "\")"
-showVal (List contents) = "(List [" ++ intercalate ", " (map show contents) ++ "])"
-showVal (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
-showVal (LFold f i xs) = "(LFold " ++ showVal f ++ showVal i ++ showVal xs ++ ")"
-showVal (App e1 e2) = "(App " ++ showVal e1 ++ showVal e2 ++ ")"
-showVal (Lambda ids e) = "(Lambda [\"" ++ (intercalate "\", \"" ids) ++ "\"] " ++ showVal e ++ ")"
-showVal (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
-showVal _ = "UNKNOWN"
+showExpr :: Expr -> String
+showExpr (LString contents) = "(LString \"" ++ contents ++ "\")"
+showExpr (Atom name) = "(Atom \"" ++ name ++ "\")"
+showExpr (LInteger contents) = "(LInteger " ++ show contents ++ ")"
+showExpr (LFloat contents) = "(LFloat " ++ show contents ++ ")"
+showExpr (LBool True) = "(LBool True)"
+showExpr (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
+showExpr (Noop) = "(Noop)"
+showExpr (LBool False) = "(LBool False)"
+showExpr (Dict pairs) = "(Dict [" ++ showDictContents pairs ++ "])"
+showExpr (DictUpdate dict update) = "(DictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
+showExpr (DictKey k) = "(DictKey \"" ++ k ++ "\")"
+showExpr (List contents) = "(List [" ++ intercalate ", " (map show contents) ++ "])"
+showExpr (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
+showExpr (LFold f i xs) = "(LFold " ++ showExpr f ++ showExpr i ++ showExpr xs ++ ")"
+showExpr (App e1 e2) = "(App " ++ showExpr e1 ++ showExpr e2 ++ ")"
+showExpr (Lambda ids e) = "(Lambda [\"" ++ (intercalate "\", \"" ids) ++ "\"] " ++ showExpr e ++ ")"
+showExpr (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
+showExpr _ = "UNKNOWN"
+
+showDictContents pairs = intercalate ", " (map show pairs)

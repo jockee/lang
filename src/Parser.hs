@@ -105,7 +105,8 @@ term =
     ( try parseFloat
         <|> try parseInteger
         <|> dictAccess
-        <|> dict
+        <|> try dict
+        <|> try dictUpdate
         <|> list
         <|> true
         <|> false
@@ -140,6 +141,20 @@ dict = do
   x <- try dictContents
   char '}'
   return x
+
+dictUpdate :: Parser Expr
+dictUpdate = do
+  char '{'
+  whitespace
+  dct <- variable <|> dict
+  whitespace
+  char '|'
+  whitespace
+  optional $ char '{'
+  updates <- try dictContents
+  char '}'
+  optional $ many (space <|> (char '}'))
+  return (DictUpdate dct updates)
 
 dictAccess :: Parser Expr
 dictAccess = underscoreDot <|> try dictDotKey

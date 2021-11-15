@@ -1,9 +1,28 @@
 -- KEY
+-- TODO: update dict
+* { person | name = "George" }
+* person { name = t}
+* person {name = t}
+* person {company = "Acme United"}
 -- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
+  -- TODO: if var only exists in scope, remove it after application
+  -- TODO: currently we're only adding to scope.
+  when we're as deeply nested as possible, we need to step back up and remove scope?
+
+
+
+how to know when to release var?
+* not just global scope, but nested scope as well (let-in in lambda, for instance)
+
+
+
 -- TODO: repl catch eval error and continue
+-- TODO: do we want/need string keys in dicts?
+
 
 -- MID
 -- TODO: newline can't be breaking every expression. consider piping
+-- TODO: print
 -- TODO: `filter` if-then-else without comma around predicate and then
 -- TODO: pretty syntax for bound functions: `empty xs = xs == []`?
 

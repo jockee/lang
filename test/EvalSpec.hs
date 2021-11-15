@@ -1,6 +1,7 @@
 module EvalSpec where
 
 import Data.Map qualified as Map
+import Debug.Trace
 import Eval
 import Lang
 import Parser
@@ -191,3 +192,33 @@ spec = describe "Eval" $ do
 
     it "dict lookup using dict.key on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
+
+    it "dict update" $ do
+      eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
+
+    it "dict update new key" $ do
+      eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 0)), ((DictKeyVal "b"), (IntVal 1))])
+
+  describe "General" $ do
+    it "adds to global scope" $ do
+      (val, env) <- evalsWithLib [parseExpr "folder = (f init xs: foldInternal f init xs)", parseExpr "folder (acc x: acc) 1 [1]"]
+      Map.keys (fst env) `shouldContain` ["folder"]
+
+    xit "does not leak state" $ do
+      (val, env) <- evalsWithLib [parseExpr "fn = (f: f)", parseExpr "fn 1"]
+      Map.keys (fst env) `shouldNotContain` ["f"]
+
+    xit "let-in does not leak state" $ do
+      (val, env) <- evalsWithLib [parseExpr "let x = 2 in x"]
+      Map.keys (fst env) `shouldNotContain` ["x"]
+
+    xit "fold does not leak state" $ do
+      (val, env) <- evalsWithLib [parseExpr "foldInternal (acc x: acc) 1 [1]"]
+      Map.keys (fst env) `shouldNotContain` ["x"]
+      Map.keys (fst env) `shouldNotContain` ["acc"]
+
+    xit "does not leak nested scope (perhaps contrived?)" $ do
+      -- evalsWithLib [parseExpr "fn (x: (let b = 1 in b) b)"] `shouldThrow` (== (EvalException ""))
+      (val, env) <- evalsWithLib [parseExpr "fn (x: (let b = 1 in b) b)"]
+      Map.keys (fst env) `shouldNotContain` ["b"]
+      Map.keys (fst env) `shouldNotContain` ["acc"]

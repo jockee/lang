@@ -27,7 +27,7 @@ instance Show Val where
   show (FloatVal n) = show n
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (DictKeyVal n) = show n
+  show (DictKeyVal n) = n
   show (StringVal n) = show n
   show (BoolVal n) = show n
 
@@ -96,7 +96,7 @@ evalIn env (If condition ifTrue ifFalse) =
 evalIn env (Lambda ids e) = (FunVal env ids e, env)
 evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
 evalIn env (LFold f initExpr (List listExprs)) = doFold env f initExpr listExprs
-evalIn env (App e1 e2) = runFun env e1 e2
+evalIn env (App e1 e2) = trace ("VALENV: " ++ show (fst env) ++ "; " ++ show e1) $ runFun env e1 e2
 evalIn env (Binop Concat e1 e2) =
   let (ListVal xs, _) = evalIn env e1
       (ListVal ys, _) = evalIn env e2
@@ -112,6 +112,10 @@ evalIn env (Atom x) = case Map.lookup x $ fst env of
 evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (DictUpdate baseDict updateDict) =
+  let (DictVal d1) = fst $ evalIn env baseDict
+      (DictVal d2) = fst $ evalIn env updateDict
+   in (DictVal $ Map.unionWith (+) d1 d2, env)
 evalIn env (DictAccess k dict) =
   let (DictVal m) = fst $ evalIn env dict
       kv = fst $ evalIn env k
