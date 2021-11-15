@@ -157,10 +157,10 @@ dictUpdate = do
   return (DictUpdate dct updates)
 
 dictAccess :: Parser Expr
-dictAccess = underscoreDot <|> try dictDotKey
+dictAccess = dotKey <|> try dictDotKey
   where
-    underscoreDot = do
-      string "_."
+    dotKey = do
+      string "."
       x <- dictKey
       dct <- variable <|> dict
       return (DictAccess x dct)

@@ -115,7 +115,7 @@ evalIn env (LInteger n) = (IntVal n, env)
 evalIn env (DictUpdate baseDict updateDict) =
   let (DictVal d1) = fst $ evalIn env baseDict
       (DictVal d2) = fst $ evalIn env updateDict
-   in (DictVal $ Map.unionWith (+) d1 d2, env)
+   in (DictVal $ Map.union d2 d1, env)
 evalIn env (DictAccess k dict) =
   let (DictVal m) = fst $ evalIn env dict
       kv = fst $ evalIn env k

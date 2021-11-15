@@ -1,9 +1,4 @@
 -- KEY
--- TODO: update dict
-* { person | name = "George" }
-* person { name = t}
-* person {name = t}
-* person {company = "Acme United"}
 -- TODO: looks like every internal variable leaks into global scope <- probably what's not allowing us to replace foldInternal with fold in stdlib
   -- TODO: if var only exists in scope, remove it after application
   -- TODO: currently we're only adding to scope.

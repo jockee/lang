@@ -182,10 +182,10 @@ spec = describe "Eval" $ do
     it "dict" $ do
       eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
 
-    it "dict lookup using _. on atom" $ do
-      evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "_.a dict"] `shouldBe` IntVal 1
-    it "dict lookup using _. on dict" $ do
-      eval (parseExpr "_.a {a: 1, b: 2}") `shouldBe` IntVal 1
+    it "dict lookup using . on atom" $ do
+      evals [parseExpr "dict = {a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
+    it "dict lookup using . on dict" $ do
+      eval (parseExpr ".a {a: 1, b: 2}") `shouldBe` IntVal 1
 
     it "dict lookup using inline dict.key" $ do
       eval (parseExpr "{a: 1, b: 2}.a") `shouldBe` IntVal 1
@@ -198,6 +198,9 @@ spec = describe "Eval" $ do
 
     it "dict update new key" $ do
       eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 0)), ((DictKeyVal "b"), (IntVal 1))])
+
+    it "dict update on atom" $ do
+      evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [((DictKeyVal "b"), (IntVal 1))])
 
   describe "General" $ do
     it "adds to global scope" $ do

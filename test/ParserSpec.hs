@@ -114,11 +114,11 @@ spec = describe "Parser" $ do
   it "dict" $ do
     showExpr (parseExpr "{a: 1, b: 2}") `shouldBe` showExpr (Dict [((DictKey "a"), (LInteger 1)), ((DictKey "b"), (LInteger 2))])
 
-  it "dict access on atom" $ do
-    showExpr (parseExpr "_.key exampledict") `shouldBe` showExpr (DictAccess (Atom "key") (Atom "exampledict"))
+  it "dict access on atom dot key" $ do
+    showExpr (parseExpr ".key exampledict") `shouldBe` showExpr (DictAccess (Atom "key") (Atom "exampledict"))
 
-  it "underscore dict access on inline dict" $ do
-    showExpr (parseExpr "_.key {a: 1}") `shouldBe` showExpr (DictAccess (DictKey "key") (Dict [((DictKey "a"), (LInteger 1))]))
+  it "dict access on inline dot key" $ do
+    showExpr (parseExpr ".key {a: 1}") `shouldBe` showExpr (DictAccess (DictKey "key") (Dict [((DictKey "a"), (LInteger 1))]))
 
   it "dict access" $ do
     showExpr (parseExpr "exampledict.key") `shouldBe` showExpr (DictAccess (DictKey "key") (Atom "exampledict"))
