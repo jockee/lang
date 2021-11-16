@@ -1,7 +1,7 @@
 module Parser where
 
 import Debug.Trace
-import Evaluatable
+import Eval
 import Exceptions
 import Syntax
 import Text.Parsec.Error
@@ -108,7 +108,7 @@ term :: Parser Expr
 term =
   lexeme
     ( try parseFloat
-        <|> try (parens internalFunction)
+        <|> try (parens parseInternalFunction)
         <|> try parseInteger
         <|> parseMaybe
         <|> dictAccess
@@ -196,8 +196,8 @@ lFold = do
   xs <- list <|> term
   return (PFold f initValue xs)
 
-internalFunction :: Parser Expr
-internalFunction = do
+parseInternalFunction :: Parser Expr
+parseInternalFunction = do
   reserved "InternalFunction"
   whitespace
   f <- identifier

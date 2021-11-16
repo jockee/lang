@@ -3,6 +3,7 @@
 * partially applied values required?
 
 * get 'Data' back
+* sort out modules. eval is messy af
 
 -- KEY
 
