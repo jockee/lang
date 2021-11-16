@@ -13,17 +13,17 @@ data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
 
 data Expr
   = Atom String
-  | LList [Expr]
-  | Dict [(Expr, Expr)]
+  | PList [Expr]
+  | PDict [(Expr, Expr)]
   | DictUpdate Expr Expr
   | DictAccess Expr Expr
   | DictKey String
-  | LInteger Integer
-  | LFloat Float
-  | LJust Expr
-  | LNothing
-  | LString String
-  | LBool Bool
+  | PInteger Integer
+  | PFloat Float
+  | PJust Expr
+  | PNothing
+  | PString String
+  | PBool Bool
   | LFold Expr Expr Expr
   | If Expr Expr Expr
   | Lambda [Id] Expr
@@ -36,19 +36,19 @@ data Expr
 instance Show Expr where show = showExpr
 
 showExpr :: Expr -> String
-showExpr (LString contents) = "(LString \"" ++ contents ++ "\")"
+showExpr (PString contents) = "(PString \"" ++ contents ++ "\")"
 showExpr (Atom name) = "(Atom \"" ++ name ++ "\")"
-showExpr (LInteger contents) = "(LInteger " ++ show contents ++ ")"
-showExpr (LFloat contents) = "(LFloat " ++ show contents ++ ")"
-showExpr (LBool True) = "(LBool True)"
+showExpr (PInteger contents) = "(PInteger " ++ show contents ++ ")"
+showExpr (PFloat contents) = "(PFloat " ++ show contents ++ ")"
+showExpr (PBool True) = "(PBool True)"
 showExpr (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
 showExpr PNoop = "(Noop)"
-showExpr (LBool False) = "(LBool False)"
-showExpr (Dict pairs) = "(Dict [" ++ showDictContents pairs ++ "])"
+showExpr (PBool False) = "(PBool False)"
+showExpr (PDict pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
 showExpr (DictUpdate dict update) = "(DictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
-showExpr (LNothing) = "(LNothing)"
-showExpr (LJust e) = "(LJust " ++ show e ++ ")"
-showExpr (LList contents) = "(LList [" ++ intercalate ", " (map show contents) ++ "])"
+showExpr (PNothing) = "(PNothing)"
+showExpr (PJust e) = "(PJust " ++ show e ++ ")"
+showExpr (PList contents) = "(PList [" ++ intercalate ", " (map show contents) ++ "])"
 showExpr (If cond e1 e2) = "(If " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
 showExpr (LFold f i xs) = "(LFold " ++ showExpr f ++ showExpr i ++ showExpr xs ++ ")"
 showExpr (App e1 e2) = "(App " ++ showExpr e1 ++ showExpr e2 ++ ")"

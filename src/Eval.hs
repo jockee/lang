@@ -26,7 +26,7 @@ data Val
   | Dictionary (Map.Map Val Val)
   | FloatVal Float
   | DictKeyVal String
-  | Undefined
+  | Noop
   | List [Val]
   deriving (Data)
 
@@ -127,14 +127,14 @@ instance Arith Val where
     _ -> Boolean False
 
 evalIn :: Env -> Expr -> (Val, Env)
-evalIn env (If (LBool True) t _) = evalIn env t
-evalIn env (If (LBool False) _ f) = evalIn env f
+evalIn env (If (PBool True) t _) = evalIn env t
+evalIn env (If (PBool False) _ f) = evalIn env f
 evalIn env (If condition ifTrue ifFalse) =
   let (val, env') = evalIn env condition
    in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
 evalIn env (Lambda ids e) = (Function env ids e, env)
 evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
-evalIn env (LFold f initExpr (LList listExprs)) = doFold env f initExpr listExprs
+evalIn env (LFold f initExpr (PList listExprs)) = doFold env f initExpr listExprs
 evalIn env (App e1 e2) = runFun (withScope env) e1 e2
 evalIn env (Binop Concat e1 e2) =
   let (List xs, _) = evalIn env e1
@@ -148,9 +148,9 @@ evalIn env (Binop Assign (Atom a) v) =
 evalIn env (Atom atomId) = case inScopeV env atomId of
   Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   Just a -> (a, env)
-evalIn env (LString n) = (StringVal n, env)
-evalIn env (LFloat n) = (FloatVal n, env)
-evalIn env (LInteger n) = (IntVal n, env)
+evalIn env (PString n) = (StringVal n, env)
+evalIn env (PFloat n) = (FloatVal n, env)
+evalIn env (PInteger n) = (IntVal n, env)
 evalIn env (DictUpdate baseDict updateDict) =
   let (Dictionary d1) = fst $ evalIn env baseDict
       (Dictionary d2) = fst $ evalIn env updateDict
@@ -160,11 +160,11 @@ evalIn env (DictAccess k dict) =
       kv = fst $ evalIn env k
    in (fromJust (Map.lookup kv m), env)
 evalIn env (DictKey k) = (DictKeyVal k, env)
-evalIn env (Dict pairs) =
+evalIn env (PDict pairs) =
   let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
    in (Dictionary $ Map.fromList $ map fn pairs, env)
-evalIn env (LList es) = (List $ map (fst . evalIn env) es, env)
-evalIn env (LBool n) = (Boolean n, env)
+evalIn env (PList es) = (List $ map (fst . evalIn env) es, env)
+evalIn env (PBool n) = (Boolean n, env)
 evalIn env (Binop op e1 e2) =
   let (v1, _) = evalIn env e1
       (v2, _) = evalIn env e2
@@ -196,7 +196,7 @@ runFun env e1 e2 = case evalIn env e1 of
 atomToExpr :: Env -> String -> [Expr]
 atomToExpr env atomId = case inScopeE env atomId of
   Nothing -> throw $ EvalException "Can't traverse non-list"
-  Just (LList listExprs) -> listExprs
+  Just (PList listExprs) -> listExprs
 
 eval :: Expr -> Val
 eval = fst . evalInEnv emptyEnv
@@ -205,6 +205,6 @@ evalInEnv :: Env -> Expr -> (Val, Env)
 evalInEnv = evalIn
 
 evals :: [Expr] -> Val
-evals exprs = fst $ foldl fl (Undefined, emptyEnv) exprs
+evals exprs = fst $ foldl fl (Noop, emptyEnv) exprs
   where
     fl (_val, env) ex = evalInEnv env ex

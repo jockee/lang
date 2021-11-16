@@ -123,7 +123,7 @@ spec = describe "Eval" $ do
 
     xit "lambda partially applied" $ do
       -- XXX: needs to ignore env
-      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
+      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) ["x", "b"] (Lambda ["b"] (Binop Add (PInteger 2) (Atom "b")))
 
     it "lambda fully applied two arguments" $ do
       eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4

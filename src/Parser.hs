@@ -42,9 +42,9 @@ formula = buildExpressionParser table juxta <?> "formula"
       ]
     prefix name fun = Prefix (do reservedOp name; return fun)
     neg n = case n of
-      LInteger x -> LInteger $ negate x
-      LFloat x -> LFloat $ negate x
-    not' (LBool b) = LBool $ not b
+      PInteger x -> PInteger $ negate x
+      PFloat x -> PFloat $ negate x
+    not' (PBool b) = PBool $ not b
     notEqOp = Infix (reservedOp "!=" >> return (Binop NotEql)) AssocLeft
     eqOp = Infix (reservedOp "==" >> return (Binop Eql)) AssocLeft
     subOp = Infix (reservedOp "-" >> return (Binop Sub)) AssocLeft
@@ -122,15 +122,15 @@ term =
     <?> "term"
 
 true :: Parser Expr
-true = try $ string "true" >> return (LBool True)
+true = try $ string "true" >> return (PBool True)
 
 false :: Parser Expr
-false = try $ string "false" >> return (LBool False)
+false = try $ string "false" >> return (PBool False)
 
 dictContents :: Parser Expr
 dictContents = do
   pairs <- pair `sepBy` many (space <|> char ',')
-  return (Dict pairs)
+  return (PDict pairs)
   where
     pair = do
       key <- dictKey
@@ -176,7 +176,7 @@ dictAccess = dotKey <|> try dictDotKey
       return (DictAccess x dct)
 
 listContents :: Parser Expr
-listContents = LList <$> juxta `sepBy` many (space <|> char ',')
+listContents = PList <$> juxta `sepBy` many (space <|> char ',')
 
 list :: Parser Expr
 list = do
@@ -247,24 +247,24 @@ parseMaybe = nothing <|> just
   where
     nothing = do
       string "Nothing"
-      return LNothing
+      return PNothing
     just = do
       string "Just"
       whitespace
       justVal <- expr
-      return $ LJust justVal
+      return $ PJust justVal
 
 parseFloat :: Parser Expr
 parseFloat = do
   whole <- many1 digit
   char '.'
   decimal <- many1 digit
-  return $ LFloat (read (whole ++ "." ++ decimal))
+  return $ PFloat (read (whole ++ "." ++ decimal))
 
 parseInteger :: Parser Expr
 parseInteger = do
   whole <- many1 digit
-  return $ LInteger $ read whole
+  return $ PInteger $ read whole
 
 noop :: Parser Expr
 noop = do
@@ -295,7 +295,7 @@ parseString = do
   char '"'
   s <- many (escapedChars <|> noneOf ['\\', '"'])
   char '"'
-  return $ LString s
+  return $ PString s
 
 escapedChars :: Parser Char
 escapedChars = do

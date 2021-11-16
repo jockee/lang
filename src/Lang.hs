@@ -25,7 +25,7 @@ evalsWithLib :: [Expr] -> IO (Val, Env)
 evalsWithLib = evalsWithLibAndEnv emptyEnv
 
 evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
-evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
+evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Noop, env) . allExprs)
   where
     allExprs lib = parseExprs lib ++ exprs
     fl (_val, env) ex = evalInEnv (resetScope env) ex
