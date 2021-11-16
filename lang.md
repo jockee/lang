@@ -28,7 +28,7 @@
 -- TODO: replace string with T.Text?
 
 
--- XXX: ON SCOPE LEAK: if it still leaks, look at hash key generation
+-- XXX: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
 
 -- COULD BE MOVED TO STDLIB
 * dict update merger. could it, though? how would we modify the dict?

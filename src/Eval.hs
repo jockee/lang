@@ -1,9 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Eval (Val (..), eval, evals, evalInEnv, Env (..), emptyEnv, resetScope) where
 
 import Control.Exception
+import Data.Data
 import Data.Foldable (asum)
 import Data.Hashable
 import Data.List qualified as List
@@ -17,32 +19,33 @@ instance Hashable Env where
   hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v
 
 data Val
-  = FunVal Env [Id] Expr
-  | BoolVal Bool
+  = Function Env [Id] Expr
+  | Boolean Bool
   | StringVal String
   | IntVal Integer
-  | DictVal (Map.Map Val Val)
+  | Dictionary (Map.Map Val Val)
   | FloatVal Float
   | DictKeyVal String
   | Undefined
-  | ListVal [Val]
+  | List [Val]
+  deriving (Data)
 
 instance Show Val where
-  show FunVal {} = "<fun>"
+  show Function {} = "<fun>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
-  show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
+  show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
+  show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKeyVal n) = n
   show (StringVal n) = show n
-  show (BoolVal n) = show n
+  show (Boolean n) = show n
 
 data Env = Env
   { envValues :: Map.Map String Val,
     envExpressions :: Map.Map String Expr,
     envScopes :: [String]
   }
-  deriving (Show)
+  deriving (Show, Data)
 
 defaultEnvScopes = ["global"]
 
@@ -98,45 +101,45 @@ instance Ord Val where
 instance Eq Val where
   (FloatVal i1) == (FloatVal i2) = i1 == i2
   (IntVal i1) == (IntVal i2) = i1 == i2
-  (BoolVal True) == (BoolVal True) = True
-  (BoolVal False) == (BoolVal False) = True
-  (ListVal xs) == (ListVal ys) = xs == ys
-  (DictVal m1) == (DictVal m2) = m1 == m2
+  (Boolean True) == (Boolean True) = True
+  (Boolean False) == (Boolean False) = True
+  (List xs) == (List ys) = xs == ys
+  (Dictionary m1) == (Dictionary m2) = m1 == m2
   (DictKeyVal a) == (DictKeyVal b) = a == b
-  (FunVal env1 ids1 e1) == (FunVal env2 ids2 e2) = envValues env1 == envValues env2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
+  (Function env1 ids1 e1) == (Function env2 ids2 e2) = envValues env1 == envValues env2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where
-  cmpOp ">" = \a b -> BoolVal $ a > b
-  cmpOp "<" = \a b -> BoolVal $ a < b
-  cmpOp ">=" = \a b -> BoolVal $ a >= b
-  cmpOp "<=" = \a b -> BoolVal $ a <= b
+  cmpOp ">" = \a b -> Boolean $ a > b
+  cmpOp "<" = \a b -> Boolean $ a < b
+  cmpOp ">=" = \a b -> Boolean $ a >= b
+  cmpOp "<=" = \a b -> Boolean $ a <= b
   evalOp Add = (+)
   evalOp Sub = (-)
   evalOp Mul = (*)
-  evalOp Eql = \a b -> BoolVal $ a == b
-  evalOp NotEql = \a b -> BoolVal $ a /= b
+  evalOp Eql = \a b -> Boolean $ a == b
+  evalOp NotEql = \a b -> Boolean $ a /= b
   evalOp And = \a b -> case (a, b) of
-    (BoolVal a, BoolVal b) -> BoolVal $ a && b
-    _ -> BoolVal False
+    (Boolean a, Boolean b) -> Boolean $ a && b
+    _ -> Boolean False
   evalOp Or = \a b -> case (a, b) of
-    (BoolVal a, BoolVal b) -> BoolVal $ a || b
-    _ -> BoolVal False
+    (Boolean a, Boolean b) -> Boolean $ a || b
+    _ -> Boolean False
 
 evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (If (LBool True) t _) = evalIn env t
 evalIn env (If (LBool False) _ f) = evalIn env f
 evalIn env (If condition ifTrue ifFalse) =
   let (val, env') = evalIn env condition
-   in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
-evalIn env (Lambda ids e) = (FunVal env ids e, env)
+   in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
+evalIn env (Lambda ids e) = (Function env ids e, env)
 evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
-evalIn env (LFold f initExpr (List listExprs)) = doFold env f initExpr listExprs
+evalIn env (LFold f initExpr (LList listExprs)) = doFold env f initExpr listExprs
 evalIn env (App e1 e2) = runFun (withScope env) e1 e2
 evalIn env (Binop Concat e1 e2) =
-  let (ListVal xs, _) = evalIn env e1
-      (ListVal ys, _) = evalIn env e2
-   in (ListVal $ xs ++ ys, env)
+  let (List xs, _) = evalIn env e1
+      (List ys, _) = evalIn env e2
+   in (List $ xs ++ ys, env)
 evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
 evalIn env (Binop Assign (Atom a) v) =
   let env'' = extend env' [a] v
@@ -149,19 +152,19 @@ evalIn env (LString n) = (StringVal n, env)
 evalIn env (LFloat n) = (FloatVal n, env)
 evalIn env (LInteger n) = (IntVal n, env)
 evalIn env (DictUpdate baseDict updateDict) =
-  let (DictVal d1) = fst $ evalIn env baseDict
-      (DictVal d2) = fst $ evalIn env updateDict
-   in (DictVal $ Map.union d2 d1, env)
+  let (Dictionary d1) = fst $ evalIn env baseDict
+      (Dictionary d2) = fst $ evalIn env updateDict
+   in (Dictionary $ Map.union d2 d1, env)
 evalIn env (DictAccess k dict) =
-  let (DictVal m) = fst $ evalIn env dict
+  let (Dictionary m) = fst $ evalIn env dict
       kv = fst $ evalIn env k
    in (fromJust (Map.lookup kv m), env)
 evalIn env (DictKey k) = (DictKeyVal k, env)
 evalIn env (Dict pairs) =
   let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
-   in (DictVal $ Map.fromList $ map fn pairs, env)
-evalIn env (List es) = (ListVal $ map (fst . evalIn env) es, env)
-evalIn env (LBool n) = (BoolVal n, env)
+   in (Dictionary $ Map.fromList $ map fn pairs, env)
+evalIn env (LList es) = (List $ map (fst . evalIn env) es, env)
+evalIn env (LBool n) = (Boolean n, env)
 evalIn env (Binop op e1 e2) =
   let (v1, _) = evalIn env e1
       (v2, _) = evalIn env e2
@@ -172,7 +175,7 @@ evalIn env (Cmp op e1 e2) =
       (v2, _) = evalIn env e2
       x = cmpOp op
    in (v1 `x` v2, env)
-evalIn env Noop = (Undefined, env)
+evalIn env PNoop = (Noop, env)
 evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
 
 doFold :: Foldable t => Env -> Expr -> Expr -> t Expr -> (Val, Env)
@@ -182,7 +185,7 @@ doFold env f initExpr listExprs = evalIn env $ foldl foldFun initExpr listExprs
 
 runFun :: Env -> Expr -> Expr -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
-  (FunVal _ xs e3, env') ->
+  (Function _ xs e3, env') ->
     let env'' = extend env' xs e2
         missingArgs = filter (isNothing . inScopeV env'') xs
      in if null missingArgs
@@ -193,7 +196,7 @@ runFun env e1 e2 = case evalIn env e1 of
 atomToExpr :: Env -> String -> [Expr]
 atomToExpr env atomId = case inScopeE env atomId of
   Nothing -> throw $ EvalException "Can't traverse non-list"
-  Just (List listExprs) -> listExprs
+  Just (LList listExprs) -> listExprs
 
 eval :: Expr -> Val
 eval = fst . evalInEnv emptyEnv

@@ -3,6 +3,7 @@ module Lang where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Data
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Typeable
@@ -49,8 +50,11 @@ replWithEnv env = runInputT defaultSettings $ do
           case result of
             Left e -> outputStrLn "\n-- EVAL ERROR\n"
             Right (val, newenv) -> do
-              outputStrLn $ show val ++ " : " ++ show (typeOf val)
+              outputStrLn $ show val ++ " : " ++ conName val
               liftIO $ replWithEnv newenv
+
+conName :: Data a => a -> String
+conName x = showConstr (toConstr x)
 
 stdLib :: IO String
 stdLib = do readFile "src/stdlib/stdlib.lang"

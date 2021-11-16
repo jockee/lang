@@ -19,10 +19,10 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "1.1") `shouldBe` showExpr (LFloat 1.1)
 
   it "list" $ do
-    showExpr (parseExpr "[1,2]") `shouldBe` showExpr (List [LInteger 1, LInteger 2])
+    showExpr (parseExpr "[1,2]") `shouldBe` showExpr (LList [LInteger 1, LInteger 2])
 
   it "handles whitespace" $ do
-    showExpr (parseExpr " [ 1 , 2 ] ") `shouldBe` showExpr (List [LInteger 1, LInteger 2])
+    showExpr (parseExpr " [ 1 , 2 ] ") `shouldBe` showExpr (LList [LInteger 1, LInteger 2])
 
   it "double equals" $ do
     showExpr (parseExpr "1 == 1") `shouldBe` showExpr (Binop Eql (LInteger 1) (LInteger 1))
@@ -64,7 +64,7 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` showExpr (Binop Pipe (Binop Pipe (LInteger 5) (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1)))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 2))))
 
   it "pipe partial application" $ do
-    showExpr (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` showExpr (Binop Pipe (List [(LInteger 1), (LInteger 2)]) (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))))
+    showExpr (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` showExpr (Binop Pipe (LList [(LInteger 1), (LInteger 2)]) (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))))
 
   it "nested lambda application" $ do
     showExpr (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` showExpr (App (Lambda ["x"] (Binop Add (App (Lambda ["y"] (Binop Add (Atom "y") (LInteger 1))) (Atom "x")) (LInteger 2))) (LInteger 5))
@@ -76,7 +76,7 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showExpr (App (Lambda ["k"] (App (Atom "k") (LInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (LInteger 1))))
 
   it "fold function" $ do
-    showExpr (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showExpr (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (List [(LInteger 1)]))
+    showExpr (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showExpr (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (LInteger 1))) (LInteger 0) (LList [(LInteger 1)]))
 
   it "partially applied lambda" $ do
     showExpr (parseExpr "(x y: x + y) 1") `shouldBe` showExpr (App (Lambda ["x", "y"] (Binop Add (Atom "x") (Atom "y"))) (LInteger 1))
@@ -88,28 +88,28 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "a = 2") `shouldBe` showExpr (Binop Assign (Atom "a") (LInteger 2))
 
   it "assign list" $ do
-    showExpr (parseExpr "xs = [1]") `shouldBe` showExpr (Binop Assign (Atom "xs") (List [(LInteger 1)]))
+    showExpr (parseExpr "xs = [1]") `shouldBe` showExpr (Binop Assign (Atom "xs") (LList [(LInteger 1)]))
 
   it "apply list to lambda" $ do
-    showExpr (parseExpr "(s: s) [1]") `shouldBe` showExpr (App (Lambda ["s"] (Atom "s")) (List [(LInteger 1)]))
+    showExpr (parseExpr "(s: s) [1]") `shouldBe` showExpr (App (Lambda ["s"] (Atom "s")) (LList [(LInteger 1)]))
 
   it "function application" $ do
     showExpr (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showExpr (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (Atom "a"))
 
   it "map expressed as foldInternal" $ do
-    showExpr (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showExpr (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (List [(App (Atom "f") (Atom "x"))]))) (List []) (Atom "xs")))
+    showExpr (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showExpr (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (LList [(App (Atom "f") (Atom "x"))]))) (LList []) (Atom "xs")))
 
   it "pass list as function argument" $ do
-    showExpr (parseExpr "testFun [1]") `shouldBe` showExpr (App (Atom "testFun") (List [(LInteger 1)]))
+    showExpr (parseExpr "testFun [1]") `shouldBe` showExpr (App (Atom "testFun") (LList [(LInteger 1)]))
 
   it "map function" $ do
-    showExpr (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showExpr (App (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (List [(LInteger 1), (LInteger 2)]))
+    showExpr (parseExpr "map (x: x * 2) [1, 2]") `shouldBe` showExpr (App (App (Atom "map") (Lambda ["x"] (Binop Mul (Atom "x") (LInteger 2)))) (LList [(LInteger 1), (LInteger 2)]))
 
   it "partially applied map" $ do
     showExpr (parseExpr "map (n: n * 2)") `shouldBe` showExpr (App (Atom "map") (Lambda ["n"] (Binop Mul (Atom "n") (LInteger 2))))
 
   it "list concatenation" $ do
-    showExpr (parseExpr "[1] ++ [2]") `shouldBe` showExpr (Binop Concat (List [(LInteger 1)]) (List [(LInteger 2)]))
+    showExpr (parseExpr "[1] ++ [2]") `shouldBe` showExpr (Binop Concat (LList [(LInteger 1)]) (LList [(LInteger 2)]))
 
   it "greater than" $ do
     showExpr (parseExpr "1 > 0") `shouldBe` showExpr (Cmp ">" (LInteger 1) (LInteger 0))

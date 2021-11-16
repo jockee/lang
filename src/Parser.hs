@@ -176,7 +176,7 @@ dictAccess = dotKey <|> try dictDotKey
       return (DictAccess x dct)
 
 listContents :: Parser Expr
-listContents = List <$> juxta `sepBy` many (space <|> char ',')
+listContents = LList <$> juxta `sepBy` many (space <|> char ',')
 
 list :: Parser Expr
 list = do
@@ -269,7 +269,7 @@ parseInteger = do
 noop :: Parser Expr
 noop = do
   lexeme eof
-  return Noop
+  return PNoop
 
 allOf :: Parser a -> Parser a
 allOf p =

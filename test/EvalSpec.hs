@@ -15,82 +15,82 @@ spec :: Spec
 spec = describe "Eval" $ do
   describe "Boolean" $ do
     it "negation of bool" $ do
-      eval (parseExpr "!true") `shouldBe` BoolVal False
+      eval (parseExpr "!true") `shouldBe` Boolean False
 
     it "boolean and true" $ do
-      eval (parseExpr "true && true") `shouldBe` BoolVal True
+      eval (parseExpr "true && true") `shouldBe` Boolean True
 
     it "boolean and false" $ do
-      eval (parseExpr "true && false") `shouldBe` BoolVal False
+      eval (parseExpr "true && false") `shouldBe` Boolean False
 
     it "boolean or true" $ do
-      eval (parseExpr "true || false") `shouldBe` BoolVal True
+      eval (parseExpr "true || false") `shouldBe` Boolean True
 
     it "boolean or false" $ do
-      eval (parseExpr "true || false") `shouldBe` BoolVal True
+      eval (parseExpr "true || false") `shouldBe` Boolean True
 
     it "boolean false or false" $ do
-      eval (parseExpr "false || false") `shouldBe` BoolVal False
+      eval (parseExpr "false || false") `shouldBe` Boolean False
 
   describe "Equality" $ do
     it "true" $ do
-      eval (parseExpr "true") `shouldBe` BoolVal True
+      eval (parseExpr "true") `shouldBe` Boolean True
 
     it "integer equality " $ do
-      eval (parseExpr "1 == 1") `shouldBe` BoolVal True
+      eval (parseExpr "1 == 1") `shouldBe` Boolean True
 
     it "integer inequality " $ do
-      eval (parseExpr "1 == 2") `shouldBe` BoolVal False
+      eval (parseExpr "1 == 2") `shouldBe` Boolean False
 
     it "boolean equality" $ do
-      eval (parseExpr "true == true") `shouldBe` BoolVal True
+      eval (parseExpr "true == true") `shouldBe` Boolean True
 
     it "boolean inequality" $ do
-      eval (parseExpr "true == false") `shouldBe` BoolVal False
+      eval (parseExpr "true == false") `shouldBe` Boolean False
 
     it "mismatching types are unequal" $ do
-      eval (parseExpr "true == 1") `shouldBe` BoolVal False
+      eval (parseExpr "true == 1") `shouldBe` Boolean False
 
   describe "Cmp" $ do
     it "GT" $ do
-      eval (parseExpr "1 > 0") `shouldBe` BoolVal True
+      eval (parseExpr "1 > 0") `shouldBe` Boolean True
 
     it "GTE" $ do
-      eval (parseExpr "1 >= 1") `shouldBe` BoolVal True
+      eval (parseExpr "1 >= 1") `shouldBe` Boolean True
 
     it "GTE" $ do
-      eval (parseExpr "2 >= 1") `shouldBe` BoolVal True
+      eval (parseExpr "2 >= 1") `shouldBe` Boolean True
 
     it "LT" $ do
-      eval (parseExpr "0 < 1") `shouldBe` BoolVal True
+      eval (parseExpr "0 < 1") `shouldBe` Boolean True
 
     it "LT" $ do
-      eval (parseExpr "2 < 1") `shouldBe` BoolVal False
+      eval (parseExpr "2 < 1") `shouldBe` Boolean False
 
     it "LTE" $ do
-      eval (parseExpr "2 <= 1") `shouldBe` BoolVal False
+      eval (parseExpr "2 <= 1") `shouldBe` Boolean False
 
     describe "Lists" $ do
       it "list" $ do
-        eval (parseExpr "[1]") `shouldBe` ListVal [IntVal 1]
+        eval (parseExpr "[1]") `shouldBe` List [IntVal 1]
 
       it "concatenation" $ do
-        eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
+        eval (parseExpr "[1] ++ [2]") `shouldBe` List [IntVal 1, IntVal 2]
 
       it "fold function" $ do
         eval (parseExpr "foldInternal (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
 
       it "inline partially applied mapping fold function" $ do
-        eval (parseExpr "(f: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
+        eval (parseExpr "(f: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)") `shouldBe` List [IntVal 2, IntVal 4]
 
       it "inline fully applied mapping fold function" $ do
-        eval (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+        eval (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]") `shouldBe` List [IntVal 2, IntVal 4]
 
       it "fold reverse list" $ do
-        eval (parseExpr "foldInternal (acc x: [x] ++ acc) [] [1, 2]") `shouldBe` ListVal [IntVal 2, IntVal 1]
+        eval (parseExpr "foldInternal (acc x: [x] ++ acc) [] [1, 2]") `shouldBe` List [IntVal 2, IntVal 1]
 
       it "let-in binding list" $ do
-        eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
+        eval (parseExpr "let x = [5] in x") `shouldBe` List [IntVal 5]
 
   describe "Arithmetic" $ do
     it "negative integer " $ do
@@ -123,7 +123,7 @@ spec = describe "Eval" $ do
 
     xit "lambda partially applied" $ do
       -- XXX: needs to ignore env
-      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` FunVal (emptyEnv) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
+      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) ["x", "b"] (Lambda ["b"] (Binop Add (LInteger 2) (Atom "b")))
 
     it "lambda fully applied two arguments" $ do
       eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
@@ -138,7 +138,7 @@ spec = describe "Eval" $ do
       eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
     it "pipes as last argument" $ do
-      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
     it "stdlib fold function leveraging foldInternal" $ do
@@ -147,19 +147,19 @@ spec = describe "Eval" $ do
 
     it "applied map" $ do
       ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
-      ev `shouldBe` ListVal [IntVal 2]
+      ev `shouldBe` List [IntVal 2]
 
     it "maps over list" $ do
       ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
+      ev `shouldBe` List [IntVal 2, IntVal 4]
 
     it "filters list" $ do
       ev <- evalWithLib (parseExpr "filter (x: x == 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 2]
+      ev `shouldBe` List [IntVal 2]
 
     it "rejects list" $ do
       ev <- evalWithLib (parseExpr "reject (x: x == 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 1]
+      ev `shouldBe` List [IntVal 1]
 
     it "list length" $ do
       ev <- evalWithLib (parseExpr "length [1,2]")
@@ -167,7 +167,7 @@ spec = describe "Eval" $ do
 
     it "take" $ do
       ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
-      ev `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+      ev `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
@@ -187,7 +187,7 @@ spec = describe "Eval" $ do
 
   describe "Dict" $ do
     it "dict" $ do
-      eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
+      eval (parseExpr "{a: 1}") `shouldBe` Dictionary (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
 
     it "dict lookup using . on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
@@ -201,13 +201,13 @@ spec = describe "Eval" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
 
     it "dict update" $ do
-      eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
+      eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` Dictionary (Map.fromList [((DictKeyVal "a"), (IntVal 1))])
 
     it "dict update new key" $ do
-      eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [((DictKeyVal "a"), (IntVal 0)), ((DictKeyVal "b"), (IntVal 1))])
+      eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` Dictionary (Map.fromList [((DictKeyVal "a"), (IntVal 0)), ((DictKeyVal "b"), (IntVal 1))])
 
     it "dict update on atom" $ do
-      evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [((DictKeyVal "b"), (IntVal 1))])
+      evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` Dictionary (Map.fromList [((DictKeyVal "b"), (IntVal 1))])
 
   describe "General" $ do
     it "adds to global scope" $ do
