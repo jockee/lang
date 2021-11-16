@@ -114,6 +114,7 @@ term =
         <|> dictAccess
         <|> try dict
         <|> try dictUpdate
+        <|> try range
         <|> list
         <|> true
         <|> false
@@ -179,6 +180,17 @@ dictAccess = dotKey <|> try dictDotKey
 
 listContents :: Parser Expr
 listContents = PList <$> (juxta <|> formula) `sepBy` many (space <|> char ',')
+
+range :: Parser Expr
+range = do
+  char '['
+  whitespace
+  lBound <- term
+  string ".."
+  whitespace
+  uBound <- term
+  char ']'
+  return (PRange lBound uBound)
 
 list :: Parser Expr
 list = do

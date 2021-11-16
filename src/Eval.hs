@@ -40,8 +40,8 @@ instance Evaluatable Expr where
         (value, env') = evalIn env v
      in (value, env'')
   evalIn env (Atom atomId) = case inScope env atomId of
-    Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
     Just a -> (a, env)
+    Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   evalIn env (PString n) = (StringVal n, env)
   evalIn env (PFloat n) = (FloatVal n, env)
   evalIn env (PInteger n) = (IntVal n, env)
@@ -57,6 +57,12 @@ instance Evaluatable Expr where
   evalIn env (PDict pairs) =
     let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
      in (Dictionary $ Map.fromList $ map fn pairs, env)
+  evalIn env (PRange lBoundExp uBoundExp) =
+    let lBound = fst $ evalIn env lBoundExp
+        uBound = fst $ evalIn env uBoundExp
+     in case (lBound, uBound) of
+          (IntVal l, IntVal u) -> (List $ map IntVal [l .. u], env)
+          _ -> error "Invalid range"
   evalIn env (PList es) = (List $ map (fst . evalIn env) es, env)
   evalIn env (PBool n) = (Boolean n, env)
   evalIn env (Binop op e1 e2) =
@@ -100,7 +106,7 @@ withScope env = newEnv
     newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
 
 inScope :: Env -> String -> Maybe Val
-inScope env atomId = trace ("SCOPEKEYS " ++ show scopeKeys) $ asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
+inScope env atomId = trace ("SCOPEKEYS " ++ show scopeKeys ++ show env) $ asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
     scopeKeys = reverse $ map (\k -> k ++ ":" ++ atomId) $ envScopes env
 
@@ -111,9 +117,12 @@ internalFunction env f argsList = case evaledArgsList of
   where
     evaledArgsList = fst $ evalIn env argsList
     fun "fold" (fun : init : List xs : _) =
-      let foldFun :: Evaluatable e => e -> e -> Val
-          foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
+      let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
        in foldl foldFun init xs
+    fun "zipWith" (fun : List xs : List ys : _) =
+      let zipFun :: Evaluatable e => e -> e -> Val
+          zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
+       in List $ zipWith zipFun xs ys
     fun "head" xs = case xs of
       [] -> LNothing
       (x : _) -> LJust x

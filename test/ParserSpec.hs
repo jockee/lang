@@ -137,3 +137,9 @@ spec = describe "Parser" $ do
 
   it "internal function" $ do
     showExpr (parseExpr "(InternalFunction head [xs])") `shouldBe` showExpr (InternalFunction "head" (PList [(Atom "xs")]))
+
+  it "range" $ do
+    showExpr (parseExpr "[1..3]") `shouldBe` showExpr (PRange (PInteger 1) (PInteger 3))
+
+  it "range to atom" $ do
+    showExpr (parseExpr "[1..a]") `shouldBe` showExpr (PRange (PInteger 1) (Atom "a"))

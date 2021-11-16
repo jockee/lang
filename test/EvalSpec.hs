@@ -250,6 +250,13 @@ spec = describe "Eval" $ do
     xit "does not leak nested scope" $ do
       evaluate (evalsWithLib $ parseExprs "fn (x: (let b = 1 in b) b)") `shouldThrow` anyException
 
+  describe "Range" $ do
+    it "range" $ do
+      eval (parseExpr "[1..3]") `shouldBe` (List [IntVal 1, IntVal 2, IntVal 3])
+
+    it "range on atom" $ do
+      evals (parseExprs "a = 3; [1..a]") `shouldBe` (List [IntVal 1, IntVal 2, IntVal 3])
+
   describe "Internal functions" $ do
     it "head" $ do
       eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` LJust (IntVal 2)
@@ -259,3 +266,6 @@ spec = describe "Eval" $ do
 
     it "sort" $ do
       eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` List [IntVal 2, IntVal 3]
+
+    it "zipWith" $ do
+      eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` List [List [IntVal 1, IntVal 3], List [IntVal 2, IntVal 2]]

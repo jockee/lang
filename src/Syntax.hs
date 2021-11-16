@@ -46,6 +46,7 @@ data Expr where
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
+  PRange :: Expr -> Expr -> Expr
   PNoop :: Expr
   deriving (Typeable)
 

@@ -1,7 +1,9 @@
-* stdlib fold:s variable shadowing
+-- KEY
+* stdlib fold:s variable shadowing #varshadow
   * a successful map doesn't touch Binop Concat until eval?
     * is this due to it getting values of the wrong type?
 
+-- TODO: tuples, sets
 -- TODO: Type system
 * get 'Data' back
   * perhaps data doesn't cut it? would it be able to catch `Just Integer`, instead of just `Just`?
@@ -9,9 +11,8 @@
 
 -- TODO: Pattern matching
   * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
+-- TODO: destructuring `fold (acc (x, y): x + y +acc`
 
-
--- KEY
 
 -- MID
 -- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
