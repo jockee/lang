@@ -75,9 +75,6 @@ spec = describe "Parser" $ do
   it "bind function to name in let-in" $ do
     showExpr (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showExpr (App (Lambda ["k"] (App (Atom "k") (PInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (PInteger 1))))
 
-  xit "fold function" $ do
-    showExpr (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showExpr (InternalFunction "foldy" (PList [(Lambda ["acc", "x"] (Binop Add (Atom "x") (PInteger 1))), (PInteger 0), (PList [(PInteger 1)])]))
-
   it "partially applied lambda" $ do
     showExpr (parseExpr "(x y: x + y) 1") `shouldBe` showExpr (App (Lambda ["x", "y"] (Binop Add (Atom "x") (Atom "y"))) (PInteger 1))
 
@@ -95,9 +92,6 @@ spec = describe "Parser" $ do
 
   it "function application" $ do
     showExpr (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showExpr (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (PInteger 2)))) (Atom "a"))
-
-  it "map expressed as foldInternal" $ do
-    showExpr (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showExpr (Lambda ["f", "xs"] (InternalFunction "foldy" (PList [(Lambda ["acc", "x"] (Binop Concat (Atom "acc") (PList [(App (Atom "f") (Atom "x"))]))), (PList []), (Atom "xs")])))
 
   it "pass list as function argument" $ do
     showExpr (parseExpr "testFun [1]") `shouldBe` showExpr (App (Atom "testFun") (PList [(PInteger 1)]))

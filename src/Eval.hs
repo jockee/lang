@@ -30,8 +30,8 @@ instance Evaluatable Expr where
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = runFun (withScope env) e1 e2
   evalIn env (Binop Concat e1 e2) =
-    let (List xs, _) = trace ("calling f with x = " ++ show (evalIn env e1)) $ evalIn env e1
-        (List ys, _) = evalIn env e2
+    let (List xs, _) = trace ("E1: " ++ show (evalIn env e1)) $ evalIn env e1
+        (List ys, _) = trace ("E2: " ++ show (evalIn env e2)) $ evalIn env e2
         e = error "Invalid"
      in (List $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
@@ -96,13 +96,13 @@ resetScope env = env {envScopes = defaultEnvScopes}
 withScope :: Env -> Env
 withScope env = newEnv
   where
-    newScope = hash newEnv
-    newEnv = env {envScopes = List.nub $ envScopes env ++ [show newScope]}
+    newScope = show $ hash newEnv
+    newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
 
 inScope :: Env -> String -> Maybe Val
-inScope env atomId = asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
+inScope env atomId = trace ("SCOPEKEYS " ++ show scopeKeys) $ asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
-    scopeKeys = map (\k -> k ++ ":" ++ atomId) $ reverse $ envScopes env
+    scopeKeys = reverse $ map (\k -> k ++ ":" ++ atomId) $ envScopes env
 
 internalFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
 internalFunction env f argsList = case evaledArgsList of
@@ -110,7 +110,7 @@ internalFunction env f argsList = case evaledArgsList of
   _ -> error "Got non-list"
   where
     evaledArgsList = fst $ evalIn env argsList
-    fun "foldy" (fun : init : List xs : _) =
+    fun "fold" (fun : init : List xs : _) =
       let foldFun :: Evaluatable e => e -> e -> Val
           foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
        in foldl foldFun init xs
@@ -128,7 +128,7 @@ runFun env e1 e2 = case evalIn env e1 of
      in if null missingArgs
           then evalIn env'' e3
           else evalIn env'' (Lambda missingArgs e3)
-  val -> trace ("cannot apply val: " ++ show val) error "Cannot apply value"
+  (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv

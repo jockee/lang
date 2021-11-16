@@ -1,9 +1,15 @@
-* get 'Data' back
-* remove special fold parser
-* use stdlib fold in stdlib
-  * BLOCK: map through fold leaks
+* stdlib fold:s variable shadowing
+  * a successful map doesn't touch Binop Concat until eval?
+    * is this due to it getting values of the wrong type?
 
-* `min [12,3,4,54, -1]` fails
+-- TODO: Type system
+* get 'Data' back
+  * perhaps data doesn't cut it? would it be able to catch `Just Integer`, instead of just `Just`?
+  * each Val should perhaps carry a struct/record specifying its type, along with other things of value
+
+-- TODO: Pattern matching
+  * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
+
 
 -- KEY
 
@@ -12,23 +18,20 @@
 -- TODO: `filter` if-then-else without comma around predicate
 -- TODO: case expression (specifically on maybe initially). depends on expressions reaching over lines
 -- TODO: list index/at
--- TODO: string interpolation "#{intval}"
-  * Could be LString ["val of a: ", (Atom "a"), "!"]?
 -- TODO: modules/namespacing.
 
 -- BACKLOG
+-- TODO: string interpolation "#{intval}"
+  * Could be LString ["val of a: ", (Atom "a"), "!"]?
 -- TODO: repl catch eval error and continue
 -- TODO: use `=` for function definition as well
 -- TODO: types
--- TODO: Pattern matching
-  * allow multiple bindings of same name
 -- TODO: where clause.
 -- TODO: guard clause.
   fun x a
   | x > 1 = true
 -- TODO: Static typing
   * i guess inference is hard, so everything needs to be typed?
-
 -- TODO: replace string with T.Text?
 
 

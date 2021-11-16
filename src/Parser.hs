@@ -17,7 +17,6 @@ expr =
     >> ( lexeme
            ( ifthen
                <|> try function
-               <|> lFold
                <|> letin
                <|> try ternary
                <|> try lambda
@@ -179,7 +178,7 @@ dictAccess = dotKey <|> try dictDotKey
       return (DictAccess x dct)
 
 listContents :: Parser Expr
-listContents = PList <$> juxta `sepBy` many (space <|> char ',')
+listContents = PList <$> (juxta <|> formula) `sepBy` many (space <|> char ',')
 
 list :: Parser Expr
 list = do
@@ -188,14 +187,6 @@ list = do
   x <- try listContents
   char ']'
   return x
-
-lFold :: Parser Expr
-lFold = do
-  reserved "foldInternal"
-  f <- parens lambda <|> variable
-  initValue <- term
-  xs <- list <|> term
-  return (InternalFunction "foldy" (PList [f, initValue, xs]))
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do

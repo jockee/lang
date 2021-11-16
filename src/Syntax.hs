@@ -17,7 +17,7 @@ data Env where
     Env
 
 instance Show Env where
-  show e = "env"
+  show Env {envValues = v, envScopes = s} = show v ++ show s
 
 class Show e => Evaluatable e where
   evalIn :: Env -> e -> (Val, Env)

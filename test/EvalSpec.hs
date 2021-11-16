@@ -77,18 +77,6 @@ spec = describe "Eval" $ do
       it "concatenation" $ do
         eval (parseExpr "[1] ++ [2]") `shouldBe` List [IntVal 1, IntVal 2]
 
-      it "fold function" $ do
-        eval (parseExpr "foldInternal (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
-
-      it "inline partially applied mapping fold function" $ do
-        eval (parseExpr "(f: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)") `shouldBe` List [IntVal 2, IntVal 4]
-
-      it "inline fully applied mapping fold function" $ do
-        eval (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]") `shouldBe` List [IntVal 2, IntVal 4]
-
-      it "fold reverse list" $ do
-        eval (parseExpr "foldInternal (acc x: [x] ++ acc) [] [1, 2]") `shouldBe` List [IntVal 2, IntVal 1]
-
       it "let-in binding list" $ do
         eval (parseExpr "let x = [5] in x") `shouldBe` List [IntVal 5]
 
@@ -141,6 +129,18 @@ spec = describe "Eval" $ do
       eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
+    it "fold function" $ do
+      ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
+      ev `shouldBe` IntVal 6
+
+    it "inline partially applied mapping fold function" $ do
+      ev <- evalWithLib (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)")
+      ev `shouldBe` List [IntVal 2, IntVal 4]
+
+    it "inline fully applied mapping fold function" $ do
+      ev <- evalWithLib (parseExpr "(f xs: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]")
+      ev `shouldBe` List [IntVal 2, IntVal 4]
+
     it "reverse" $ do
       ev <- evalWithLib (parseExpr "reverse [1, 2]")
       ev `shouldBe` List [IntVal 2, IntVal 1]
@@ -223,7 +223,7 @@ spec = describe "Eval" $ do
 
   describe "General" $ do
     it "adds to global scope" $ do
-      (val, env) <- evalsWithLib $ parseExprs "folder = (f init xs: foldInternal f init xs); folder (acc x: acc) 1 [1]"
+      (val, env) <- evalsWithLib $ parseExprs "folder = 1"
       Map.keys (envValues env) `shouldContain` ["global:folder"]
 
     it "assignment in lambda does not leak" $ do
@@ -243,7 +243,7 @@ spec = describe "Eval" $ do
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
 
     it "fold does not leak state" $ do
-      (val, env) <- evalsWithLib $ parseExprs "foldInternal (acc x: acc) 1 [1]"
+      (val, env) <- evalsWithLib $ parseExprs "fold (acc x: acc) 1 [1]"
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
       Map.keys (envValues env) `shouldNotContain` ["global:acc"]
 
