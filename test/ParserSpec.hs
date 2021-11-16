@@ -43,10 +43,10 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "\"test\"") `shouldBe` showExpr (PString "test")
 
   it "ternary" $ do
-    showExpr (parseExpr "true ? 1 : 2") `shouldBe` showExpr (If (PBool True) (PInteger 1) (PInteger 2))
+    showExpr (parseExpr "true ? 1 : 2") `shouldBe` showExpr (PIf (PBool True) (PInteger 1) (PInteger 2))
 
   it "if-then-else" $ do
-    showExpr (parseExpr "if true then 1 else 2") `shouldBe` showExpr (If (PBool True) (PInteger 1) (PInteger 2))
+    showExpr (parseExpr "if true then 1 else 2") `shouldBe` showExpr (PIf (PBool True) (PInteger 1) (PInteger 2))
 
   it "let-in" $ do
     showExpr (parseExpr "let x = 5 in x + 1") `shouldBe` showExpr (App (Lambda ["x"] (Binop Add (Atom "x") (PInteger 1))) (PInteger 5))
@@ -76,7 +76,7 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` showExpr (App (Lambda ["k"] (App (Atom "k") (PInteger 1))) (Lambda ["x"] (Binop Add (Atom "x") (PInteger 1))))
 
   it "fold function" $ do
-    showExpr (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showExpr (LFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (PInteger 1))) (PInteger 0) (PList [(PInteger 1)]))
+    showExpr (parseExpr "foldInternal (acc x: x + 1) 0 [1]") `shouldBe` showExpr (PFold (Lambda ["acc", "x"] (Binop Add (Atom "x") (PInteger 1))) (PInteger 0) (PList [(PInteger 1)]))
 
   it "partially applied lambda" $ do
     showExpr (parseExpr "(x y: x + y) 1") `shouldBe` showExpr (App (Lambda ["x", "y"] (Binop Add (Atom "x") (Atom "y"))) (PInteger 1))
@@ -97,7 +97,7 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "(f b: x * b) (x: x*2) a") `shouldBe` showExpr (App (App (Lambda ["f", "b"] (Binop Mul (Atom "x") (Atom "b"))) (Lambda ["x"] (Binop Mul (Atom "x") (PInteger 2)))) (Atom "a"))
 
   it "map expressed as foldInternal" $ do
-    showExpr (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showExpr (Lambda ["f", "xs"] (LFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (PList [(App (Atom "f") (Atom "x"))]))) (PList []) (Atom "xs")))
+    showExpr (parseExpr "(f xs: foldInternal (acc x: acc ++ [f x]) [] xs)") `shouldBe` showExpr (Lambda ["f", "xs"] (PFold (Lambda ["acc", "x"] (Binop Concat (Atom "acc") (PList [(App (Atom "f") (Atom "x"))]))) (PList []) (Atom "xs")))
 
   it "pass list as function argument" $ do
     showExpr (parseExpr "testFun [1]") `shouldBe` showExpr (App (Atom "testFun") (PList [(PInteger 1)]))
@@ -115,22 +115,22 @@ spec = describe "Parser" $ do
     showExpr (parseExpr "1 > 0") `shouldBe` showExpr (Cmp ">" (PInteger 1) (PInteger 0))
 
   it "dict" $ do
-    showExpr (parseExpr "{a: 1, b: 2}") `shouldBe` showExpr (PDict [((DictKey "a"), (PInteger 1)), ((DictKey "b"), (PInteger 2))])
+    showExpr (parseExpr "{a: 1, b: 2}") `shouldBe` showExpr (PDict [((PDictKey "a"), (PInteger 1)), ((PDictKey "b"), (PInteger 2))])
 
   it "dict access on atom dot key" $ do
     showExpr (parseExpr ".key exampledict") `shouldBe` showExpr (DictAccess (Atom "key") (Atom "exampledict"))
 
   it "dict access on inline dot key" $ do
-    showExpr (parseExpr ".key {a: 1}") `shouldBe` showExpr (DictAccess (DictKey "key") (PDict [((DictKey "a"), (PInteger 1))]))
+    showExpr (parseExpr ".key {a: 1}") `shouldBe` showExpr (DictAccess (PDictKey "key") (PDict [((PDictKey "a"), (PInteger 1))]))
 
   it "dict access" $ do
-    showExpr (parseExpr "exampledict.key") `shouldBe` showExpr (DictAccess (DictKey "key") (Atom "exampledict"))
+    showExpr (parseExpr "exampledict.key") `shouldBe` showExpr (DictAccess (PDictKey "key") (Atom "exampledict"))
 
   it "dict update" $ do
-    showExpr (parseExpr "{ {a: 1} | a:2 }") `shouldBe` showExpr (DictUpdate (PDict [((DictKey "a"), (PInteger 1))]) (PDict [((DictKey "a"), (PInteger 2))]))
+    showExpr (parseExpr "{ {a: 1} | a:2 }") `shouldBe` showExpr (PDictUpdate (PDict [((PDictKey "a"), (PInteger 1))]) (PDict [((PDictKey "a"), (PInteger 2))]))
 
   it "dict update alternative syntax (merge)" $ do
-    showExpr (parseExpr "{ {a: 1} | {a:2} }") `shouldBe` showExpr (DictUpdate (PDict [((DictKey "a"), (PInteger 1))]) (PDict [((DictKey "a"), (PInteger 2))]))
+    showExpr (parseExpr "{ {a: 1} | {a:2} }") `shouldBe` showExpr (PDictUpdate (PDict [((PDictKey "a"), (PInteger 1))]) (PDict [((PDictKey "a"), (PInteger 2))]))
 
   it "function definiton" $ do
     showExpr (parseExpr "s x := x * 2") `shouldBe` showExpr (Binop Assign (Atom "s") (Lambda ["x"] (Binop Mul (Atom "x") (PInteger 2))))

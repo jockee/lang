@@ -159,7 +159,7 @@ dictUpdate = do
   updates <- try dictContents
   char '}'
   optional $ many (space <|> (char '}'))
-  return (DictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
+  return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
 
 dictAccess :: Parser Expr
 dictAccess = dotKey <|> try dictDotKey
@@ -192,7 +192,7 @@ lFold = do
   f <- parens lambda <|> variable
   initValue <- term
   xs <- list <|> term
-  return (LFold f initValue xs)
+  return (PFold f initValue xs)
 
 letin :: Parser Expr
 letin = do
@@ -209,7 +209,7 @@ variable :: Parser Expr
 variable = Atom `fmap` identifier
 
 dictKey :: Parser Expr
-dictKey = DictKey `fmap` identifier
+dictKey = PDictKey `fmap` identifier
 
 function :: Parser Expr
 function = do
@@ -232,7 +232,7 @@ ifthen = do
   reservedOp "then"
   tr <- term
   reserved "else"
-  If cond tr <$> term
+  PIf cond tr <$> term
 
 ternary :: Parser Expr
 ternary = do
@@ -240,7 +240,7 @@ ternary = do
   reservedOp "?"
   tr <- term
   reserved ":"
-  If cond tr <$> term
+  PIf cond tr <$> term
 
 parseMaybe :: Parser Expr
 parseMaybe = nothing <|> just

@@ -25,7 +25,7 @@ data Val
   | IntVal Integer
   | Dictionary (Map.Map Val Val)
   | FloatVal Float
-  | DictKeyVal String
+  | DictKey String
   | Noop
   | List [Val]
   deriving (Data)
@@ -36,7 +36,7 @@ instance Show Val where
   show (FloatVal n) = show n
   show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (DictKeyVal n) = n
+  show (DictKey n) = n
   show (StringVal n) = show n
   show (Boolean n) = show n
 
@@ -94,7 +94,7 @@ instance Num Val where
   (IntVal i1) - (IntVal i2) = IntVal (i1 - i2)
 
 instance Ord Val where
-  compare (DictKeyVal i1) (DictKeyVal i2) = compare i1 i2
+  compare (DictKey i1) (DictKey i2) = compare i1 i2
   compare (FloatVal i1) (FloatVal i2) = compare i1 i2
   compare (IntVal i1) (IntVal i2) = compare i1 i2
 
@@ -105,7 +105,7 @@ instance Eq Val where
   (Boolean False) == (Boolean False) = True
   (List xs) == (List ys) = xs == ys
   (Dictionary m1) == (Dictionary m2) = m1 == m2
-  (DictKeyVal a) == (DictKeyVal b) = a == b
+  (DictKey a) == (DictKey b) = a == b
   (Function env1 ids1 e1) == (Function env2 ids2 e2) = envValues env1 == envValues env2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
@@ -127,14 +127,14 @@ instance Arith Val where
     _ -> Boolean False
 
 evalIn :: Env -> Expr -> (Val, Env)
-evalIn env (If (PBool True) t _) = evalIn env t
-evalIn env (If (PBool False) _ f) = evalIn env f
-evalIn env (If condition ifTrue ifFalse) =
+evalIn env (PIf (PBool True) t _) = evalIn env t
+evalIn env (PIf (PBool False) _ f) = evalIn env f
+evalIn env (PIf condition ifTrue ifFalse) =
   let (val, env') = evalIn env condition
    in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
 evalIn env (Lambda ids e) = (Function env ids e, env)
-evalIn env (LFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
-evalIn env (LFold f initExpr (PList listExprs)) = doFold env f initExpr listExprs
+evalIn env (PFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
+evalIn env (PFold f initExpr (PList listExprs)) = doFold env f initExpr listExprs
 evalIn env (App e1 e2) = runFun (withScope env) e1 e2
 evalIn env (Binop Concat e1 e2) =
   let (List xs, _) = evalIn env e1
@@ -151,7 +151,7 @@ evalIn env (Atom atomId) = case inScopeV env atomId of
 evalIn env (PString n) = (StringVal n, env)
 evalIn env (PFloat n) = (FloatVal n, env)
 evalIn env (PInteger n) = (IntVal n, env)
-evalIn env (DictUpdate baseDict updateDict) =
+evalIn env (PDictUpdate baseDict updateDict) =
   let (Dictionary d1) = fst $ evalIn env baseDict
       (Dictionary d2) = fst $ evalIn env updateDict
    in (Dictionary $ Map.union d2 d1, env)
@@ -159,7 +159,7 @@ evalIn env (DictAccess k dict) =
   let (Dictionary m) = fst $ evalIn env dict
       kv = fst $ evalIn env k
    in (fromJust (Map.lookup kv m), env)
-evalIn env (DictKey k) = (DictKeyVal k, env)
+evalIn env (PDictKey k) = (DictKey k, env)
 evalIn env (PDict pairs) =
   let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
    in (Dictionary $ Map.fromList $ map fn pairs, env)
