@@ -1,9 +1,9 @@
 * get 'Data' back
-* implement fold as (InternalFunction)?
+* remove special fold parser
 * use stdlib fold in stdlib
+  * BLOCK: map through fold leaks
 
 * `min [12,3,4,54, -1]` fails
-
 
 -- KEY
 

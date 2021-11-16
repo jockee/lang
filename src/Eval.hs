@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Eval where
@@ -28,12 +27,12 @@ instance Evaluatable Expr where
     let (val, env') = evalIn env condition
      in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
   evalIn env (Lambda ids e) = (Function env ids e, env)
-  evalIn env (PFold f initExpr listExpr) = doFold env f initExpr listExpr
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = runFun (withScope env) e1 e2
   evalIn env (Binop Concat e1 e2) =
-    let (List xs, _) = evalIn env e1
+    let (List xs, _) = trace ("calling f with x = " ++ show (evalIn env e1)) $ evalIn env e1
         (List ys, _) = evalIn env e2
+        e = error "Invalid"
      in (List $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
   evalIn env (Binop Assign (Atom a) v) =
@@ -71,7 +70,10 @@ instance Evaluatable Expr where
         x = cmpOp op
      in (v1 `x` v2, env)
   evalIn env PNoop = (Undefined, env)
-  evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
+  evalIn _ a = error $ "failed to find match in evalIn" ++ show a
+
+funToExpr :: Val -> Expr
+funToExpr (Function env ids e) = (Lambda ids e)
 
 defaultEnvScopes :: [String]
 defaultEnvScopes = ["global"]
@@ -102,27 +104,21 @@ inScope env atomId = asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
     scopeKeys = map (\k -> k ++ ":" ++ atomId) $ reverse $ envScopes env
 
-doFold :: Evaluatable e => Env -> Expr -> e -> e -> (Val, Env)
-doFold env f initExpr listExprs = (foldl foldFun initVal listVals, env)
+internalFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
+internalFunction env f argsList = case evaledArgsList of
+  List evaledArgs -> (fun f evaledArgs, env)
+  _ -> error "Got non-list"
   where
-    initVal :: Val
-    initVal = fst $ evalIn env initExpr
-    listVals :: [Val]
-    listVals = case fst $ evalIn env listExprs of
-      List xs -> xs
-      val -> trace ("fold got non-list" ++ show val) error "Fold got non-list"
-    foldFun :: Evaluatable e => e -> Val -> Val
-    foldFun acc x = fst $ evalIn env $ App (App f acc) x
-
-internalFunction :: Evaluatable e => Env -> Id -> [e] -> (Val, Env)
-internalFunction env f argsList = (fun f evaledArgsList, env)
-  where
-    evaledArgsList = map (fst . evalIn env) argsList
-    fun "head" (List xs : _) = case xs of
+    evaledArgsList = fst $ evalIn env argsList
+    fun "foldy" (fun : init : List xs : _) =
+      let foldFun :: Evaluatable e => e -> e -> Val
+          foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
+       in foldl foldFun init xs
+    fun "head" xs = case xs of
       [] -> LNothing
       (x : _) -> LJust x
-    fun "sort" (List xs : _) = List . List.sort $ xs
-    fun "sort" ev = undefined -- fst $ evalIn env ev
+    fun "sort" xs = List . List.sort $ xs
+    fun x r = trace ("no such function" ++ show x ++ show r) $ error "No such function "
 
 runFun :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of

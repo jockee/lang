@@ -195,14 +195,14 @@ lFold = do
   f <- parens lambda <|> variable
   initValue <- term
   xs <- list <|> term
-  return (PFold f initValue xs)
+  return (InternalFunction "foldy" (PList [f, initValue, xs]))
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
   reserved "InternalFunction"
   whitespace
   f <- identifier
-  args <- many expr
+  args <- list <|> variable
   return (InternalFunction f args)
 
 letin :: Parser Expr

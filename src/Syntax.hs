@@ -40,9 +40,8 @@ data Expr where
   PNothing :: Expr
   PString :: String -> Expr
   PBool :: Bool -> Expr
-  PFold :: Expr -> Expr -> Expr -> Expr
   PIf :: Expr -> Expr -> Expr -> Expr
-  InternalFunction :: Id -> [Expr] -> Expr
+  InternalFunction :: Id -> Expr -> Expr
   Lambda :: (Show e, Evaluatable e) => [Id] -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
@@ -136,13 +135,12 @@ showExpr PNoop = "(PNoop)"
 showExpr (PBool False) = "(PBool False)"
 showExpr (PDict pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
 showExpr (PDictUpdate dict update) = "(PDictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
-showExpr (InternalFunction f args) = "(InternalFunction " ++ f ++ " [" ++ intercalate ", " (map show args) ++ "])"
+showExpr (PList contents) = "(PList [" ++ intercalate ", " (map show contents) ++ "])"
+showExpr (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ show argList ++ ")"
 showExpr (PNothing) = "(PNothing)"
 showExpr (PJust e) = "(PJust " ++ show e ++ ")"
-showExpr (PList contents) = "(PList [" ++ intercalate ", " (map show contents) ++ "])"
 showExpr (PIf cond e1 e2) = "(PIf " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
-showExpr (PFold f i xs) = "(PFold " ++ showExpr f ++ showExpr i ++ showExpr xs ++ ")"
-showExpr (App e1 e2) = "(App " ++ showExpr e1 ++ ")"
+showExpr (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showExpr (Lambda ids e) = "(Lambda [\"" ++ (intercalate "\", \"" ids) ++ "\"] " ++ show e ++ ")"
 showExpr (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
 showExpr _ = "UNKNOWN"

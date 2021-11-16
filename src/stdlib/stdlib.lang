@@ -1,5 +1,6 @@
-fold f init xs := foldInternal f init xs;
-map f xs := foldInternal (acc x: acc ++ [f x]) [] xs;
+fold f init xs := (InternalFunction foldy [f, init, xs]);
+// fold f init xs := foldInternal f init xs;
+map k ys := fold (acc y: (acc ++ [k y])) [] ys;
 filter f xs := foldInternal (acc x: (f x) ? (acc ++ [x]) : acc) [] xs;
 reject f xs := foldInternal (acc x: (f x) ? acc : (acc ++ [x])) [] xs;
 length xs := foldInternal (acc x: acc + 1) 0 xs;
