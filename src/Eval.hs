@@ -1,8 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Eval where
@@ -31,9 +28,7 @@ instance Evaluatable Expr where
     let (val, env') = evalIn env condition
      in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
   evalIn env (Lambda ids e) = (Function env ids e, env)
-  evalIn env (PFold f initExpr listExpr) = doFoldVal env f initExpr listExpr
-  -- evalIn env (PFold f initExpr (PList a)) = doFold env f initExpr a
-  -- evalIn env (PFold f initExpr (Atom a)) = doFold env f initExpr (atomToExpr env a)
+  evalIn env (PFold f initExpr listExpr) = doFold env f initExpr listExpr
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = runFun (withScope env) e1 e2
   evalIn env (Binop Concat e1 e2) =
@@ -78,24 +73,6 @@ instance Evaluatable Expr where
   evalIn env PNoop = (Undefined, env)
   evalIn _ a = trace ("failed to find match in evalIn" ++ show a) undefined
 
--- deriving (Data)
-
--- data Val
---   = Function Env [Id] Expr
---   | Boolean Bool
---   | StringVal String
---   | IntVal Integer
---   | Dictionary (Map.Map Val Val)
---   | FloatVal Float
---   | DictKey String
---   | Undefined
---   | LJust Val
---   | LNothing
---   | List [Val]
---   deriving (Data)
-
--- deriving (Show, Data)
-
 defaultEnvScopes :: [String]
 defaultEnvScopes = ["global"]
 
@@ -104,13 +81,12 @@ emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes}
 
 extend :: Evaluatable e => Env -> Id -> e -> Env
 extend env id ex =
-  trace ("insert" ++ show id) $
-    Env
-      { envValues = Map.insert key (fst $ evalIn env ex) (envValues env),
-        envScopes = envScopes env
-      }
+  Env
+    { envValues = Map.insert key (fst $ evalIn env ex) (envValues env),
+      envScopes = envScopes env
+    }
   where
-    key = (last $ envScopes env) ++ ":" ++ id
+    key = last (envScopes env) ++ ":" ++ id
 
 resetScope :: Env -> Env
 resetScope env = env {envScopes = defaultEnvScopes}
@@ -126,14 +102,8 @@ inScope env atomId = asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
     scopeKeys = map (\k -> k ++ ":" ++ atomId) $ reverse $ envScopes env
 
--- doFold :: Foldable t => Env -> Expr -> Expr -> t Expr -> (Val, Env)
--- doFold env f initExpr listExprs = evalIn env $ foldl foldFun initExpr listExprs
---   where
---     foldFun acc x = App (App f acc) x
-
--- XXX: rename
-doFoldVal :: (Show e, Evaluatable e) => Env -> Expr -> e -> e -> (Val, Env)
-doFoldVal env f initExpr listExprs = trace ("foldFun" ++ show f) $ (foldl foldFun initVal listVals, env)
+doFold :: Evaluatable e => Env -> Expr -> e -> e -> (Val, Env)
+doFold env f initExpr listExprs = (foldl foldFun initVal listVals, env)
   where
     initVal :: Val
     initVal = fst $ evalIn env initExpr
@@ -144,23 +114,8 @@ doFoldVal env f initExpr listExprs = trace ("foldFun" ++ show f) $ (foldl foldFu
     foldFun :: Evaluatable e => e -> Val -> Val
     foldFun acc x = fst $ evalIn env $ App (App f acc) x
 
--- NOTE: app needs to be able to take val as second argument
-
--- case f of
---   (Lambda [(id1 : id2)] e) ->
---     let newEnv = (extend (extend env id1 acc) id2 x)
---      in fst $ evalIn newEnv f
---   _ -> error "XX"
---     foldFun acc x = App (App f acc) x
-
--- let env'' = extend env' xs e2
-
--- somehow pass acc and x to f
-
--- should take already calculated vals and apply function to it
-
 internalFunction :: Evaluatable e => Env -> Id -> [e] -> (Val, Env)
-internalFunction env f argsList = trace ("internalFunction" ++ show f) $ (fun f evaledArgsList, env)
+internalFunction env f argsList = (fun f evaledArgsList, env)
   where
     evaledArgsList = map (fst . evalIn env) argsList
     fun "head" (List xs : _) = case xs of
@@ -176,15 +131,8 @@ runFun env e1 e2 = case evalIn env e1 of
         missingArgs = filter (isNothing . inScope env'') xs
      in if null missingArgs
           then evalIn env'' e3
-          else trace ("calling f with x = " ++ show missingArgs) $ evalIn env'' (Lambda missingArgs e3)
+          else evalIn env'' (Lambda missingArgs e3)
   val -> trace ("cannot apply val: " ++ show val) error "Cannot apply value"
-
--- -- XXX: hopefully obsolete soon
--- atomToExpr :: Env -> String -> [Expr]
--- atomToExpr env atomId = case inScopeE env atomId of
---   Nothing -> throw $ EvalException "Can't traverse non-list"
---   Just (PList listExprs) -> listExprs
---   Just x -> trace ("calling f with x = " ++ show x) $ [x]
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv

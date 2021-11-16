@@ -13,7 +13,9 @@ head xs := (InternalFunction head xs);
 sort xs := (InternalFunction sort xs); // NOTE: implement without internal?
 reverse xs := foldInternal (acc x: [x] ++ acc) [] xs;
 max xs := sort xs |> reverse |> head;
+min xs := sort xs |> head;
 
+// zip
 // merge
 // keys
 // values

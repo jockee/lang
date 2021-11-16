@@ -58,7 +58,7 @@ replWithEnv env = runInputT haskelineSettings $ do
           case result of
             Left e -> outputStrLn "\n-- EVAL ERROR\n"
             Right (val, newenv) -> do
-              outputStrLn $ show val ++ " : " -- ++ conName val
+              outputStrLn $ show val ++ " : " -- ++ val
               liftIO $ replWithEnv newenv
 
 -- conName :: Data a => a -> String

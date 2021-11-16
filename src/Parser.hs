@@ -1,7 +1,8 @@
 module Parser where
 
 import Debug.Trace
-import Eval
+-- importing only type classes from Eval
+import Eval ()
 import Exceptions
 import Syntax
 import Text.Parsec.Error

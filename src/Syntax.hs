@@ -1,8 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Syntax where
@@ -11,19 +9,9 @@ import Data.Data
 import Data.List as List
 import Data.Map qualified as Map
 
--- data Foo :: * -> * where
---   Foo ::
---     HasData a =>
---     { -- look - the context declared upfront
---       getStr :: String, -- wow - function declaration in type sig!
---       getData :: Data a, -- only allowed with a HasData instance
---       getInt :: Int
---     } ->
---     Foo a
-
 data Env where
   Env ::
-    { envValues :: Map.Map String Val, -- XXX: do we want this to be evaluatable?
+    { envValues :: Map.Map String Val,
       envScopes :: [String]
     } ->
     Env
@@ -31,7 +19,7 @@ data Env where
 instance Show Env where
   show e = "env"
 
-class Evaluatable e where
+class Show e => Evaluatable e where
   evalIn :: Env -> e -> (Val, Env)
 
 type Id = String
@@ -56,12 +44,11 @@ data Expr where
   PIf :: Expr -> Expr -> Expr -> Expr
   InternalFunction :: Id -> [Expr] -> Expr
   Lambda :: (Show e, Evaluatable e) => [Id] -> e -> Expr
-  App :: Evaluatable e => Expr -> e -> Expr
+  App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
   PNoop :: Expr
-
--- deriving (Data)
+  deriving (Typeable)
 
 data Val where
   Function :: (Show e, Evaluatable e) => Env -> [Id] -> e -> Val
@@ -75,6 +62,7 @@ data Val where
   LJust :: Val -> Val
   LNothing :: Val
   List :: [Val] -> Val
+  deriving (Typeable)
 
 instance Show Val where
   show Function {} = "<fun>"
@@ -115,7 +103,7 @@ instance Eq Val where
   (List xs) == (List ys) = xs == ys
   (Dictionary m1) == (Dictionary m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (Function env1 ids1 e1) == (Function env2 ids2 e2) = envValues env1 == envValues env2 -- XXX: 1. currently only looks at vals, not exprs. 2. for testing purposes. lambda function equality is probably not very useful
+  (Function env1 ids1 e1) == (Function env2 ids2 e2) = envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where

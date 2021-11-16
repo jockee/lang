@@ -1,16 +1,15 @@
-* we shouldn't be sorting (etc) expressions. makes no sense
-* can fold be run on values? there are function applications in there.
-* partially applied values required?
-
 * get 'Data' back
-* sort out modules. eval is messy af
+* implement fold as (InternalFunction)?
+* use stdlib fold in stdlib
+
+* `min [12,3,4,54, -1]` fails
+
 
 -- KEY
 
 -- MID
 -- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
 -- TODO: `filter` if-then-else without comma around predicate
--- TODO: Maybe
 -- TODO: case expression (specifically on maybe initially). depends on expressions reaching over lines
 -- TODO: list index/at
 -- TODO: string interpolation "#{intval}"
