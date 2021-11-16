@@ -141,6 +141,18 @@ spec = describe "Eval" $ do
       eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
+    it "reverse" $ do
+      ev <- evalWithLib (parseExpr "reverse [1, 2]")
+      ev `shouldBe` List [IntVal 2, IntVal 1]
+
+    it "max" $ do
+      ev <- evalWithLib (parseExpr "max [1, 2]")
+      ev `shouldBe` LJust (IntVal 2)
+
+    it "head" $ do
+      ev <- evalWithLib (parseExpr "head [1]")
+      ev `shouldBe` LJust (IntVal 1)
+
     it "stdlib fold function leveraging foldInternal" $ do
       ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
       ev `shouldBe` IntVal 6
@@ -237,3 +249,13 @@ spec = describe "Eval" $ do
 
     xit "does not leak nested scope" $ do
       evaluate (evalsWithLib $ parseExprs "fn (x: (let b = 1 in b) b)") `shouldThrow` anyException
+
+  describe "Internal functions" $ do
+    it "head" $ do
+      eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` LJust (IntVal 2)
+
+    it "head returns Nothing on empty list" $ do
+      eval (parseExpr "(InternalFunction head [])") `shouldBe` LNothing
+
+    it "sort" $ do
+      eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` List [IntVal 2, IntVal 3]

@@ -140,3 +140,6 @@ spec = describe "Parser" $ do
 
   it "just something" $ do
     showExpr (parseExpr "Just 1") `shouldBe` showExpr (PJust (PInteger 1))
+
+  it "internal function" $ do
+    showExpr (parseExpr "(InternalFunction head xs)") `shouldBe` showExpr (InternalFunction "head" [(Atom "xs")])

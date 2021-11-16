@@ -1,34 +1,38 @@
+* we shouldn't be sorting (etc) expressions. makes no sense
+* can fold be run on values? there are function applications in there.
+* partially applied values required?
+
+* get 'Data' back
+
 -- KEY
 
 -- MID
 -- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
 -- TODO: `filter` if-then-else without comma around predicate
 -- TODO: Maybe
-  * maybe function. requires type knowledge? if is a Nothing
-  * case expression. after maybe. depends on expressions reaching over lines
-  * list index/at
+-- TODO: case expression (specifically on maybe initially). depends on expressions reaching over lines
+-- TODO: list index/at
 -- TODO: string interpolation "#{intval}"
   * Could be LString ["val of a: ", (Atom "a"), "!"]?
+-- TODO: modules/namespacing.
 
 -- BACKLOG
--- TODO: sort function
 -- TODO: repl catch eval error and continue
 -- TODO: use `=` for function definition as well
 -- TODO: types
 -- TODO: Pattern matching
   * allow multiple bindings of same name
--- TODO: where clause. reqscope
+-- TODO: where clause.
 -- TODO: guard clause.
   fun x a
   | x > 1 = true
 -- TODO: Static typing
   * i guess inference is hard, so everything needs to be typed?
 
--- TODO: modules/namespacing. reqscope
 -- TODO: replace string with T.Text?
 
 
--- XXX: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
+-- NOTE: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
 
 -- COULD BE MOVED TO STDLIB
 * dict update merger. could it, though? how would we modify the dict?

@@ -8,16 +8,18 @@ empty? xs := xs == [];
 // empty? [] := true
 // empty? s := false
 includes? x xs := foldInternal (acc p: (p == x) ? true : false) false xs;
-unique := foldInternal (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs;
+unique xs := foldInternal (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs;
+head xs := (InternalFunction head xs);
+sort xs := (InternalFunction sort xs); // NOTE: implement without internal?
+reverse xs := foldInternal (acc x: [x] ++ acc) [] xs;
+max xs := sort xs |> reverse |> head;
 
-// sort = (xs: foldInternal (acc x: ()) [] xs) NOTE: needs head?
 // merge
 // keys
 // values
 
 // partial
   // list `at`
-  // head
   // last
   // find
   // min

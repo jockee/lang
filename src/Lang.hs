@@ -13,7 +13,15 @@ import Exceptions
 import Parser
 import Syntax
 import System.Console.Haskeline
+import System.Console.Haskeline.History
 import System.IO
+
+haskelineSettings :: Settings IO
+haskelineSettings =
+  Settings
+    { historyFile = Just ".haskeline_history",
+      autoAddHistory = True
+    }
 
 evalWithLib :: Expr -> IO Val
 evalWithLib expr = do
@@ -25,7 +33,7 @@ evalsWithLib :: [Expr] -> IO (Val, Env)
 evalsWithLib = evalsWithLibAndEnv emptyEnv
 
 evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
-evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Noop, env) . allExprs)
+evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
   where
     allExprs lib = parseExprs lib ++ exprs
     fl (_val, env) ex = evalInEnv (resetScope env) ex
@@ -34,7 +42,7 @@ repl :: IO ()
 repl = replWithEnv emptyEnv
 
 replWithEnv :: Env -> IO ()
-replWithEnv env = runInputT defaultSettings $ do
+replWithEnv env = runInputT haskelineSettings $ do
   input <- getInputLine "lang > "
   case input of
     Nothing -> outputStrLn "Noop"
@@ -50,11 +58,11 @@ replWithEnv env = runInputT defaultSettings $ do
           case result of
             Left e -> outputStrLn "\n-- EVAL ERROR\n"
             Right (val, newenv) -> do
-              outputStrLn $ show val ++ " : " ++ conName val
+              outputStrLn $ show val ++ " : " -- ++ conName val
               liftIO $ replWithEnv newenv
 
-conName :: Data a => a -> String
-conName x = showConstr (toConstr x)
+-- conName :: Data a => a -> String
+-- conName x = showConstr (toConstr x)
 
 stdLib :: IO String
 stdLib = do readFile "src/stdlib/stdlib.lang"
