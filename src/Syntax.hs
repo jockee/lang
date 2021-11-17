@@ -70,7 +70,7 @@ instance Show Val where
   show Function {} = "<fun>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show (Tuple ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
+  show (Tuple ns) = "{" ++ List.intercalate ", " (map show ns) ++ "}"
   show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (LJust v) = "Just " ++ show v

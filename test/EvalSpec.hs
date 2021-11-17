@@ -181,6 +181,18 @@ spec = describe "Eval" $ do
       ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
       ev `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
 
+    it "toList" $ do
+      ev <- evalWithLib (parseExpr "toList {a: 1, b: 2}")
+      ev `shouldBe` List [(Tuple [DictKey "a", IntVal 1]), (Tuple [DictKey "b", IntVal 2])]
+
+    it "values" $ do
+      ev <- evalWithLib (parseExpr "values {a: 1, b: 2}")
+      ev `shouldBe` List [IntVal 1, IntVal 2]
+
+    it "keys" $ do
+      ev <- evalWithLib (parseExpr "keys {a: 1, b: 2}")
+      ev `shouldBe` List [DictKey "a", DictKey "b"]
+
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
       evals [parseExpr "1 + 1"] `shouldBe` IntVal 2

@@ -143,6 +143,8 @@ internalFunction env f argsList = case evaledArgsList of
     fun "head" xs = case xs of
       [] -> LNothing
       (x : _) -> LJust x
+    fun "dictToList" (dict : _) = case dict of
+      (Dictionary d) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
     fun "sort" xs = List . List.sort $ xs
     fun x r = trace ("no such function" ++ show x ++ show r) $ error "No such function "
 

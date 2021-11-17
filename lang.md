@@ -1,20 +1,21 @@
 -- KEY
-* stdlib fold:s variable shadowing #varshadow
-  * a successful map doesn't touch Binop Concat until eval?
-    * is this due to it getting values of the wrong type?
+-- TODO: stdlib fold:s variable shadowing #varshadow
+    * a successful map doesn't touch Binop Concat until eval?
+      * is this due to it getting values of the wrong type?
 
 -- TODO: destructuring in named function arguments. reqpatternmatching
 -- TODO: let-in multiple
+  * depends on each other
+-- TODO: underscore to ignore binding
 -- TODO: sets
 -- TODO: Type system
-* get 'Data' back
+  * get 'Data' back
   * perhaps data doesn't cut it? would it be able to catch `Just Integer`, instead of just `Just`?
   * each Val should perhaps carry a struct/record specifying its type, along with other things of value
   * https://rosettacode.org/wiki/Type_detection#Kotlin
 
 -- TODO: Pattern matching
   * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
-
 
 -- MID
 -- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?

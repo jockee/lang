@@ -20,6 +20,9 @@ zipWith f xs ys := (InternalFunction zipWith [f, xs, ys]);
 zip xs ys := zipWith (x y: {x, y}) xs ys;
 
 // DICTIONARIES
+toList xs := (InternalFunction dictToList [xs]);
+keys dict := toList dict |> map ({a,b}: a);
+values dict := toList dict |> map ({a,b}: b);
 // merge
 // keys
 // values
