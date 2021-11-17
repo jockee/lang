@@ -1,5 +1,6 @@
 module Parser where
 
+import Data.List
 import Debug.Trace
 -- importing only type classes from Eval
 import Eval ()
@@ -17,6 +18,7 @@ expr =
     >> ( lexeme
            ( ifthen
                <|> try function
+               <|> try typeDef
                <|> letin
                <|> try ternary
                <|> try lambda
@@ -233,6 +235,13 @@ variable = Atom `fmap` identifier
 
 dictKey :: Parser Expr
 dictKey = PDictKey `fmap` identifier
+
+typeDef :: Parser Expr
+typeDef = do
+  name <- identifier
+  reservedOp "::"
+  bindings <- identifier `sepBy1` reservedOp "->"
+  return $ LTypeDef name (map Definition bindings)
 
 function :: Parser Expr
 function = do

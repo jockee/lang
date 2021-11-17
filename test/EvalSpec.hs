@@ -332,3 +332,13 @@ spec = describe "Eval" $ do
 
     it "zipWith" $ do
       eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` List [List [IntVal 1, IntVal 3], List [IntVal 2, IntVal 2]]
+
+  describe "Type system" $ do
+    xit "Can't declare Integer as String" $ do
+      evaluate (eval (parseExpr "i = 1 :: String")) `shouldThrow` anyException
+
+    xit "Can't declare integer as string typedef" $ do
+      evaluate (evals (parseExprs "a :: String; a = 1")) `shouldThrow` anyException
+
+    xit "Too many arguments in function definition" $ do
+      evaluate (evals (parseExprs "a :: Integer -> Integer; a b c = b + c ")) `shouldThrow` anyException

@@ -47,9 +47,12 @@ data Expr where
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
+  LTypeDef :: Id -> [TypeDef] -> Expr
   PRange :: Expr -> Expr -> Expr
   PNoop :: Expr
   deriving (Typeable)
+
+data TypeDef = Definition String | NestedDefinition [TypeDef] deriving (Show, Eq)
 
 data Val where
   Function :: (Show e, Evaluatable e) => Env -> [Expr] -> e -> Val
@@ -134,6 +137,7 @@ showExpr (PString contents) = "(PString \"" ++ contents ++ "\")"
 showExpr (Atom name) = "(Atom \"" ++ name ++ "\")"
 showExpr (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showExpr (PFloat contents) = "(PFloat " ++ show contents ++ ")"
+showExpr (LTypeDef name types) = "(LTypeDef \"" ++ show name ++ "\" [" ++ joinCommaSep types ++ "])"
 showExpr (PBool True) = "(PBool True)"
 showExpr (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
 showExpr PNoop = "(PNoop)"

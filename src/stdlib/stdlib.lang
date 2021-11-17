@@ -1,5 +1,7 @@
 // LIST
 fold q init qqs := (InternalFunction fold [q, init, qqs]);
+// map :: (Int -> Int) -> [Int] -> [Int];
+map k xs := fold (acc x: (acc ++ [k x])) [] xs;
 map k xs := fold (acc x: (acc ++ [k x])) [] xs;
 filter f xs := fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs;
 reject f xs := fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs;

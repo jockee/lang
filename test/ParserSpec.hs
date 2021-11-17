@@ -155,3 +155,13 @@ spec = describe "Parser" $ do
 
   it "destructuring tuple" $ do
     showExpr (parseExpr "{a, b} = {1, 2}") `shouldBe` showExpr (Binop Assign (PTuple [(Atom "a"), (Atom "b")]) (PTuple [(PInteger 1), (PInteger 2)]))
+
+  describe "Type definition" $ do
+    it "Binding definition" $ do
+      showExpr (parseExpr "a :: Integer") `shouldBe` showExpr (LTypeDef "a" [(Definition "Integer")])
+
+    it "Function definition" $ do
+      showExpr (parseExpr "a :: Integer -> Integer") `shouldBe` showExpr (LTypeDef "a" [Definition "Integer", Definition "Integer"])
+
+    xit "Contains function definition" $ do
+      showExpr (parseExpr "a :: (Integer -> Integer) -> Integer") `shouldBe` showExpr (LTypeDef "a" [NestedDefinition [Definition "Integer", Definition "Integer"], Definition "Integer"])
