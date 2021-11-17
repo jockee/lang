@@ -51,6 +51,9 @@ spec = describe "Parser" $ do
   it "let-in" $ do
     showExpr (parseExpr "let x = 5 in x + 1") `shouldBe` showExpr (App (Lambda [(Atom "x")] (Binop Add (Atom "x") (PInteger 1))) (PInteger 5))
 
+  -- it "let-in multiple args" $ do
+  --   showExpr (parseExpr "let x = 5\ny = 2\n in x + 1") `shouldBe` showExpr (App (Lambda [(Atom "x")] (Binop Add (Atom "x") (PInteger 1))) (PInteger 5))
+
   it "lambda" $ do
     showExpr (parseExpr "(x: x + 1)") `shouldBe` showExpr (Lambda [(Atom "x")] (Binop Add (Atom "x") (PInteger 1)))
 
