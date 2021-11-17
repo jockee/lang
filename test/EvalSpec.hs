@@ -111,7 +111,7 @@ spec = describe "Eval" $ do
 
     xit "lambda partially applied" $ do
       -- XXX: needs to ignore env
-      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) ["x", "b"] (Lambda ["b"] (Binop Add (PInteger 2) (Atom "b")))
+      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) [(Atom "x"), (Atom "b")] (Lambda [(Atom "b")] (Binop Add (PInteger 2) (Atom "b")))
 
     it "lambda fully applied two arguments" $ do
       eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
@@ -249,6 +249,43 @@ spec = describe "Eval" $ do
 
     xit "does not leak nested scope" $ do
       evaluate (evalsWithLib $ parseExprs "fn (x: (let b = 1 in b) b)") `shouldThrow` anyException
+
+  describe "Tuple" $ do
+    it "destructuring tuple returns itself" $ do
+      eval (parseExpr "{a, b} = {1, 2}") `shouldBe` (Tuple [IntVal 1, IntVal 2])
+
+    it "destructuring tuple pushes to scope" $ do
+      evals (parseExprs "{a, b} = {1, 2}; a + b") `shouldBe` IntVal 3
+
+    it "destructuring nested tuple" $ do
+      eval (parseExpr "{a, {b, c}} = {1, {2, 3}}") `shouldBe` (Tuple [IntVal 1, (Tuple [IntVal 2, IntVal 3])])
+
+    it "destructuring nested tuple pushes to scope" $ do
+      evals (parseExprs "{a, {b, c}} = {1, {2, 3}}; a + b + c") `shouldBe` IntVal 6
+
+    xit "destructuring tuple too many on left side fails" $ do
+      evaluate (eval (parseExpr "{a, b} = {1}")) `shouldThrow` anyException
+
+    xit "destructuring tuple too many on right side fails" $ do
+      evaluate (eval (parseExpr "{a, b} = {1, 2, 3}")) `shouldThrow` anyException
+
+    it "destructuring tuple with atom on right side" $ do
+      evals (parseExprs "c = 1; {a, b} = {1, c}") `shouldBe` (Tuple [IntVal 1, IntVal 1])
+
+    it "destructuring tuple with expression on right side" $ do
+      evals (parseExprs "{a, b} = {1, (c = 1)}") `shouldBe` (Tuple [IntVal 1, IntVal 1])
+
+    it "destructuring in lambda (one arg)" $ do
+      evals (parseExprs "({a}: a + 1) {1}") `shouldBe` IntVal 2
+
+    it "destructuring in lambda (two args)" $ do
+      evals (parseExprs "({a,b}: a + b) {1,2}") `shouldBe` IntVal 3
+
+    it "destructuring in lambda (four args)" $ do
+      evals (parseExprs "({a,b,c,d}: a + b + c  + d) {1,2,3,4}") `shouldBe` IntVal 10
+
+    it "destructuring in lambda (nested)" $ do
+      evals (parseExprs "({a,{b,c}}: a + b + c) {1,{2,3}}") `shouldBe` IntVal 6
 
   describe "Range" $ do
     it "range" $ do

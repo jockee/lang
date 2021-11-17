@@ -121,6 +121,7 @@ term =
         <|> parseString
         <|> variable
         <|> parens expr
+        <|> tuple
     )
     <?> "term"
 
@@ -178,8 +179,8 @@ dictAccess = dotKey <|> try dictDotKey
       x <- dictKey
       return (DictAccess x dct)
 
-listContents :: Parser Expr
-listContents = PList <$> (juxta <|> formula) `sepBy` many (space <|> char ',')
+listContents :: Parser [Expr]
+listContents = (juxta <|> formula) `sepBy` many (space <|> char ',')
 
 range :: Parser Expr
 range = do
@@ -192,13 +193,21 @@ range = do
   char ']'
   return (PRange lBound uBound)
 
+tuple :: Parser Expr
+tuple = do
+  char '{'
+  whitespace
+  x <- try listContents
+  char '}'
+  return (PTuple x)
+
 list :: Parser Expr
 list = do
   char '['
   whitespace
   x <- try listContents
   char ']'
-  return x
+  return (PList x)
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
@@ -211,7 +220,7 @@ parseInternalFunction = do
 letin :: Parser Expr
 letin = do
   reserved "let"
-  x <- identifier
+  x <- variable
   reservedOp "="
   e1 <- term
   whitespace
@@ -227,17 +236,18 @@ dictKey = PDictKey `fmap` identifier
 
 function :: Parser Expr
 function = do
-  bindings <- identifier `sepBy` many space
+  bindings <- (variable <|> tuple) `sepBy` many space
   reservedOp ":="
   body <- expr
   let (name : args) = bindings
-  return $ Binop Assign (Atom name) (Lambda args body)
+  return $ Binop Assign name (Lambda args body)
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- identifier `sepBy` many space
+  identifiers <- (variable <|> tuple) `sepBy` many space
   reservedOp ":"
-  Lambda identifiers <$> expr
+  body <- expr
+  return (Lambda identifiers body)
 
 ifthen :: Parser Expr
 ifthen = do

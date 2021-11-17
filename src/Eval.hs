@@ -29,16 +29,6 @@ instance Evaluatable Expr where
   evalIn env (Lambda ids e) = (Function env ids e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = runFun (withScope env) e1 e2
-  evalIn env (Binop Concat e1 e2) =
-    let (List xs, _) = trace ("E1: " ++ show (evalIn env e1)) $ evalIn env e1
-        (List ys, _) = trace ("E2: " ++ show (evalIn env e2)) $ evalIn env e2
-        e = error "Invalid"
-     in (List $ xs ++ ys, env)
-  evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
-  evalIn env (Binop Assign (Atom a) v) =
-    let env'' = extend env' a v
-        (value, env') = evalIn env v
-     in (value, env'')
   evalIn env (Atom atomId) = case inScope env atomId of
     Just a -> (a, env)
     Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
@@ -64,7 +54,22 @@ instance Evaluatable Expr where
           (IntVal l, IntVal u) -> (List $ map IntVal [l .. u], env)
           _ -> error "Invalid range"
   evalIn env (PList es) = (List $ map (fst . evalIn env) es, env)
+  evalIn env (PTuple es) = (Tuple $ map (fst . evalIn env) es, env)
   evalIn env (PBool n) = (Boolean n, env)
+  evalIn env (Binop Assign (PTuple bindings) (PTuple vs)) =
+    let evaledValues = map (fst . evalIn env) vs
+        newEnv = extendWithTuple env bindings evaledValues
+     in (trace ("before" ++ show env ++ "\nafter: " ++ show newEnv)) $ (Tuple evaledValues, newEnv)
+  evalIn env (Binop Concat e1 e2) =
+    let (List xs, _) = trace ("E1: " ++ show (evalIn env e1)) $ evalIn env e1
+        (List ys, _) = trace ("E2: " ++ show (evalIn env e2)) $ evalIn env e2
+        e = error "Invalid"
+     in (List $ xs ++ ys, env)
+  evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
+  evalIn env (Binop Assign (Atom a) v) =
+    let env'' = extend env' a v
+        (value, env') = evalIn env v
+     in (value, env'')
   evalIn env (Binop op e1 e2) =
     let (v1, _) = evalIn env e1
         (v2, _) = evalIn env e2
@@ -77,6 +82,18 @@ instance Evaluatable Expr where
      in (v1 `x` v2, env)
   evalIn env PNoop = (Undefined, env)
   evalIn _ a = error $ "failed to find match in evalIn" ++ show a
+
+extendWithTuple :: Env -> [Expr] -> [Val] -> Env
+extendWithTuple env bindings vs =
+  trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
+    let foldFun :: Env -> (Expr, Val) -> Env
+        foldFun accEnv (atom, val) = case atom of
+          Atom atomId -> extend accEnv atomId val
+          PTuple nBindings -> case val of
+            (Tuple vls) -> extendWithTuple accEnv nBindings vls
+            _ -> error "Trying to destructure into non-atom"
+          _ -> error "Trying to destructure into non-atom"
+     in foldl foldFun env (zip bindings vs)
 
 funToExpr :: Val -> Expr
 funToExpr (Function env ids e) = (Lambda ids e)
@@ -131,13 +148,30 @@ internalFunction env f argsList = case evaledArgsList of
 
 runFun :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
-  (Function _ xs e3, env') ->
-    let env'' = extend env' (head xs) e2
-        missingArgs = filter (isNothing . inScope env'') xs
-     in if null missingArgs
-          then evalIn env'' e3
-          else evalIn env'' (Lambda missingArgs e3)
+  (Function _ ids e3, env') ->
+    let arg = head ids
+        -- NOTE: move extension of 'whatever' to separate function
+        newEnv = case arg of
+          (Atom atomId) -> extend env' atomId e2
+          (PTuple bindings) -> case (fst $ evalIn env' e2) of
+            (Tuple vals) -> extendWithTuple env bindings vals
+            _ -> error "Non-tuple value received for tuple destructuring"
+        missingArgs' = missingArgs newEnv ids
+     in if null missingArgs'
+          then evalIn newEnv e3
+          else evalIn newEnv (Lambda missingArgs' e3)
   (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
+
+missingArgs :: Env -> [Expr] -> [Expr]
+missingArgs env = filter fn
+  where
+    fn expr = isNothing $ traverse (inScope env) (atomIds expr)
+
+atomIds :: Expr -> [String]
+atomIds x = case x of
+  Atom atomId -> [atomId]
+  (PTuple atomList) -> concatMap atomIds atomList
+  _ -> error "Non-atom function argument"
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv

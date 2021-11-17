@@ -29,6 +29,7 @@ data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
 
 data Expr where
   Atom :: String -> Expr
+  PTuple :: [Expr] -> Expr
   PList :: [Expr] -> Expr
   PDict :: [(Expr, Expr)] -> Expr
   PDictUpdate :: Expr -> Expr -> Expr
@@ -42,7 +43,7 @@ data Expr where
   PBool :: Bool -> Expr
   PIf :: Expr -> Expr -> Expr -> Expr
   InternalFunction :: Id -> Expr -> Expr
-  Lambda :: (Show e, Evaluatable e) => [Id] -> e -> Expr
+  Lambda :: (Show e, Evaluatable e) => [Expr] -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
@@ -51,7 +52,7 @@ data Expr where
   deriving (Typeable)
 
 data Val where
-  Function :: (Show e, Evaluatable e) => Env -> [Id] -> e -> Val
+  Function :: (Show e, Evaluatable e) => Env -> [Expr] -> e -> Val
   Boolean :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
@@ -61,6 +62,7 @@ data Val where
   Undefined :: Val
   LJust :: Val -> Val
   LNothing :: Val
+  Tuple :: [Val] -> Val
   List :: [Val] -> Val
   deriving (Typeable)
 
@@ -68,6 +70,7 @@ instance Show Val where
   show Function {} = "<fun>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
+  show (Tuple ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (LJust v) = "Just " ++ show v
@@ -94,6 +97,7 @@ instance Ord Val where
   compare (IntVal i1) (IntVal i2) = compare i1 i2
 
 instance Eq Val where
+  (Tuple a) == (Tuple b) = a == b
   LNothing == LNothing = True
   LJust v1 == LJust v2 = v1 == v2
   (FloatVal i1) == (FloatVal i2) = i1 == i2
@@ -135,15 +139,18 @@ showExpr (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")
 showExpr PNoop = "(PNoop)"
 showExpr (PBool False) = "(PBool False)"
 showExpr (PDict pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
+showExpr (PTuple contents) = "(PTuple [" ++ joinCommaSep contents ++ "])"
+showExpr (PList contents) = "(PList [" ++ joinCommaSep contents ++ "])"
 showExpr (PDictUpdate dict update) = "(PDictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
-showExpr (PList contents) = "(PList [" ++ intercalate ", " (map show contents) ++ "])"
 showExpr (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ show argList ++ ")"
 showExpr (PNothing) = "(PNothing)"
 showExpr (PJust e) = "(PJust " ++ show e ++ ")"
 showExpr (PIf cond e1 e2) = "(PIf " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
 showExpr (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showExpr (Lambda ids e) = "(Lambda [\"" ++ (intercalate "\", \"" ids) ++ "\"] " ++ show e ++ ")"
+showExpr (Lambda ids e) = "(Lambda [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
 showExpr (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
 showExpr _ = "UNKNOWN"
 
 showDictContents pairs = intercalate ", " (map show pairs)
+
+joinCommaSep contents = intercalate ", " (map show contents)
