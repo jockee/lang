@@ -6,12 +6,12 @@
 # KEY
 
   - TODO: split expression on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
-    * let in should be able to span multiple lines
+    - TODO: let in should be able to span multiple lines
   - TODO: Type system #typesystem
-    * optional type system. a full type system is too much work?
-    * parse type definition
-    * complain if receiving wrong args
+    - TODO: complain if receiving wrong args
+    - TODO: parse nested type definition
     - TODO: `data` types ()
+    * optional type system. a full type system is too much work?
     * each Val should perhaps carry a struct/record specifying its type, along with other things of value
     * https://rosettacode.org/wiki/Type_detection#Kotlin
     - TODO: Type classes/traits:
