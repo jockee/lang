@@ -5,18 +5,20 @@
         * is this due to it getting values of the wrong type?
 # KEY
 
-  - TODO: split expression on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
-    - TODO: let in should be able to span multiple lines
   - TODO: Type system #typesystem
-    - TODO: complain if receiving wrong args
+    - TODO: handle lists and tuples as input types
+    - TODO: handle functions as input types
+    - TODO: check return type on return - after `evalIn`
     - TODO: parse nested type definition
-    - TODO: `data` types ()
+    - TODO: achieve polymorphism through type classes
     * optional type system. a full type system is too much work?
     * each Val should perhaps carry a struct/record specifying its type, along with other things of value
     * https://rosettacode.org/wiki/Type_detection#Kotlin
     - TODO: Type classes/traits:
       * Listable (fold as minimal complete definition)
       * Dictable (needs Listable and then fromList?)
+  - TODO: split expression on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
+    - TODO: let in should be able to span multiple lines
   - TODO: Pattern matching #pattermatching
     * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
     - TODO: destructuring in named function arguments. #reqpatternmatching
@@ -27,6 +29,7 @@
     * when it's done we, `maybe` function
   - TODO: list index/at
   - TODO: modules/namespacing.
+  - TODO: `data` types ()
 
 # BACKLOG
 

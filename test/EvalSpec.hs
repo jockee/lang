@@ -342,3 +342,23 @@ spec = describe "Eval" $ do
 
     xit "Too many arguments in function definition" $ do
       evaluate (evals (parseExprs "a :: Integer -> Integer; a b c = b + c ")) `shouldThrow` anyException
+
+    it "Binding definition pushed to env" $ do
+      evalInEnv emptyEnv (parseExpr "a :: Integer")
+        `shouldSatisfy` ( \case
+                            (_, env) ->
+                              Map.lookup "a" (typeSigs env)
+                                == Just (TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
+                        )
+
+    it "Called with wrong type" $ do
+      evaluate (evals (parseExprs "a :: Integer -> Integer; a b := b + 1; a \"s\"")) `shouldThrow` anyException
+
+    it "Called with wrong type second argument" $ do
+      evaluate (evals (parseExprs "a :: Integer -> Integer -> Integer; a b c := b + 1; a 1 \"s\"")) `shouldThrow` anyException
+
+    it "Correct types, two different" $ do
+      evals (parseExprs "a :: Integer -> String -> Integer; a b c := b + 1; a 1 \"s\"") `shouldBe` IntVal 2
+
+    it "Called with wrong type second argument, different types" $ do
+      evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c := c + 1; a 1 \"s\"")) `shouldThrow` anyException

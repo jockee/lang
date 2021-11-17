@@ -20,16 +20,23 @@ instance Hashable Env where
 instance Evaluatable Val where
   evalIn env val = (val, env)
 
+typeSigToEnv :: Env -> TypeSig -> Env
+typeSigToEnv env ts =
+  case typeSigName ts of
+    Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
+    Nothing -> env
+
 instance Evaluatable Expr where
+  evalIn env (NamedTypeSig ts) = (Undefined, typeSigToEnv env ts)
   evalIn env (PIf (PBool True) t _) = evalIn env t
   evalIn env (PIf (PBool False) _ f) = evalIn env f
   evalIn env (PIf condition ifTrue ifFalse) =
     let (val, env') = evalIn env condition
      in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
-  evalIn env (Lambda ids e) = (Function env ids e, env)
+  evalIn env (Lambda ts ids e) = (Function ts env ids e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = runFun (withScope env) e1 e2
-  evalIn env (Atom atomId) = case inScope env atomId of
+  evalIn env (Atom ts atomId) = case inScope env atomId of
     Just a -> (a, env)
     Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   evalIn env (PString n) = (StringVal n, env)
@@ -44,19 +51,19 @@ instance Evaluatable Expr where
         kv = fst $ evalIn env k
      in (fromJust (Map.lookup kv m), env)
   evalIn env (PDictKey k) = (DictKey k, env)
-  evalIn env (PDict pairs) =
+  evalIn env (PDict ts pairs) =
     let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
      in (Dictionary $ Map.fromList $ map fn pairs, env)
-  evalIn env (PRange lBoundExp uBoundExp) =
+  evalIn env (PRange ts lBoundExp uBoundExp) =
     let lBound = fst $ evalIn env lBoundExp
         uBound = fst $ evalIn env uBoundExp
      in case (lBound, uBound) of
           (IntVal l, IntVal u) -> (List $ map IntVal [l .. u], env)
           _ -> error "Invalid range"
-  evalIn env (PList es) = (List $ map (fst . evalIn env) es, env)
-  evalIn env (PTuple es) = (Tuple $ map (fst . evalIn env) es, env)
+  evalIn env (PList ts es) = (List $ map (fst . evalIn env) es, env)
+  evalIn env (PTuple ts es) = (Tuple $ map (fst . evalIn env) es, env)
   evalIn env (PBool n) = (Boolean n, env)
-  evalIn env (Binop Assign (PTuple bindings) (PTuple vs)) =
+  evalIn env (Binop Assign (PTuple ts1 bindings) (PTuple ts2 vs)) =
     let evaledValues = map (fst . evalIn env) vs
         newEnv = extendWithTuple env bindings evaledValues
      in if length bindings /= length evaledValues
@@ -72,8 +79,8 @@ instance Evaluatable Expr where
         e = error "Invalid"
      in (List $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
-  evalIn env (Binop Assign (Atom a) v) =
-    let env'' = extend env' a v
+  evalIn env (Binop Assign (Atom ts a) v) =
+    let env'' = extend env' a AnyType v
         (value, env') = evalIn env v
      in (value, env'')
   evalIn env (Binop op e1 e2) =
@@ -90,34 +97,35 @@ instance Evaluatable Expr where
   evalIn _ a = error $ "failed to find match in evalIn" ++ show a
 
 funToExpr :: Val -> Expr
-funToExpr (Function env ids e) = (Lambda ids e)
+funToExpr (Function ts env ids e) = (Lambda ts ids e)
 
 defaultEnvScopes :: [String]
 defaultEnvScopes = ["global"]
 
 emptyEnv :: Env
-emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes}
+emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty}
 
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
   -- trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
   let foldFun :: Env -> (Expr, Val) -> Env
       foldFun accEnv (atom, val) = case atom of
-        Atom atomId -> extend accEnv atomId val
-        PTuple nBindings -> case val of
+        Atom ts atomId -> extend accEnv atomId AnyType val
+        PTuple ts nBindings -> case val of
           (Tuple vls) -> extendWithTuple accEnv nBindings vls
           _ -> error "Trying to destructure into non-atom"
         _ -> error "Trying to destructure into non-atom"
    in foldl foldFun env (zip bindings vs)
 
-extend :: Evaluatable e => Env -> Id -> e -> Env
-extend env "_" _ = env
-extend env id ex =
-  Env
-    { envValues = Map.insert key (fst $ evalIn env ex) (envValues env),
-      envScopes = envScopes env
-    }
+extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
+extend env "_" _ _ = env
+extend env id expectedType ex =
+  if expectedType == AnyType || gotType == expectedType
+    then env {envValues = Map.insert key val (envValues env)}
+    else throw . TypeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
+    gotType = toLangType val
+    val = fst $ evalIn env ex
     key = last (envScopes env) ++ ":" ++ id
 
 resetScope :: Env -> Env
@@ -159,19 +167,31 @@ internalFunction env f argsList = case evaledArgsList of
 
 runFun :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 runFun env e1 e2 = case evalIn env e1 of
-  (Function _ ids e3, env') ->
+  (Function ts _ ids e3, env') ->
     let arg = head ids
         -- NOTE: move extension of 'whatever' to separate function
+        argsRemaining = length $ missingArgs env' ids
         newEnv = case arg of
-          (Atom atomId) -> extend env' atomId e2
-          (PTuple bindings) -> case (fst $ evalIn env' e2) of
+          (Atom _ts atomId) -> extend env' atomId (expectedType env' ts argsRemaining) e2
+          (PTuple _ts bindings) -> case (fst $ evalIn env' e2) of
             (Tuple vals) -> extendWithTuple env bindings vals
             _ -> error "Non-tuple value received for tuple destructuring"
         missingArgs' = missingArgs newEnv ids
      in if null missingArgs'
           then evalIn newEnv e3
-          else evalIn newEnv (Lambda missingArgs' e3)
+          else evalIn newEnv (Lambda ts missingArgs' e3)
   (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
+
+expectedType :: Env -> TypeSig -> Int -> LangType
+expectedType env ts argsRemaining =
+  case typeSigName ts of
+    Just name -> maybe AnyType typeAtPos (inTypes name)
+    Nothing -> AnyType -- not named, so for the time being not typed
+  where
+    typeAtPos x =
+      let types = typeSigIn x
+       in types !! (length types - argsRemaining)
+    inTypes name = Map.lookup name (typeSigs env)
 
 missingArgs :: Env -> [Expr] -> [Expr]
 missingArgs env = filter fn
@@ -180,8 +200,8 @@ missingArgs env = filter fn
 
 atomIds :: Expr -> [String]
 atomIds x = case x of
-  Atom atomId -> [atomId]
-  (PTuple atomList) -> concatMap atomIds atomList
+  Atom _ atomId -> [atomId]
+  (PTuple _ atomList) -> concatMap atomIds atomList
   _ -> error "Non-atom function argument"
 
 eval :: Evaluatable e => e -> Val

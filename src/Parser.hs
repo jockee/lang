@@ -136,7 +136,7 @@ false = try $ string "false" >> return (PBool False)
 dictContents :: Parser Expr
 dictContents = do
   pairs <- pair `sepBy` many (space <|> char ',')
-  return (PDict pairs)
+  return (PDict (sig [AnyType] AnyType) pairs)
   where
     pair = do
       key <- dictKey
@@ -193,7 +193,7 @@ range = do
   whitespace
   uBound <- term
   char ']'
-  return (PRange lBound uBound)
+  return (PRange (sig [AnyType] AnyType) lBound uBound)
 
 tuple :: Parser Expr
 tuple = do
@@ -201,7 +201,7 @@ tuple = do
   whitespace
   x <- try listContents
   char '}'
-  return (PTuple x)
+  return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
 
 list :: Parser Expr
 list = do
@@ -209,7 +209,7 @@ list = do
   whitespace
   x <- try listContents
   char ']'
-  return (PList x)
+  return (PList (sig [ListType AnyType] (ListType AnyType)) x)
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
@@ -228,10 +228,10 @@ letin = do
   whitespace
   reservedOp "in"
   e2 <- expr
-  return (App (Lambda [x] e2) e1)
+  return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
 
 variable :: Parser Expr
-variable = Atom `fmap` identifier
+variable = Atom (sig [] AnyType) `fmap` identifier
 
 dictKey :: Parser Expr
 dictKey = PDictKey `fmap` identifier
@@ -241,7 +241,20 @@ typeDef = do
   name <- identifier
   reservedOp "::"
   bindings <- identifier `sepBy1` reservedOp "->"
-  return $ LTypeDef name (map Type bindings)
+  let args = case init bindings of
+        [] -> []
+        ["TakesAnyArgsType"] -> [TakesAnyArgsType]
+        ts ->
+          map
+            ( \case
+                "Any" -> AnyType
+                t -> toLangType t
+            )
+            ts
+  let rtrn = case last bindings of
+        "Any" -> AnyType
+        s -> toLangType $ last bindings
+  return (NamedTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn})
 
 function :: Parser Expr
 function = do
@@ -249,14 +262,16 @@ function = do
   reservedOp ":="
   body <- expr
   let (name : args) = bindings
-  return $ Binop Assign name (Lambda args body)
+  let Atom _ nameStr = name
+  let funSig = TypeSig {typeSigName = Just nameStr, typeSigIn = [], typeSigReturn = AnyType}
+  return $ Binop Assign name (Lambda funSig args body)
 
 lambda :: Parser Expr
 lambda = do
   identifiers <- (variable <|> tuple) `sepBy` many space
   reservedOp ":"
   body <- expr
-  return (Lambda identifiers body)
+  return (Lambda (sig [AnyType] AnyType) identifiers body)
 
 ifthen :: Parser Expr
 ifthen = do
@@ -285,7 +300,7 @@ parseMaybe = nothing <|> just
       string "Just"
       whitespace
       justVal <- expr
-      return $ PJust justVal
+      return $ PJust (sig [AnyType] AnyType) justVal
 
 parseFloat :: Parser Expr
 parseFloat = do
@@ -334,3 +349,6 @@ escapedChars :: Parser Char
 escapedChars = do
   char '\\'
   oneOf ['\\', '"']
+
+sig :: [LangType] -> LangType -> TypeSig
+sig inn out = TypeSig {typeSigName = Nothing, typeSigIn = inn, typeSigReturn = out}

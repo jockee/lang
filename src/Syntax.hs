@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Syntax where
@@ -12,12 +14,13 @@ import Data.Map qualified as Map
 data Env where
   Env ::
     { envValues :: Map.Map String Val,
-      envScopes :: [String]
+      envScopes :: [String],
+      typeSigs :: Map.Map String TypeSig
     } ->
     Env
 
 instance Show Env where
-  show Env {envValues = v, envScopes = s} = show v ++ show s
+  show Env {typeSigs = t, envValues = v, envScopes = s} = show v ++ show s ++ show t
 
 class Show e => Evaluatable e where
   evalIn :: Env -> e -> (Val, Env)
@@ -28,34 +31,32 @@ data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
   deriving (Show, Data)
 
 data Expr where
-  Atom :: String -> Expr
-  PTuple :: [Expr] -> Expr
-  PList :: [Expr] -> Expr
-  PDict :: [(Expr, Expr)] -> Expr
+  Atom :: TypeSig -> String -> Expr
+  PTuple :: TypeSig -> [Expr] -> Expr
+  PList :: TypeSig -> [Expr] -> Expr
+  PDict :: TypeSig -> [(Expr, Expr)] -> Expr
   PDictUpdate :: Expr -> Expr -> Expr
   DictAccess :: Expr -> Expr -> Expr
   PDictKey :: String -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Float -> Expr
-  PJust :: Expr -> Expr
+  PJust :: TypeSig -> Expr -> Expr
   PNothing :: Expr
   PString :: String -> Expr
   PBool :: Bool -> Expr
   PIf :: Expr -> Expr -> Expr -> Expr
   InternalFunction :: Id -> Expr -> Expr
-  Lambda :: (Show e, Evaluatable e) => [Expr] -> e -> Expr
+  Lambda :: (Show e, Evaluatable e) => TypeSig -> [Expr] -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
-  LTypeDef :: Id -> [TypeDef] -> Expr
-  PRange :: Expr -> Expr -> Expr
+  NamedTypeSig :: TypeSig -> Expr
+  PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
   deriving (Typeable)
 
-data TypeDef = Type String | NestedType [TypeDef] deriving (Show, Eq)
-
 data Val where
-  Function :: (Show e, Evaluatable e) => Env -> [Expr] -> e -> Val
+  Function :: (Show e, Evaluatable e) => TypeSig -> Env -> [Expr] -> e -> Val
   Boolean :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
@@ -73,6 +74,7 @@ instance Show Val where
   show Function {} = "<fun>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
+  show Undefined = "Undefined"
   show (Tuple ns) = "{" ++ List.intercalate ", " (map show ns) ++ "}"
   show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
@@ -110,7 +112,8 @@ instance Eq Val where
   (List xs) == (List ys) = xs == ys
   (Dictionary m1) == (Dictionary m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (Function env1 ids1 e1) == (Function env2 ids2 e2) = envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
+  (Function ts1 env1 ids1 e1) == (Function ts2 env2 ids2 e2) =
+    ts1 == ts2 && envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where
@@ -130,30 +133,96 @@ instance Arith Val where
     (Boolean a, Boolean b) -> Boolean $ a || b
     _ -> Boolean False
 
-instance Show Expr where show = showExpr
+instance Show Expr where
+  show = showWithoutTypes
 
-showExpr :: Expr -> String
-showExpr (PString contents) = "(PString \"" ++ contents ++ "\")"
-showExpr (Atom name) = "(Atom \"" ++ name ++ "\")"
-showExpr (PInteger contents) = "(PInteger " ++ show contents ++ ")"
-showExpr (PFloat contents) = "(PFloat " ++ show contents ++ ")"
-showExpr (LTypeDef name types) = "(LTypeDef \"" ++ show name ++ "\" [" ++ joinCommaSep types ++ "])"
-showExpr (PBool True) = "(PBool True)"
-showExpr (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ show a ++ " " ++ show b ++ ")"
-showExpr PNoop = "(PNoop)"
-showExpr (PBool False) = "(PBool False)"
-showExpr (PDict pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
-showExpr (PTuple contents) = "(PTuple [" ++ joinCommaSep contents ++ "])"
-showExpr (PList contents) = "(PList [" ++ joinCommaSep contents ++ "])"
-showExpr (PDictUpdate dict update) = "(PDictUpdate " ++ showExpr dict ++ " " ++ showExpr update ++ ")"
-showExpr (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ show argList ++ ")"
-showExpr (PNothing) = "(PNothing)"
-showExpr (PJust e) = "(PJust " ++ show e ++ ")"
-showExpr (PIf cond e1 e2) = "(PIf " ++ show cond ++ " " ++ show e1 ++ " " ++ show e2 ++ ")"
-showExpr (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showExpr (Lambda ids e) = "(Lambda [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
-showExpr (Binop t s d) = "(Binop " ++ show t ++ " " ++ show s ++ " " ++ show d ++ ")"
-showExpr _ = "UNKNOWN"
+showWithTypes :: Expr -> String
+showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
+showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
+showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
+showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
+showWithTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
+showWithTypes (PBool True) = "(PBool True)"
+showWithTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithTypes a ++ " " ++ showWithTypes b ++ ")"
+showWithTypes PNoop = "(PNoop)"
+showWithTypes (PBool False) = "(PBool False)"
+showWithTypes (PDict ts pairs) = "(PDict " ++ showTypeSig ts ++ "\") [" ++ showDictContents pairs ++ "])"
+showWithTypes (PTuple ts contents) = "(PTuple " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
+showWithTypes (PList ts contents) = "(PList " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
+showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
+showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
+showWithTypes (PNothing) = "(PNothing)"
+showWithTypes (PJust ts e) = "(PJust " ++ showTypeSig ts ++ " " ++ showWithTypes e ++ ")"
+showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
+showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
+showWithTypes (Lambda ts ids e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
+showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
+showWithTypes _ = "UNKNOWN"
+
+data TypeSig = TypeSig {typeSigName :: Maybe String, typeSigIn :: [LangType], typeSigReturn :: LangType} deriving (Show, Eq)
+
+data LangType
+  = TakesAnyArgsType
+  | ListType LangType
+  | IntType
+  | FloatType
+  | StringType
+  | BooleanType
+  | DictionaryType
+  | DictKeyType
+  | MaybeType
+  | FunctionType
+  | UndefinedType
+  | AnyType
+  deriving (Show, Eq)
+
+class LangTypeable a where
+  toLangType :: a -> LangType
+
+instance LangTypeable String where
+  toLangType s = case s of
+    "String" -> StringType
+    "Integer" -> IntType
+
+instance LangTypeable Val where
+  toLangType val = case val of
+    IntVal {} -> IntType
+    FloatVal {} -> FloatType
+    StringVal {} -> StringType
+    Function {} -> FunctionType
+    Boolean {} -> BooleanType
+    Dictionary {} -> DictionaryType
+    DictKey {} -> DictKeyType
+    Undefined {} -> UndefinedType
+    LJust {} -> MaybeType
+    LNothing {} -> MaybeType
+    Tuple {} -> ListType AnyType
+    List {} -> ListType AnyType
+
+showWithoutTypes :: Expr -> String
+showWithoutTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
+showWithoutTypes (Atom _ts name) = "(Atom \"" ++ name ++ "\")"
+showWithoutTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
+showWithoutTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
+showWithoutTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
+showWithoutTypes (PBool True) = "(PBool True)"
+showWithoutTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithoutTypes a ++ " " ++ showWithoutTypes b ++ ")"
+showWithoutTypes PNoop = "(PNoop)"
+showWithoutTypes (PBool False) = "(PBool False)"
+showWithoutTypes (PDict _ts pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
+showWithoutTypes (PTuple _ts contents) = "(PTuple [" ++ joinCommaSep contents ++ "])"
+showWithoutTypes (PList _ts contents) = "(PList [" ++ joinCommaSep contents ++ "])"
+showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
+showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
+showWithoutTypes (PNothing) = "(PNothing)"
+showWithoutTypes (PJust _ts e) = "(PJust " ++ showWithoutTypes e ++ ")"
+showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
+showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
+showWithoutTypes (Lambda _ ids e) = "(Lambda [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
+showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
+showWithoutTypes _ = "UNKNOWN"
+
+showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 
 showDictContents pairs = intercalate ", " (map show pairs)
 
