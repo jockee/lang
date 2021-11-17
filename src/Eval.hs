@@ -59,10 +59,16 @@ instance Evaluatable Expr where
   evalIn env (Binop Assign (PTuple bindings) (PTuple vs)) =
     let evaledValues = map (fst . evalIn env) vs
         newEnv = extendWithTuple env bindings evaledValues
-     in (trace ("before" ++ show env ++ "\nafter: " ++ show newEnv)) $ (Tuple evaledValues, newEnv)
+     in if length bindings /= length evaledValues
+          then throw $ EvalException "Destructuring failed. Mismatched parameter count"
+          else (Tuple evaledValues, newEnv)
   evalIn env (Binop Concat e1 e2) =
-    let (List xs, _) = trace ("E1: " ++ show (evalIn env e1)) $ evalIn env e1
-        (List ys, _) = trace ("E2: " ++ show (evalIn env e2)) $ evalIn env e2
+    let (List xs, _) =
+          -- trace ("E1: " ++ show (evalIn env e1)) $
+          evalIn env e1
+        (List ys, _) =
+          -- trace ("E2: " ++ show (evalIn env e2)) $
+          evalIn env e2
         e = error "Invalid"
      in (List $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
@@ -83,18 +89,6 @@ instance Evaluatable Expr where
   evalIn env PNoop = (Undefined, env)
   evalIn _ a = error $ "failed to find match in evalIn" ++ show a
 
-extendWithTuple :: Env -> [Expr] -> [Val] -> Env
-extendWithTuple env bindings vs =
-  trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
-    let foldFun :: Env -> (Expr, Val) -> Env
-        foldFun accEnv (atom, val) = case atom of
-          Atom atomId -> extend accEnv atomId val
-          PTuple nBindings -> case val of
-            (Tuple vls) -> extendWithTuple accEnv nBindings vls
-            _ -> error "Trying to destructure into non-atom"
-          _ -> error "Trying to destructure into non-atom"
-     in foldl foldFun env (zip bindings vs)
-
 funToExpr :: Val -> Expr
 funToExpr (Function env ids e) = (Lambda ids e)
 
@@ -104,7 +98,20 @@ defaultEnvScopes = ["global"]
 emptyEnv :: Env
 emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes}
 
+extendWithTuple :: Env -> [Expr] -> [Val] -> Env
+extendWithTuple env bindings vs =
+  -- trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
+  let foldFun :: Env -> (Expr, Val) -> Env
+      foldFun accEnv (atom, val) = case atom of
+        Atom atomId -> extend accEnv atomId val
+        PTuple nBindings -> case val of
+          (Tuple vls) -> extendWithTuple accEnv nBindings vls
+          _ -> error "Trying to destructure into non-atom"
+        _ -> error "Trying to destructure into non-atom"
+   in foldl foldFun env (zip bindings vs)
+
 extend :: Evaluatable e => Env -> Id -> e -> Env
+extend env "_" _ = env
 extend env id ex =
   Env
     { envValues = Map.insert key (fst $ evalIn env ex) (envValues env),
@@ -123,7 +130,9 @@ withScope env = newEnv
     newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
 
 inScope :: Env -> String -> Maybe Val
-inScope env atomId = trace ("SCOPEKEYS " ++ show scopeKeys ++ show env) $ asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
+inScope env atomId =
+  -- trace ("SCOPEKEYS " ++ show scopeKeys ++ show env) $
+  asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
     scopeKeys = reverse $ map (\k -> k ++ ":" ++ atomId) $ envScopes env
 

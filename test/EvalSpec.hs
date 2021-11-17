@@ -2,6 +2,7 @@ module EvalSpec where
 
 import Control.Exception
 import Data.Map qualified as Map
+import Data.Typeable
 import Debug.Trace
 import Eval
 import Exceptions
@@ -109,9 +110,12 @@ spec = describe "Eval" $ do
     it "lambda one argument" $ do
       eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
 
-    xit "lambda partially applied" $ do
-      -- XXX: needs to ignore env
-      (eval (parseExpr "(x b: x + b) 2")) `shouldBe` Function (emptyEnv) [(Atom "x"), (Atom "b")] (Lambda [(Atom "b")] (Binop Add (PInteger 2) (Atom "b")))
+    it "lambda partially applied" $ do
+      eval (parseExpr "(x b: x + b) 2")
+        `shouldSatisfy` ( \case
+                            Function {} -> True
+                            _ -> False
+                        )
 
     it "lambda fully applied two arguments" $ do
       eval (parseExpr "(x b: x + b) 2 2") `shouldBe` IntVal 4
@@ -193,6 +197,10 @@ spec = describe "Eval" $ do
       ev <- evalWithLib (parseExpr "keys {a: 1, b: 2}")
       ev `shouldBe` List [DictKey "a", DictKey "b"]
 
+    it "merge" $ do
+      ev <- evalWithLib (parseExpr "merge {a: 1} {b: 2}")
+      ev `shouldBe` Dictionary (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
+
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
       evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
@@ -259,8 +267,8 @@ spec = describe "Eval" $ do
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
       Map.keys (envValues env) `shouldNotContain` ["global:acc"]
 
-    xit "does not leak nested scope" $ do
-      evaluate (evalsWithLib $ parseExprs "fn (x: (let b = 1 in b) b)") `shouldThrow` anyException
+    it "does not leak nested scope" $ do
+      evaluate (evals (parseExprs "fn (x: (let b = 1 in b) b)")) `shouldThrow` anyException
 
   describe "Tuple" $ do
     it "destructuring tuple returns itself" $ do
@@ -275,10 +283,16 @@ spec = describe "Eval" $ do
     it "destructuring nested tuple pushes to scope" $ do
       evals (parseExprs "{a, {b, c}} = {1, {2, 3}}; a + b + c") `shouldBe` IntVal 6
 
-    xit "destructuring tuple too many on left side fails" $ do
+    it "underscore ignores" $ do
+      evals (parseExprs "{_, b} = {1, 2}; b") `shouldBe` IntVal 2
+
+    it "underscore ignores" $ do
+      evaluate (evals (parseExprs "{_, b} = {1, 2}; _")) `shouldThrow` anyException
+
+    it "destructuring tuple too many on left side fails" $ do
       evaluate (eval (parseExpr "{a, b} = {1}")) `shouldThrow` anyException
 
-    xit "destructuring tuple too many on right side fails" $ do
+    it "destructuring tuple too many on right side fails" $ do
       evaluate (eval (parseExpr "{a, b} = {1, 2, 3}")) `shouldThrow` anyException
 
     it "destructuring tuple with atom on right side" $ do

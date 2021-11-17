@@ -99,7 +99,7 @@ reservedOp :: String -> Parser ()
 reservedOp = Tok.reservedOp lexer
 
 identifier :: Parser String
-identifier = Token.identifier lexer
+identifier = Token.identifier lexer <|> string "_"
 
 juxta :: Parser Expr
 juxta = foldl1 App <$> many1 term
@@ -160,7 +160,7 @@ dictUpdate = do
   char '|'
   whitespace
   optional $ char '{'
-  updates <- try dictContents
+  updates <- try dictContents <|> variable
   char '}'
   optional $ many (space <|> (char '}'))
   return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists

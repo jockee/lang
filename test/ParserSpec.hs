@@ -111,6 +111,9 @@ spec = describe "Parser" $ do
   it "dict" $ do
     showExpr (parseExpr "{a: 1, b: 2}") `shouldBe` showExpr (PDict [((PDictKey "a"), (PInteger 1)), ((PDictKey "b"), (PInteger 2))])
 
+  it "empty dict" $ do
+    showExpr (parseExpr "{}") `shouldBe` showExpr (PDict [])
+
   it "dict access on atom dot key" $ do
     showExpr (parseExpr ".key exampledict") `shouldBe` showExpr (DictAccess (Atom "key") (Atom "exampledict"))
 

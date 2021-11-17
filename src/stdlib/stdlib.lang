@@ -18,14 +18,13 @@ max xs := sort xs |> reverse |> head;
 min xs := sort xs |> head;
 zipWith f xs ys := (InternalFunction zipWith [f, xs, ys]);
 zip xs ys := zipWith (x y: {x, y}) xs ys;
+toDict xs := fold (acc {k,v}: { acc | {k: v} ) {} xs;
 
 // DICTIONARIES
 toList xs := (InternalFunction dictToList [xs]);
 keys dict := toList dict |> map ({a,b}: a);
 values dict := toList dict |> map ({a,b}: b);
-// merge
-// keys
-// values
+merge d1 d2 := { d1 | d2 }
 
 // partial
   // list `at` - needs counting ability. zipping with range would solve

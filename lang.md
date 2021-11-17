@@ -1,13 +1,13 @@
 -- KEY
--- TODO: stdlib fold:s variable shadowing #varshadow
+-- TODO: VARIABLE SHADOWING: stdlib fold:s variable shadowing #varshadow
     * a successful map doesn't touch Binop Concat until eval?
       * is this due to it getting values of the wrong type?
-
+-- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
 -- TODO: destructuring in named function arguments. reqpatternmatching
 -- TODO: let-in multiple
   * depends on each other
+-- TODO: dynamic dict keys. enables
 -- TODO: underscore to ignore binding
--- TODO: sets
 -- TODO: Type system
   * get 'Data' back
   * perhaps data doesn't cut it? would it be able to catch `Just Integer`, instead of just `Just`?
@@ -18,7 +18,7 @@
   * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
 
 -- MID
--- TODO: split expression on newline unless followed by (1) pipe or (2) indentation?
+-- TODO: sets
 -- TODO: `filter` if-then-else without comma around predicate
 -- TODO: case expression (specifically on maybe initially). depends on expressions reaching over lines
 -- TODO: list index/at
