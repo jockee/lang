@@ -52,7 +52,7 @@ data Expr where
   PNoop :: Expr
   deriving (Typeable)
 
-data TypeDef = Definition String | NestedDefinition [TypeDef] deriving (Show, Eq)
+data TypeDef = Type String | NestedType [TypeDef] deriving (Show, Eq)
 
 data Val where
   Function :: (Show e, Evaluatable e) => Env -> [Expr] -> e -> Val

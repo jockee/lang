@@ -158,10 +158,10 @@ spec = describe "Parser" $ do
 
   describe "Type definition" $ do
     it "Binding definition" $ do
-      showExpr (parseExpr "a :: Integer") `shouldBe` showExpr (LTypeDef "a" [(Definition "Integer")])
+      showExpr (parseExpr "a :: Integer") `shouldBe` showExpr (LTypeDef "a" [(Type "Integer")])
 
     it "Function definition" $ do
-      showExpr (parseExpr "a :: Integer -> Integer") `shouldBe` showExpr (LTypeDef "a" [Definition "Integer", Definition "Integer"])
+      showExpr (parseExpr "a :: Integer -> Integer") `shouldBe` showExpr (LTypeDef "a" [Type "Integer", Type "Integer"])
 
     xit "Contains function definition" $ do
-      showExpr (parseExpr "a :: (Integer -> Integer) -> Integer") `shouldBe` showExpr (LTypeDef "a" [NestedDefinition [Definition "Integer", Definition "Integer"], Definition "Integer"])
+      showExpr (parseExpr "a :: (Integer -> Integer) -> Integer") `shouldBe` showExpr (LTypeDef "a" [NestedType [Type "Integer", Type "Integer"], Type "Integer"])

@@ -241,7 +241,7 @@ typeDef = do
   name <- identifier
   reservedOp "::"
   bindings <- identifier `sepBy1` reservedOp "->"
-  return $ LTypeDef name (map Definition bindings)
+  return $ LTypeDef name (map Type bindings)
 
 function :: Parser Expr
 function = do
