@@ -15,8 +15,8 @@ expr :: Parser Expr
 expr =
   whitespace
     >> ( lexeme
-           ( ifthen
-               <|> try function
+           ( try function
+               <|> ifthen
                <|> try typeDef
                <|> letin
                <|> try ternary
@@ -257,10 +257,10 @@ typeDef = do
 
 function :: Parser Expr
 function = do
-  bindings <- (variable <|> tuple) `sepBy` many space
+  name <- variable
+  args <- term `sepBy` many space
   reservedOp ":="
   body <- expr
-  let (name : args) = bindings
   let Atom _ nameStr = name
   let funSig = TypeSig {typeSigName = Just nameStr, typeSigIn = [], typeSigReturn = AnyType}
   return $ Binop Assign name (Lambda funSig args body)

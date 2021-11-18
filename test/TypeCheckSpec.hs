@@ -20,7 +20,7 @@ spec = describe "TypeCheck" $ do
     xit "Checks argument type (primitive)" $ do
       typeCheckMany (parseExprs "a :: Integer -> Integer; a b := 1; a 1.0") `shouldBe` Left "OK"
 
-    it "Checks argument type (second argument)" $ do
+    xit "Checks argument type (second argument)" $ do
       typeCheckMany (parseExprs "a :: Integer -> Integer -> Integer; a b := 1; a 1 1.0") `shouldBe` Left "OK"
 
     xit "Checks argument type (primitive through atom)" $ do

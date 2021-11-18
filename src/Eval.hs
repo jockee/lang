@@ -4,8 +4,6 @@
 module Eval where
 
 import Control.Exception
-import Data.Data
-import Data.Foldable (asum)
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
@@ -28,9 +26,10 @@ instance Evaluatable Expr where
      in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
   evalIn env (Lambda ts ids e) = (Function ts env ids e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
-  evalIn env (App e1 e2) = runFun (withScope env) e1 e2
+  evalIn env (App e1 e2) = apply (withScope env) e1 e2
   evalIn env (Atom ts atomId) = case inScope env atomId of
-    Just a -> (a, env)
+    Just [definition] -> (definition, env)
+    Just definitions -> (Pattern definitions, env)
     Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   evalIn env (PString n) = (StringVal n, env)
   evalIn env (PFloat n) = (FloatVal n, env)
@@ -71,7 +70,7 @@ instance Evaluatable Expr where
           evalIn env e2
         e = error "Invalid"
      in (List $ xs ++ ys, env)
-  evalIn env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
+  evalIn env (Binop Pipe e1 e2) = apply (withScope env) e2 e1
   evalIn env (Binop Assign (Atom ts a) v) =
     let env'' = extend env' a AnyType v
         (value, env') = evalIn env v
@@ -89,9 +88,6 @@ instance Evaluatable Expr where
   evalIn env PNoop = (Undefined, env)
   evalIn _ a = error $ "failed to find match in evalIn" ++ show a
 
-funToExpr :: Val -> Expr
-funToExpr (Function ts env ids e) = (Lambda ts ids e)
-
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
   -- trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
@@ -107,9 +103,10 @@ extendWithTuple env bindings vs =
 extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
 extend env id expectedType ex =
-  if expectedType == AnyType || gotType == expectedType
-    then env {envValues = Map.insert key val (envValues env)}
-    else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
+  trace ("extending with " ++ show id) $
+    if expectedType == AnyType || gotType == expectedType
+      then env {envValues = Map.insertWith (++) key [val] (envValues env)}
+      else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
     gotType = toLangType val
     val = fst $ evalIn env ex
@@ -135,23 +132,32 @@ internalFunction env f argsList = case evaledArgsList of
       (Dictionary d) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
     fun "sort" xs = List . List.sort $ xs
     fun x r = trace ("no such function" ++ show x ++ show r) $ error "No such function "
+    funToExpr (Function ts env ids e) = (Lambda ts ids e)
 
-runFun :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
-runFun env e1 e2 = case evalIn env e1 of
-  (Function ts _ ids e3, env') ->
-    let arg = head ids
-        -- NOTE: move extension of 'whatever' to separate function
-        argsRemaining = length $ missingArgs env' ids
-        newEnv = case arg of
-          (Atom _ts atomId) -> extend env' atomId (expectedType env' ts argsRemaining) e2
-          (PTuple _ts bindings) -> case (fst $ evalIn env' e2) of
-            (Tuple vals) -> extendWithTuple env bindings vals
-            _ -> error "Non-tuple value received for tuple destructuring"
-        missingArgs' = missingArgs newEnv ids
-     in if null missingArgs'
-          then evalIn newEnv e3
-          else evalIn newEnv (Lambda ts missingArgs' e3)
+apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
+apply env e1 e2 = case evalIn env e1 of
+  (Pattern definitions, env') -> case List.find match definitions of
+    Just (Function ts _ ids e3) -> runFun env' ts ids e2 e3
+    Nothing -> error "Pattern match fail"
+  (Function ts _ ids e3, env') -> runFun env' ts ids e2 e3
   (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
+  where
+    match definition = trace ("definition: " ++ show definition) $ True
+
+runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> [Expr] -> e1 -> e2 -> (Val, Env)
+runFun env ts ids expr funExpr =
+  let arg = head ids
+      -- NOTE: move extension of 'whatever' to separate function
+      argsRemaining = length $ missingArgs env ids
+      newEnv = case arg of
+        (Atom _ts atomId) -> extend env atomId (expectedType env ts argsRemaining) expr
+        (PTuple _ts bindings) -> case (fst $ evalIn env expr) of
+          (Tuple vals) -> extendWithTuple env bindings vals
+          _ -> error "Non-tuple value received for tuple destructuring"
+      missingArgs' = missingArgs newEnv ids
+   in if null missingArgs'
+        then evalIn newEnv funExpr
+        else evalIn newEnv (Lambda ts missingArgs' funExpr)
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv

@@ -361,3 +361,10 @@ spec = describe "Eval" $ do
 
     it "Called with wrong type second argument, different types" $ do
       evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c := c + 1; a 1 \"s\"")) `shouldThrow` anyException
+
+  describe "Pattern matching" $ do
+    it "multiple assignments match" $ do
+      evals (parseExprs "a [] := 1; a b := 2; a []") `shouldBe` IntVal 1
+
+    it "multiple assignments can fall through" $ do
+      evals (parseExprs "a [] := 1; a b := 2; a 3") `shouldBe` IntVal 2

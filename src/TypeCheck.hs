@@ -133,7 +133,7 @@ typeSigToEnv env ts =
     Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
     Nothing -> env
 
-inScope :: Env -> String -> Maybe Val
+inScope :: Env -> String -> Maybe [Val]
 inScope env atomId =
   -- trace ("SCOPEKEYS " ++ show scopeKeys ++ show env) $
   asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys

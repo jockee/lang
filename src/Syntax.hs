@@ -15,7 +15,7 @@ import Data.Map qualified as Map
 
 data Env where
   Env ::
-    { envValues :: Map.Map String Val,
+    { envValues :: Map.Map String [Val],
       envScopes :: [String],
       typeSigs :: Map.Map String TypeSig
     } ->
@@ -86,13 +86,13 @@ showWithTypes (PNothing) = "(PNothing)"
 showWithTypes (PJust ts e) = "(PJust " ++ showTypeSig ts ++ " " ++ showWithTypes e ++ ")"
 showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
-showWithTypes (Lambda ts ids e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
+showWithTypes (Lambda ts ids e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep ids ++ "] " ++ show e ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes _ = "UNKNOWN"
 
 showWithoutTypes :: Expr -> String
 showWithoutTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
-showWithoutTypes (Atom _ts name) = "(Atom \"" ++ name ++ "\")"
+showWithoutTypes (Atom _ts name) = "(Atom anyTypeSig \"" ++ name ++ "\")"
 showWithoutTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithoutTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
 showWithoutTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
@@ -100,16 +100,16 @@ showWithoutTypes (PBool True) = "(PBool True)"
 showWithoutTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithoutTypes a ++ " " ++ showWithoutTypes b ++ ")"
 showWithoutTypes PNoop = "(PNoop)"
 showWithoutTypes (PBool False) = "(PBool False)"
-showWithoutTypes (PDict _ts pairs) = "(PDict [" ++ showDictContents pairs ++ "])"
-showWithoutTypes (PTuple _ts contents) = "(PTuple [" ++ joinCommaSep contents ++ "])"
-showWithoutTypes (PList _ts contents) = "(PList [" ++ joinCommaSep contents ++ "])"
+showWithoutTypes (PDict _ts pairs) = "(PDict anyTypeSig [" ++ showDictContents pairs ++ "])"
+showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep contents ++ "])"
+showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
 showWithoutTypes (PNothing) = "(PNothing)"
-showWithoutTypes (PJust _ts e) = "(PJust " ++ showWithoutTypes e ++ ")"
+showWithoutTypes (PJust _ts e) = "(PJust anyTypeSig " ++ showWithoutTypes e ++ ")"
 showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showWithoutTypes (Lambda _ ids e) = "(Lambda [" ++ joinCommaSep ids ++ "\"] " ++ show e ++ ")"
+showWithoutTypes (Lambda _ ids e) = "(Lambda anyTypeSig [" ++ joinCommaSep ids ++ "] " ++ show e ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes _ = "UNKNOWN"
 
@@ -117,6 +117,7 @@ showWithoutTypes _ = "UNKNOWN"
 
 data Val where
   Function :: (Show e, Evaluatable e) => TypeSig -> Env -> [Expr] -> e -> Val
+  Pattern :: [Val] -> Val
   Boolean :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
@@ -131,7 +132,8 @@ data Val where
   deriving (Typeable)
 
 instance Show Val where
-  show Function {} = "<fun>"
+  show (Function ts _ ids _) = "<fun TS: " ++ show ts ++ ". Args " ++ intercalate ", " (map showWithTypes ids)
+  show Pattern {} = "<pattern>"
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show Undefined = "Undefined"
