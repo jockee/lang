@@ -15,6 +15,7 @@ import Syntax
 import System.Console.Haskeline
 import System.Console.Haskeline.History
 import System.IO
+import TypeCheck
 
 haskelineSettings :: Settings IO
 haskelineSettings =

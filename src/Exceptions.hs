@@ -7,6 +7,7 @@ import Text.Parsec.Error
 data LangException
   = ParseException ParseError
   | EvalException String
+  | RuntimeException String
   | TypeException String
   deriving (Show, Eq, Typeable)
 

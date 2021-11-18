@@ -6,27 +6,20 @@ module Eval where
 import Control.Exception
 import Data.Data
 import Data.Foldable (asum)
-import Data.Hashable
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Syntax
-
-instance Hashable Env where
-  hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v
+import TypeCheck
 
 instance Evaluatable Val where
   evalIn env val = (val, env)
-
-typeSigToEnv :: Env -> TypeSig -> Env
-typeSigToEnv env ts =
-  case typeSigName ts of
-    Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
-    Nothing -> env
+  toExpr val = undefined
 
 instance Evaluatable Expr where
+  toExpr expr = expr
   evalIn env (NamedTypeSig ts) = (Undefined, typeSigToEnv env ts)
   evalIn env (PIf (PBool True) t _) = evalIn env t
   evalIn env (PIf (PBool False) _ f) = evalIn env f
@@ -99,12 +92,6 @@ instance Evaluatable Expr where
 funToExpr :: Val -> Expr
 funToExpr (Function ts env ids e) = (Lambda ts ids e)
 
-defaultEnvScopes :: [String]
-defaultEnvScopes = ["global"]
-
-emptyEnv :: Env
-emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty}
-
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
   -- trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
@@ -122,27 +109,11 @@ extend env "_" _ _ = env
 extend env id expectedType ex =
   if expectedType == AnyType || gotType == expectedType
     then env {envValues = Map.insert key val (envValues env)}
-    else throw . TypeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
+    else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
     gotType = toLangType val
     val = fst $ evalIn env ex
     key = last (envScopes env) ++ ":" ++ id
-
-resetScope :: Env -> Env
-resetScope env = env {envScopes = defaultEnvScopes}
-
-withScope :: Env -> Env
-withScope env = newEnv
-  where
-    newScope = show $ hash newEnv
-    newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
-
-inScope :: Env -> String -> Maybe Val
-inScope env atomId =
-  -- trace ("SCOPEKEYS " ++ show scopeKeys ++ show env) $
-  asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
-  where
-    scopeKeys = reverse $ map (\k -> k ++ ":" ++ atomId) $ envScopes env
 
 internalFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
 internalFunction env f argsList = case evaledArgsList of
@@ -181,28 +152,6 @@ runFun env e1 e2 = case evalIn env e1 of
           then evalIn newEnv e3
           else evalIn newEnv (Lambda ts missingArgs' e3)
   (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
-
-expectedType :: Env -> TypeSig -> Int -> LangType
-expectedType env ts argsRemaining =
-  case typeSigName ts of
-    Just name -> maybe AnyType typeAtPos (inTypes name)
-    Nothing -> AnyType -- not named, so for the time being not typed
-  where
-    typeAtPos x =
-      let types = typeSigIn x
-       in types !! (length types - argsRemaining)
-    inTypes name = Map.lookup name (typeSigs env)
-
-missingArgs :: Env -> [Expr] -> [Expr]
-missingArgs env = filter fn
-  where
-    fn expr = isNothing $ traverse (inScope env) (atomIds expr)
-
-atomIds :: Expr -> [String]
-atomIds x = case x of
-  Atom _ atomId -> [atomId]
-  (PTuple _ atomList) -> concatMap atomIds atomList
-  _ -> error "Non-atom function argument"
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv

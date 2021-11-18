@@ -2,7 +2,6 @@ module Parser where
 
 import Data.List
 import Debug.Trace
--- importing only type classes from Eval
 import Eval ()
 import Exceptions
 import Syntax
@@ -336,7 +335,7 @@ parseExprs s = case parseExprs' s of
   Right exprs -> exprs
 
 parseExprs' :: String -> Either ParseError [Expr]
-parseExprs' = parse (allOf (expr `sepBy` char ';')) "stdin"
+parseExprs' = parse (allOf (expr `sepBy` (char ';'))) "stdin"
 
 parseString :: Parser Expr
 parseString = do

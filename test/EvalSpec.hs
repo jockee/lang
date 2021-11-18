@@ -2,15 +2,14 @@ module EvalSpec where
 
 import Control.Exception
 import Data.Map qualified as Map
-import Data.Typeable
 import Debug.Trace
 import Eval
 import Exceptions
 import Lang
 import Parser
-import ParserSpec
 import Syntax
 import Test.Hspec
+import TypeCheck
 
 spec :: Spec
 spec = describe "Eval" $ do

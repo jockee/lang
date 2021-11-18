@@ -5,7 +5,8 @@
         * is this due to it getting values of the wrong type?
 # KEY
 
-  - TODO: Type system #typesystem
+  - TODO: (STATIC) TYPE SYSTEM #typesystem
+    * keep the dynamic type system?
     - TODO: handle lists and tuples as input types
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
@@ -15,11 +16,12 @@
     * each Val should perhaps carry a struct/record specifying its type, along with other things of value
     * https://rosettacode.org/wiki/Type_detection#Kotlin
     - TODO: Type classes/traits:
+      * Num (arithmetic)
       * Listable (fold as minimal complete definition)
       * Dictable (needs Listable and then fromList?)
   - TODO: split expression on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
     - TODO: let in should be able to span multiple lines
-  - TODO: Pattern matching #pattermatching
+  - TODO: Pattern matching #patternmatching
     * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
     - TODO: destructuring in named function arguments. #reqpatternmatching
 
