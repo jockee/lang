@@ -4,6 +4,7 @@ import Control.Exception
 import Data.Data
 import Data.Foldable (asum)
 import Data.Hashable
+import Data.List
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
@@ -16,8 +17,6 @@ instance Hashable Env where
 
 typeCheck :: Env -> LangType -> Expr -> (Either String Env)
 typeCheck env _ (NamedTypeSig ts) = Right (typeSigToEnv env ts)
---
---
 --
 -- TODO: check return type in expression:
 -- TODO: needs to recur down the ast
@@ -49,17 +48,6 @@ expectedType env ts argsRemaining =
       let types = typeSigIn x
        in types !! (length types - argsRemaining)
     inTypes name = Map.lookup name (typeSigs env)
-
-missingArgs :: Env -> [Expr] -> [Expr]
-missingArgs env = filter fn
-  where
-    fn expr = isNothing $ traverse (inScope env) (atomIds expr)
-
-atomIds :: Expr -> [String]
-atomIds x = case x of
-  Atom _ atomId -> [atomId]
-  (PTuple _ atomList) -> concatMap atomIds atomList
-  _ -> error "Non-atom function argument"
 
 -- typeCheck env (PIf (PBool True) t _) = typeCheck env t
 -- typeCheck env (PIf (PBool False) _ f) = typeCheck env f

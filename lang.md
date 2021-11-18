@@ -1,12 +1,9 @@
-# BUGS
-
-  - BUG: VARIABLE SHADOWING: stdlib fold:s variable shadowing #varshadow
-      * a successful map doesn't touch Binop Concat until eval?
-        * is this due to it getting values of the wrong type?
 # KEY
 
+  - TODO: PATTERN MATCHING
+    * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
+    - TODO: destructuring in named function arguments. #reqpatternmatching
   - TODO: (STATIC) TYPE SYSTEM #typesystem
-    * keep the dynamic type system?
     - TODO: handle lists and tuples as input types
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
@@ -19,11 +16,8 @@
       * Num (arithmetic)
       * Listable (fold as minimal complete definition)
       * Dictable (needs Listable and then fromList?)
-  - TODO: split expression on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
+  - TODO: SPLIT EXPRESSIONS on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
     - TODO: let in should be able to span multiple lines
-  - TODO: Pattern matching #patternmatching
-    * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
-    - TODO: destructuring in named function arguments. #reqpatternmatching
 
 # MID
 
@@ -55,6 +49,7 @@
 
 
 -- NOTE: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
+-- NOTE: remove AtomType - it's AnyType?
 
 -- COULD BE MOVED TO STDLIB
 * dict update merger. could it, though? how would we modify the dict?

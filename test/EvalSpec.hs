@@ -332,7 +332,7 @@ spec = describe "Eval" $ do
     it "zipWith" $ do
       eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` List [List [IntVal 1, IntVal 3], List [IntVal 2, IntVal 2]]
 
-  describe "Type system" $ do
+  describe "Runtime type system" $ do
     xit "Can't declare Integer as String" $ do
       evaluate (eval (parseExpr "i = 1 :: String")) `shouldThrow` anyException
 
@@ -368,3 +368,6 @@ spec = describe "Eval" $ do
 
     it "multiple assignments can fall through" $ do
       evals (parseExprs "a [] := 1; a b := 2; a 3") `shouldBe` IntVal 2
+
+    it "empty list should only match empty list" $ do
+      evals (parseExprs "a [] := [0]; a b := b; a [1]") `shouldBe` List [IntVal 1]

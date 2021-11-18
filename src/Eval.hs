@@ -24,7 +24,7 @@ instance Evaluatable Expr where
   evalIn env (PIf condition ifTrue ifFalse) =
     let (val, env') = evalIn env condition
      in if val == Boolean True then evalIn env' ifTrue else evalIn env' ifFalse
-  evalIn env (Lambda ts ids e) = (Function ts env ids e, env)
+  evalIn env (Lambda ts args e) = (Function ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = apply (withScope env) e1 e2
   evalIn env (Atom ts atomId) = case inScope env atomId of
@@ -103,10 +103,9 @@ extendWithTuple env bindings vs =
 extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
 extend env id expectedType ex =
-  trace ("extending with " ++ show id) $
-    if expectedType == AnyType || gotType == expectedType
-      then env {envValues = Map.insertWith (++) key [val] (envValues env)}
-      else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
+  if expectedType == AnyType || expectedType == AtomType || gotType == expectedType
+    then env {envValues = Map.insertWith (flip (++)) key [val] (envValues env)}
+    else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
     gotType = toLangType val
     val = fst $ evalIn env ex
@@ -132,32 +131,46 @@ internalFunction env f argsList = case evaledArgsList of
       (Dictionary d) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
     fun "sort" xs = List . List.sort $ xs
     fun x r = trace ("no such function" ++ show x ++ show r) $ error "No such function "
-    funToExpr (Function ts env ids e) = (Lambda ts ids e)
+    funToExpr (Function ts env args e) = (Lambda ts args e)
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 = case evalIn env e1 of
-  (Pattern definitions, env') -> case List.find match definitions of
-    Just (Function ts _ ids e3) -> runFun env' ts ids e2 e3
+  (Pattern definitions, env') -> case List.find (patternMatch passedArg) definitions of
+    Just (Function ts _ args e3) -> runFun env' ts args e2 e3
     Nothing -> error "Pattern match fail"
-  (Function ts _ ids e3, env') -> runFun env' ts ids e2 e3
+  (Function ts _ args e3, env') -> runFun env' ts args e2 e3
   (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
   where
-    match definition = trace ("definition: " ++ show definition) $ True
+    (passedArg, _) = evalIn env e2
 
-runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> [Expr] -> e1 -> e2 -> (Val, Env)
-runFun env ts ids expr funExpr =
-  let arg = head ids
+patternMatch :: Val -> Val -> Bool
+patternMatch passedArg definition = case definition of
+  Function _ _ (_, expectedArgExp : _) _ ->
+    let passedArgType = toLangType passedArg
+        expectedType = toLangType expectedArgExp
+        typesMatch =
+          expectedType == AnyType
+            || expectedType == AtomType
+            || passedArgType == expectedType
+
+        patternMatches (PList _ []) (List []) = True
+        patternMatches (PList _ _) _ = False
+        patternMatches _ _ = True
+     in --trace ("calling f with x = " ++ show passedArg ++ " - " ++ show expectedArgExp) $
+        typesMatch && patternMatches expectedArgExp passedArg
+
+runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
+runFun env ts argsList expr funExpr =
+  let (allArgs, args@(arg : remainingArgs')) = argsList
       -- NOTE: move extension of 'whatever' to separate function
-      argsRemaining = length $ missingArgs env ids
       newEnv = case arg of
-        (Atom _ts atomId) -> extend env atomId (expectedType env ts argsRemaining) expr
-        (PTuple _ts bindings) -> case (fst $ evalIn env expr) of
+        (Atom _ts atomId) -> extend env atomId (expectedType env ts $ length args) expr
+        (PTuple _ts bindings) -> case fst $ evalIn env expr of
           (Tuple vals) -> extendWithTuple env bindings vals
           _ -> error "Non-tuple value received for tuple destructuring"
-      missingArgs' = missingArgs newEnv ids
-   in if null missingArgs'
+   in if null remainingArgs'
         then evalIn newEnv funExpr
-        else evalIn newEnv (Lambda ts missingArgs' funExpr)
+        else evalIn newEnv (Lambda ts (allArgs, remainingArgs') funExpr)
 
 eval :: Evaluatable e => e -> Val
 eval = fst . evalInEnv emptyEnv
