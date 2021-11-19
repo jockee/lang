@@ -28,7 +28,10 @@ values dict := toList dict |> map ({a,b}: b);
 merge d1 d2 := { d1 | d2 };
 
 // MAYBE
-// maybe default f mb := mb;
+// maybe default f mb :=
+
+at x [] := Nothing;
+at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
 
 // partial
   // list `at` - needs counting ability. zipping with range would solve

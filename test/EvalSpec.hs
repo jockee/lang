@@ -269,6 +269,9 @@ spec = describe "Eval" $ do
     it "does not leak nested scope" $ do
       evaluate (evals (parseExprs "fn (x: (let b = 1 in b) b)")) `shouldThrow` anyException
 
+    it "multiple assignments" $ do
+      evals (parseExprs "a [] := 1; a b := 2; a []") `shouldBe` IntVal 1
+
   describe "Tuple" $ do
     it "destructuring tuple returns itself" $ do
       eval (parseExpr "{a, b} = {1, 2}") `shouldBe` (Tuple [IntVal 1, IntVal 2])
@@ -363,11 +366,14 @@ spec = describe "Eval" $ do
       evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c := c + 1; a 1 \"s\"")) `shouldThrow` anyException
 
   describe "Pattern matching" $ do
-    it "multiple assignments match" $ do
-      evals (parseExprs "a [] := 1; a b := 2; a []") `shouldBe` IntVal 1
-
-    it "multiple assignments can fall through" $ do
-      evals (parseExprs "a [] := 1; a b := 2; a 3") `shouldBe` IntVal 2
+    it "can fall through" $ do
+      evals (parseExprs "a [] := 1; a b := [2]; a 3") `shouldBe` List [IntVal 2]
 
     it "empty list should only match empty list" $ do
       evals (parseExprs "a [] := [0]; a b := b; a [1]") `shouldBe` List [IntVal 1]
+
+    it "matches specific integer value" $ do
+      evals (parseExprs "f 1 := 2; f s := 3; f 1") `shouldBe` IntVal 2
+
+    it "falls through non-matching integer value" $ do
+      evals (parseExprs "f 1 := 2; f s := 3; f 2") `shouldBe` IntVal 3

@@ -1,9 +1,12 @@
 # KEY
 
+  - TODO: at function
   - TODO: PATTERN MATCHING
-    * allow multiple bindings of same name. how would env handle this? store bindings of the same name (and in the same scope), in an array?
     - TODO: destructuring in named function arguments. #reqpatternmatching
+      - TODO: head and tail of list
+      - TODO: tuple
   - TODO: (STATIC) TYPE SYSTEM #typesystem
+    - TODO: if function is defined with set list in a position, that argument must be a list
     - TODO: handle lists and tuples as input types
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
@@ -17,6 +20,7 @@
       * Listable (fold as minimal complete definition)
       * Dictable (needs Listable and then fromList?)
   - TODO: SPLIT EXPRESSIONS on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
+    * both lexeme and whitespace slurps newline
     - TODO: let in should be able to span multiple lines
 
 # MID

@@ -27,9 +27,13 @@ instance Evaluatable Expr where
   evalIn env (Lambda ts args e) = (Function ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = apply (withScope env) e1 e2
+  evalIn env (PJust ts s) = (LJust (fst $ evalIn env s), env)
+  evalIn env (PNothing) = (LNothing, env)
   evalIn env (Atom ts atomId) = case inScope env atomId of
     Just [definition] -> (definition, env)
-    Just definitions -> (Pattern definitions, env)
+    Just definitions -> case last definitions of
+      Function {} -> (Pattern definitions, env)
+      lastDef -> (lastDef, env)
     Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   evalIn env (PString n) = (StringVal n, env)
   evalIn env (PFloat n) = (FloatVal n, env)
@@ -103,7 +107,7 @@ extendWithTuple env bindings vs =
 extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
 extend env id expectedType ex =
-  if expectedType == AnyType || expectedType == AtomType || gotType == expectedType
+  if expectedType == AnyType || gotType == expectedType
     then env {envValues = Map.insertWith (flip (++)) key [val] (envValues env)}
     else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
@@ -118,7 +122,7 @@ internalFunction env f argsList = case evaledArgsList of
   where
     evaledArgsList = fst $ evalIn env argsList
     fun "fold" (fun : init : List xs : _) =
-      let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
+      let foldFun acc x = trace ("calling f with x = " ++ show x) $ fst $ evalIn env $ App (App (funToExpr fun) acc) x
        in foldl foldFun init xs
     fun "zipWith" (fun : List xs : List ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
@@ -130,7 +134,7 @@ internalFunction env f argsList = case evaledArgsList of
     fun "dictToList" (dict : _) = case dict of
       (Dictionary d) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
     fun "sort" xs = List . List.sort $ xs
-    fun x r = trace ("no such function" ++ show x ++ show r) $ error "No such function "
+    fun x r = error ("No such function " ++ show x ++ show r)
     funToExpr (Function ts env args e) = (Lambda ts args e)
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
@@ -155,6 +159,8 @@ patternMatch passedArg definition = case definition of
 
         patternMatches (PList _ []) (List []) = True
         patternMatches (PList _ _) _ = False
+        patternMatches (PInteger e) (IntVal v) = e == v
+        patternMatches (PFloat e) (FloatVal v) = e == v
         patternMatches _ _ = True
      in --trace ("calling f with x = " ++ show passedArg ++ " - " ++ show expectedArgExp) $
         typesMatch && patternMatches expectedArgExp passedArg
