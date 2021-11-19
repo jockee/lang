@@ -183,3 +183,7 @@ spec = describe "Parser" $ do
 
     it "all-atom tuple in function definition" $
       s (parseExpr "a {b, c} := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b"), (Atom anyTypeSig "c")])]) (PInteger 1)))
+
+  describe "Modules" $ do
+    it "parses module" $
+      show (parseExpr "module A { 1 }") `shouldBe` show (Module "A" [PInteger 1])

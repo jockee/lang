@@ -225,9 +225,6 @@ spec = describe "Eval" $ do
     it "dict lookup using . on dict" $ do
       eval (parseExpr ".a {a: 1, b: 2}") `shouldBe` IntVal 1
 
-    it "dict lookup using inline dict.key" $ do
-      eval (parseExpr "{a: 1, b: 2}.a") `shouldBe` IntVal 1
-
     it "dict lookup using dict.key on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
 
@@ -377,3 +374,16 @@ spec = describe "Eval" $ do
 
     it "falls through non-matching integer value" $ do
       evals (parseExprs "f 1 := 2; f s := 3; f 2") `shouldBe` IntVal 3
+
+  describe "Modules" $ do
+    it "evals module" $
+      evals (parseExprs "module A { 1 }") `shouldBe` IntVal 1
+
+    xit "can't call without namespacing outside of module" $
+      evaluate (evals (parseExprs "module A { s = 1 }; s")) `shouldThrow` anyException
+
+    it "can call with namespacing outside of module" $
+      evals (parseExprs "module A { s = 1 }; A.s") `shouldBe` IntVal 1
+
+    it "can call without namespacing inside module" $
+      evals (parseExprs "module A { s = 1; s }") `shouldBe` IntVal 1

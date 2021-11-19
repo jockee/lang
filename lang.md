@@ -3,6 +3,11 @@
   - TODO: at function
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
     * when it's done we, `maybe` function
+  - TODO: modules/namespacing.
+    * nested
+    * parses
+    * can call without namespacing in module
+    * needs namespacing outside of module
 
 # KEY
 
@@ -31,7 +36,6 @@
 # MID
 
   - TODO: list index/at
-  - TODO: modules/namespacing.
   - TODO: `data` types ()
 
 # BACKLOG
@@ -54,9 +58,9 @@
 
 # NOTES
 
-
 -- NOTE: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
 -- NOTE: remove AtomType - it's AnyType?
+-- NOTE: module braces syntax?
 
 -- COULD BE MOVED TO STDLIB
 * dict update merger. could it, though? how would we modify the dict?

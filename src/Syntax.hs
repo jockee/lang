@@ -16,6 +16,7 @@ import Data.Map qualified as Map
 data Env where
   Env ::
     { envValues :: Map.Map String [Val],
+      withModules :: [String],
       envScopes :: [String],
       typeSigs :: Map.Map String TypeSig
     } ->
@@ -35,6 +36,7 @@ class Show e => Evaluatable e where
 -- Expr
 
 data Expr where
+  Module :: String -> [Expr] -> Expr
   Atom :: TypeSig -> String -> Expr
   PTuple :: TypeSig -> [Expr] -> Expr
   PList :: TypeSig -> [Expr] -> Expr
@@ -68,8 +70,9 @@ instance Show Expr where
   show = showWithoutTypes
 
 showWithTypes :: Expr -> String
-showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
+showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
+showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
 showWithTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
@@ -91,6 +94,7 @@ showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ "
 showWithTypes _ = "UNKNOWN"
 
 showWithoutTypes :: Expr -> String
+showWithoutTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithoutTypes contents) ++ ")"
 showWithoutTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
 showWithoutTypes (Atom _ts name) = "(Atom anyTypeSig \"" ++ name ++ "\")"
 showWithoutTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
@@ -111,11 +115,12 @@ showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ s
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
-showWithoutTypes _ = "UNKNOWN"
+showWithoutTypes s = "UNKNOWN"
 
 -- Val
 
 data Val where
+  ModuleVal :: String -> Val
   FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
   Pattern :: [Val] -> Val
   BoolVal :: Bool -> Val
@@ -134,6 +139,7 @@ data Val where
 type ArgsList = [Expr]
 
 instance Show Val where
+  show (ModuleVal name) = "<module " ++ show name ++ ">"
   show (FunctionVal ts env remainingArgs _) = "<fun \nENV: " ++ show env ++ "\nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
   show (IntVal n) = show n

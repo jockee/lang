@@ -99,6 +99,10 @@ semiSep = Tok.semiSep lexer
 reservedOp :: String -> Parser ()
 reservedOp = Tok.reservedOp lexer
 
+brackets = Tok.brackets lexer
+
+braces = Tok.brackets lexer
+
 identifier :: Parser String
 identifier = Token.identifier lexer <|> string "_"
 
@@ -112,6 +116,7 @@ term =
         <|> try (parens parseInternalFunction)
         <|> try parseInteger
         <|> parseMaybe
+        <|> moduleAccess
         <|> dictAccess
         <|> try dict
         <|> try dictUpdate
@@ -175,10 +180,11 @@ dictAccess = dotKey <|> try dictDotKey
       dct <- variable <|> dict
       return (DictAccess x dct)
     dictDotKey = do
-      dct <- variable <|> dict
+      first <- lower
+      rest <- option [] identifier
       char '.'
       x <- dictKey
-      return (DictAccess x dct)
+      return (DictAccess x (Atom (sig [DictionaryType] (DictionaryType)) (first : rest)))
 
 listContents :: Parser [Expr]
 listContents = (juxta <|> formula) `sepBy` many (space <|> char ',')
@@ -229,6 +235,17 @@ parseInternalFunction = do
 --   e2 <- expr
 --   return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
 
+parseModule :: Parser Expr
+parseModule = do
+  reserved "module"
+  first <- upper
+  rest <- many (letter <|> digit)
+  optional whitespace
+  reservedOp "{"
+  contents <- manyExpressions
+  reservedOp "}"
+  return (Module (first : rest) contents)
+
 letin :: Parser Expr
 letin = do
   reserved "let"
@@ -239,6 +256,14 @@ letin = do
   reservedOp "in"
   e2 <- expr
   return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
+
+moduleAccess :: Parser Expr
+moduleAccess = do
+  first <- upper
+  rest <- option [] identifier
+  char '.'
+  x <- identifier
+  return (Atom (sig [AnyType] (AnyType)) ([first] ++ rest ++ "." ++ x))
 
 variable :: Parser Expr
 variable = Atom (sig [] AnyType) `fmap` identifier
@@ -345,8 +370,12 @@ parseExprs s = case parseExprs' s of
   Left err -> error $ show err
   Right exprs -> exprs
 
+manyExpressions :: Parser [Expr]
+manyExpressions = (parseModule <|> expr) `sepBy` (char ';')
+
 parseExprs' :: String -> Either ParseError [Expr]
-parseExprs' = parse (allOf (expr `sepBy` (char ';'))) "stdin"
+-- parseExprs' = parse (allOf (manyExpressions) "stdin"
+parseExprs' = parse (allOf (manyExpressions)) "stdin"
 
 parseString :: Parser Expr
 parseString = do

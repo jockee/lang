@@ -115,6 +115,9 @@ typeCheckMany exprs = foldl fl (Right emptyEnv) exprs
     fl (Right env) ex = typeCheck env AnyType ex
     fl (Left err) _ = Left err
 
+moduleToEnv :: Env -> String -> Env
+moduleToEnv env name = env {withModules = withModules env ++ [name]}
+
 typeSigToEnv :: Env -> TypeSig -> Env
 typeSigToEnv env ts =
   case typeSigName ts of

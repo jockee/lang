@@ -18,6 +18,7 @@ instance Evaluatable Val where
 
 instance Evaluatable Expr where
   toExpr expr = expr
+  evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
   evalIn env (NamedTypeSig ts) = (Undefined, typeSigToEnv env ts)
   evalIn env (PIf (PBool True) t _) = evalIn env t
   evalIn env (PIf (PBool False) _ f) = evalIn env f
@@ -184,7 +185,10 @@ eval = fst . evalInEnv emptyEnv
 evalInEnv :: Evaluatable e => Env -> e -> (Val, Env)
 evalInEnv = evalIn
 
-evals :: Evaluatable e => [e] -> Val
-evals exprs = fst $ foldl fl (Undefined, emptyEnv) exprs
+evalsIn :: Evaluatable e => Env -> [e] -> (Val, Env)
+evalsIn env exprs = foldl fl (Undefined, env) exprs
   where
     fl (_val, env) ex = evalInEnv env ex
+
+evals :: Evaluatable e => [e] -> Val
+evals exprs = fst $ evalsIn emptyEnv exprs

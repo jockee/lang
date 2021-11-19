@@ -33,5 +33,9 @@ merge d1 d2 := { d1 | d2 };
 at x [] := Nothing;
 at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
 
+// module List {
+//   at x [] := Nothing;
+//   at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
+// }
 // partial
   // list `at` - needs counting ability. zipping with range would solve
