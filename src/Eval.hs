@@ -39,17 +39,17 @@ instance Evaluatable Expr where
   evalIn env (PFloat n) = (FloatVal n, env)
   evalIn env (PInteger n) = (IntVal n, env)
   evalIn env (PDictUpdate baseDict updateDict) =
-    let (Dictionary d1) = fst $ evalIn env baseDict
-        (Dictionary d2) = fst $ evalIn env updateDict
-     in (Dictionary $ Map.union d2 d1, env)
+    let (DictVald1) = fst $ evalIn env baseDict
+        (DictVald2) = fst $ evalIn env updateDict
+     in (DictVal $ Map.union d2 d1, env)
   evalIn env (DictAccess k dict) =
-    let (Dictionary m) = fst $ evalIn env dict
+    let (DictValm) = fst $ evalIn env dict
         kv = fst $ evalIn env k
      in (fromJust (Map.lookup kv m), env)
   evalIn env (PDictKey k) = (DictKey k, env)
   evalIn env (PDict ts pairs) =
     let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
-     in (Dictionary $ Map.fromList $ map fn pairs, env)
+     in (DictVal $ Map.fromList $ map fn pairs, env)
   evalIn env (PRange ts lBoundExp uBoundExp) =
     let lBound = fst $ evalIn env lBoundExp
         uBound = fst $ evalIn env uBoundExp
@@ -132,7 +132,7 @@ internalFunction env f argsList = case evaledArgsList of
       [] -> LNothing
       (x : _) -> LJust x
     fun "dictToList" (dict : _) = case dict of
-      (Dictionary d) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
+      (DictVald) -> List $ map (\(k, v) -> (Tuple [k, v])) (Map.toList d)
     fun "sort" xs = List . List.sort $ xs
     fun x r = error ("No such function " ++ show x ++ show r)
     funToExpr (Function ts env args e) = (Lambda ts args e)

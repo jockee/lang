@@ -60,17 +60,17 @@ expectedType env ts argsRemaining =
 --   Just a -> (a, env)
 --   Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
 -- typeCheck env (PDictUpdate baseDict updateDict) =
---   let (Dictionary d1) = fst $ typeCheck env baseDict
---       (Dictionary d2) = fst $ typeCheck env updateDict
---    in (Dictionary $ Map.union d2 d1, env)
+--   let (DictVald1) = fst $ typeCheck env baseDict
+--       (DictVald2) = fst $ typeCheck env updateDict
+--    in (DictVal$ Map.union d2 d1, env)
 -- typeCheck env (DictAccess k dict) =
---   let (Dictionary m) = fst $ typeCheck env dict
+--   let (DictValm) = fst $ typeCheck env dict
 --       kv = fst $ typeCheck env k
 --    in (fromJust (Map.lookup kv m), env)
 -- typeCheck env (PDictKey k) = (DictKey k, env)
 -- typeCheck env (PDict ts pairs) =
 --   let fn (k, v) = (fst $ typeCheck env k, fst $ typeCheck env v)
---    in (Dictionary $ Map.fromList $ map fn pairs, env)
+--    in (DictVal$ Map.fromList $ map fn pairs, env)
 -- typeCheck env (PRange ts lBoundExp uBoundExp) =
 --   let lBound = fst $ typeCheck env lBoundExp
 --       uBound = fst $ typeCheck env uBoundExp

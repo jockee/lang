@@ -198,7 +198,7 @@ spec = describe "Eval" $ do
 
     it "merge" $ do
       ev <- evalWithLib (parseExpr "merge {a: 1} {b: 2}")
-      ev `shouldBe` Dictionary (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
+      ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
@@ -218,7 +218,7 @@ spec = describe "Eval" $ do
 
   describe "Dict" $ do
     it "dict" $ do
-      eval (parseExpr "{a: 1}") `shouldBe` Dictionary (Map.fromList [((DictKey "a"), (IntVal 1))])
+      eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1))])
 
     it "dict lookup using . on atom" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
@@ -232,13 +232,13 @@ spec = describe "Eval" $ do
       evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
 
     it "dict update" $ do
-      eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` Dictionary (Map.fromList [((DictKey "a"), (IntVal 1))])
+      eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1))])
 
     it "dict update new key" $ do
-      eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` Dictionary (Map.fromList [((DictKey "a"), (IntVal 0)), ((DictKey "b"), (IntVal 1))])
+      eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 0)), ((DictKey "b"), (IntVal 1))])
 
     it "dict update on atom" $ do
-      evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` Dictionary (Map.fromList [((DictKey "b"), (IntVal 1))])
+      evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [((DictKey "b"), (IntVal 1))])
 
   describe "General" $ do
     it "adds to global scope" $ do
