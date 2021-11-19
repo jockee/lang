@@ -1,6 +1,11 @@
-# KEY
+# WIP
 
   - TODO: at function
+  - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
+    * when it's done we, `maybe` function
+
+# KEY
+
   - TODO: PATTERN MATCHING
     - TODO: destructuring in named function arguments. #reqpatternmatching
       - TODO: head and tail of list
@@ -25,8 +30,6 @@
 
 # MID
 
-  - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
-    * when it's done we, `maybe` function
   - TODO: list index/at
   - TODO: modules/namespacing.
   - TODO: `data` types ()

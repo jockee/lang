@@ -15,70 +15,70 @@ spec :: Spec
 spec = describe "Eval" $ do
   describe "Boolean" $ do
     it "negation of bool" $ do
-      eval (parseExpr "!true") `shouldBe` Boolean False
+      eval (parseExpr "!true") `shouldBe` BoolVal False
 
     it "boolean and true" $ do
-      eval (parseExpr "true && true") `shouldBe` Boolean True
+      eval (parseExpr "true && true") `shouldBe` BoolVal True
 
     it "boolean and false" $ do
-      eval (parseExpr "true && false") `shouldBe` Boolean False
+      eval (parseExpr "true && false") `shouldBe` BoolVal False
 
     it "boolean or true" $ do
-      eval (parseExpr "true || false") `shouldBe` Boolean True
+      eval (parseExpr "true || false") `shouldBe` BoolVal True
 
     it "boolean or false" $ do
-      eval (parseExpr "true || false") `shouldBe` Boolean True
+      eval (parseExpr "true || false") `shouldBe` BoolVal True
 
     it "boolean false or false" $ do
-      eval (parseExpr "false || false") `shouldBe` Boolean False
+      eval (parseExpr "false || false") `shouldBe` BoolVal False
 
   describe "Equality" $ do
     it "true" $ do
-      eval (parseExpr "true") `shouldBe` Boolean True
+      eval (parseExpr "true") `shouldBe` BoolVal True
 
     it "integer equality " $ do
-      eval (parseExpr "1 == 1") `shouldBe` Boolean True
+      eval (parseExpr "1 == 1") `shouldBe` BoolVal True
 
     it "integer inequality " $ do
-      eval (parseExpr "1 == 2") `shouldBe` Boolean False
+      eval (parseExpr "1 == 2") `shouldBe` BoolVal False
 
     it "boolean equality" $ do
-      eval (parseExpr "true == true") `shouldBe` Boolean True
+      eval (parseExpr "true == true") `shouldBe` BoolVal True
 
     it "boolean inequality" $ do
-      eval (parseExpr "true == false") `shouldBe` Boolean False
+      eval (parseExpr "true == false") `shouldBe` BoolVal False
 
     it "mismatching types are unequal" $ do
-      eval (parseExpr "true == 1") `shouldBe` Boolean False
+      eval (parseExpr "true == 1") `shouldBe` BoolVal False
 
   describe "Cmp" $ do
     it "GT" $ do
-      eval (parseExpr "1 > 0") `shouldBe` Boolean True
+      eval (parseExpr "1 > 0") `shouldBe` BoolVal True
 
     it "GTE" $ do
-      eval (parseExpr "1 >= 1") `shouldBe` Boolean True
+      eval (parseExpr "1 >= 1") `shouldBe` BoolVal True
 
     it "GTE" $ do
-      eval (parseExpr "2 >= 1") `shouldBe` Boolean True
+      eval (parseExpr "2 >= 1") `shouldBe` BoolVal True
 
     it "LT" $ do
-      eval (parseExpr "0 < 1") `shouldBe` Boolean True
+      eval (parseExpr "0 < 1") `shouldBe` BoolVal True
 
     it "LT" $ do
-      eval (parseExpr "2 < 1") `shouldBe` Boolean False
+      eval (parseExpr "2 < 1") `shouldBe` BoolVal False
 
     it "LTE" $ do
-      eval (parseExpr "2 <= 1") `shouldBe` Boolean False
+      eval (parseExpr "2 <= 1") `shouldBe` BoolVal False
 
     describe "Lists" $ do
       it "list" $ do
-        eval (parseExpr "[1]") `shouldBe` List [IntVal 1]
+        eval (parseExpr "[1]") `shouldBe` ListVal [IntVal 1]
 
       it "concatenation" $ do
-        eval (parseExpr "[1] ++ [2]") `shouldBe` List [IntVal 1, IntVal 2]
+        eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
 
       it "let-in binding list" $ do
-        eval (parseExpr "let x = [5] in x") `shouldBe` List [IntVal 5]
+        eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
 
   describe "Arithmetic" $ do
     it "negative integer " $ do
@@ -112,7 +112,7 @@ spec = describe "Eval" $ do
     it "lambda partially applied" $ do
       eval (parseExpr "(x b: x + b) 2")
         `shouldSatisfy` ( \case
-                            Function {} -> True
+                            FunctionVal {} -> True
                             _ -> False
                         )
 
@@ -129,7 +129,7 @@ spec = describe "Eval" $ do
       eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
     it "pipes as last argument" $ do
-      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
+      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
     it "fold function" $ do
@@ -138,23 +138,23 @@ spec = describe "Eval" $ do
 
     it "inline partially applied mapping fold function" $ do
       ev <- evalWithLib (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)")
-      ev `shouldBe` List [IntVal 2, IntVal 4]
+      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "inline fully applied mapping fold function" $ do
       ev <- evalWithLib (parseExpr "(f xs: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]")
-      ev `shouldBe` List [IntVal 2, IntVal 4]
+      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "reverse" $ do
       ev <- evalWithLib (parseExpr "reverse [1, 2]")
-      ev `shouldBe` List [IntVal 2, IntVal 1]
+      ev `shouldBe` ListVal [IntVal 2, IntVal 1]
 
     it "max" $ do
       ev <- evalWithLib (parseExpr "max [1, 2]")
-      ev `shouldBe` LJust (IntVal 2)
+      ev `shouldBe` JustVal (IntVal 2)
 
     it "head" $ do
       ev <- evalWithLib (parseExpr "head [1]")
-      ev `shouldBe` LJust (IntVal 1)
+      ev `shouldBe` JustVal (IntVal 1)
 
     it "stdlib fold function leveraging foldInternal" $ do
       ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
@@ -162,19 +162,19 @@ spec = describe "Eval" $ do
 
     it "applied map" $ do
       ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
-      ev `shouldBe` List [IntVal 2]
+      ev `shouldBe` ListVal [IntVal 2]
 
     it "maps over list" $ do
       ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
-      ev `shouldBe` List [IntVal 2, IntVal 4]
+      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "filters list" $ do
       ev <- evalWithLib (parseExpr "filter (x: x == 2) [1,2]")
-      ev `shouldBe` List [IntVal 2]
+      ev `shouldBe` ListVal [IntVal 2]
 
     it "rejects list" $ do
       ev <- evalWithLib (parseExpr "reject (x: x == 2) [1,2]")
-      ev `shouldBe` List [IntVal 1]
+      ev `shouldBe` ListVal [IntVal 1]
 
     it "list length" $ do
       ev <- evalWithLib (parseExpr "length [1,2]")
@@ -182,19 +182,19 @@ spec = describe "Eval" $ do
 
     it "take" $ do
       ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
-      ev `shouldBe` List [IntVal 1, IntVal 2, IntVal 3]
+      ev `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
     it "toList" $ do
       ev <- evalWithLib (parseExpr "toList {a: 1, b: 2}")
-      ev `shouldBe` List [(Tuple [DictKey "a", IntVal 1]), (Tuple [DictKey "b", IntVal 2])]
+      ev `shouldBe` ListVal [(TupleVal [DictKey "a", IntVal 1]), (TupleVal [DictKey "b", IntVal 2])]
 
     it "values" $ do
       ev <- evalWithLib (parseExpr "values {a: 1, b: 2}")
-      ev `shouldBe` List [IntVal 1, IntVal 2]
+      ev `shouldBe` ListVal [IntVal 1, IntVal 2]
 
     it "keys" $ do
       ev <- evalWithLib (parseExpr "keys {a: 1, b: 2}")
-      ev `shouldBe` List [DictKey "a", DictKey "b"]
+      ev `shouldBe` ListVal [DictKey "a", DictKey "b"]
 
     it "merge" $ do
       ev <- evalWithLib (parseExpr "merge {a: 1} {b: 2}")
@@ -274,13 +274,13 @@ spec = describe "Eval" $ do
 
   describe "Tuple" $ do
     it "destructuring tuple returns itself" $ do
-      eval (parseExpr "{a, b} = {1, 2}") `shouldBe` (Tuple [IntVal 1, IntVal 2])
+      eval (parseExpr "{a, b} = {1, 2}") `shouldBe` (TupleVal [IntVal 1, IntVal 2])
 
     it "destructuring tuple pushes to scope" $ do
       evals (parseExprs "{a, b} = {1, 2}; a + b") `shouldBe` IntVal 3
 
     it "destructuring nested tuple" $ do
-      eval (parseExpr "{a, {b, c}} = {1, {2, 3}}") `shouldBe` (Tuple [IntVal 1, (Tuple [IntVal 2, IntVal 3])])
+      eval (parseExpr "{a, {b, c}} = {1, {2, 3}}") `shouldBe` (TupleVal [IntVal 1, (TupleVal [IntVal 2, IntVal 3])])
 
     it "destructuring nested tuple pushes to scope" $ do
       evals (parseExprs "{a, {b, c}} = {1, {2, 3}}; a + b + c") `shouldBe` IntVal 6
@@ -298,10 +298,10 @@ spec = describe "Eval" $ do
       evaluate (eval (parseExpr "{a, b} = {1, 2, 3}")) `shouldThrow` anyException
 
     it "destructuring tuple with atom on right side" $ do
-      evals (parseExprs "c = 1; {a, b} = {1, c}") `shouldBe` (Tuple [IntVal 1, IntVal 1])
+      evals (parseExprs "c = 1; {a, b} = {1, c}") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
 
     it "destructuring tuple with expression on right side" $ do
-      evals (parseExprs "{a, b} = {1, (c = 1)}") `shouldBe` (Tuple [IntVal 1, IntVal 1])
+      evals (parseExprs "{a, b} = {1, (c = 1)}") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
 
     it "destructuring in lambda (one arg)" $ do
       evals (parseExprs "({a}: a + 1) {1}") `shouldBe` IntVal 2
@@ -317,23 +317,23 @@ spec = describe "Eval" $ do
 
   describe "Range" $ do
     it "range" $ do
-      eval (parseExpr "[1..3]") `shouldBe` (List [IntVal 1, IntVal 2, IntVal 3])
+      eval (parseExpr "[1..3]") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
     it "range on atom" $ do
-      evals (parseExprs "a = 3; [1..a]") `shouldBe` (List [IntVal 1, IntVal 2, IntVal 3])
+      evals (parseExprs "a = 3; [1..a]") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
   describe "Internal functions" $ do
     it "head" $ do
-      eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` LJust (IntVal 2)
+      eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` JustVal (IntVal 2)
 
     it "head returns Nothing on empty list" $ do
-      eval (parseExpr "(InternalFunction head [])") `shouldBe` LNothing
+      eval (parseExpr "(InternalFunction head [])") `shouldBe` NothingVal
 
     it "sort" $ do
-      eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` List [IntVal 2, IntVal 3]
+      eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
 
     it "zipWith" $ do
-      eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` List [List [IntVal 1, IntVal 3], List [IntVal 2, IntVal 2]]
+      eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` ListVal [ListVal [IntVal 1, IntVal 3], ListVal [IntVal 2, IntVal 2]]
 
   describe "Runtime type system" $ do
     xit "Can't declare Integer as String" $ do
@@ -367,10 +367,10 @@ spec = describe "Eval" $ do
 
   describe "Pattern matching" $ do
     it "can fall through" $ do
-      evals (parseExprs "a [] := 1; a b := [2]; a 3") `shouldBe` List [IntVal 2]
+      evals (parseExprs "a [] := 1; a b := [2]; a 3") `shouldBe` ListVal [IntVal 2]
 
     it "empty list should only match empty list" $ do
-      evals (parseExprs "a [] := [0]; a b := b; a [1]") `shouldBe` List [IntVal 1]
+      evals (parseExprs "a [] := [0]; a b := b; a [1]") `shouldBe` ListVal [IntVal 1]
 
     it "matches specific integer value" $ do
       evals (parseExprs "f 1 := 2; f s := 3; f 1") `shouldBe` IntVal 2

@@ -53,7 +53,7 @@ expectedType env ts argsRemaining =
 -- typeCheck env (PIf (PBool False) _ f) = typeCheck env f
 -- typeCheck env (PIf condition ifTrue ifFalse) =
 --   let (val, env') = typeCheck env condition
---    in if val == Boolean True then typeCheck env' ifTrue else typeCheck env' ifFalse
+--    in if val == BoolVal True then typeCheck env' ifTrue else typeCheck env' ifFalse
 -- typeCheck env (InternalFunction f args) = internalFunction env f args
 -- typeCheck env (App e1 e2) = runFun (withScope env) e1 e2
 -- typeCheck env (Atom ts atomId) = case inScope env atomId of
@@ -75,22 +75,22 @@ expectedType env ts argsRemaining =
 --   let lBound = fst $ typeCheck env lBoundExp
 --       uBound = fst $ typeCheck env uBoundExp
 --    in case (lBound, uBound) of
---         (IntVal l, IntVal u) -> (List $ map IntVal [l .. u], env)
+--         (IntVal l, IntVal u) -> (ListVal $ map IntVal [l .. u], env)
 --         _ -> error "Invalid range"
--- typeCheck env (PList ts es) = (List $ map (fst . typeCheck env) es, env)
--- typeCheck env (PTuple ts es) = (Tuple $ map (fst . typeCheck env) es, env)
--- typeCheck env (PBool n) = (Boolean n, env)
+-- typeCheck env (PList ts es) = (ListVal $ map (fst . typeCheck env) es, env)
+-- typeCheck env (PTuple ts es) = (TupleVal $ map (fst . typeCheck env) es, env)
+-- typeCheck env (PBool n) = (BoolVal n, env)
 -- typeCheck env (Binop Assign (PTuple ts1 bindings) (PTuple ts2 vs)) =
 --   let evaledValues = map (fst . typeCheck env) vs
 --       newEnv = extendWithTuple env bindings evaledValues
 --    in if length bindings /= length evaledValues
 --         then throw $ EvalException "Destructuring failed. Mismatched parameter count"
---         else (Tuple evaledValues, newEnv)
+--         else (TupleVal evaledValues, newEnv)
 -- typeCheck env (Binop Concat e1 e2) =
---   let (List xs, _) = typeCheck env e1
---       (List ys, _) = typeCheck env e2
+--   let (ListVal xs, _) = typeCheck env e1
+--       (ListVal ys, _) = typeCheck env e2
 --       e = error "Invalid"
---    in (List $ xs ++ ys, env)
+--    in (ListVal $ xs ++ ys, env)
 -- typeCheck env (Binop Pipe e1 e2) = runFun (withScope env) e2 e1
 -- typeCheck env (Binop Assign (Atom ts a) v) =
 --   let env'' = extend env' a AnyType v

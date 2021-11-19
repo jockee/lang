@@ -218,6 +218,17 @@ parseInternalFunction = do
   args <- list <|> variable
   return (InternalFunction f args)
 
+-- caseof :: Parser Expr
+-- caseof = do
+--   reserved "case"
+--   e <- expr
+--   reservedOp "of"
+--   e1 <- term
+--   whitespace
+--   reservedOp "in"
+--   e2 <- expr
+--   return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
+
 letin :: Parser Expr
 letin = do
   reserved "let"
@@ -227,7 +238,7 @@ letin = do
   whitespace
   reservedOp "in"
   e2 <- expr
-  return (App (Lambda (sig [AnyType] AnyType) ([x], [x]) e2) e1)
+  return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
 
 variable :: Parser Expr
 variable = Atom (sig [] AnyType) `fmap` identifier
@@ -263,14 +274,14 @@ function = do
   body <- expr
   let Atom _ nameStr = name
   let funSig = TypeSig {typeSigName = Just nameStr, typeSigIn = [], typeSigReturn = AnyType}
-  return $ Binop Assign name (Lambda funSig (args, args) body)
+  return $ Binop Assign name (Lambda funSig args body)
 
 lambda :: Parser Expr
 lambda = do
   identifiers <- (variable <|> tuple) `sepBy` many space
   reservedOp ":"
   body <- expr
-  return (Lambda (sig [AnyType] AnyType) (identifiers, identifiers) body)
+  return (Lambda (sig [AnyType] AnyType) identifiers body)
 
 ifthen :: Parser Expr
 ifthen = do

@@ -86,7 +86,7 @@ showWithTypes (PNothing) = "(PNothing)"
 showWithTypes (PJust ts e) = "(PJust " ++ showTypeSig ts ++ " " ++ showWithTypes e ++ ")"
 showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
-showWithTypes (Lambda ts (allArgs, remainingArgs) e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep allArgs ++ "] " ++ show e ++ ")"
+showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes _ = "UNKNOWN"
 
@@ -109,44 +109,44 @@ showWithoutTypes (PNothing) = "(PNothing)"
 showWithoutTypes (PJust _ts e) = "(PJust anyTypeSig " ++ showWithoutTypes e ++ ")"
 showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showWithoutTypes (Lambda _ (allArgs, remainingArgs) e) = "(Lambda anyTypeSig ([" ++ joinCommaSep allArgs ++ "], [" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
+showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes _ = "UNKNOWN"
 
 -- Val
 
 data Val where
-  Function :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
+  FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
   Pattern :: [Val] -> Val
-  Boolean :: Bool -> Val
+  BoolVal :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
-  Dictionary :: Map.Map Val Val -> Val
+  DictVal :: Map.Map Val Val -> Val
   FloatVal :: Float -> Val
   DictKey :: String -> Val
   Undefined :: Val
-  LJust :: Val -> Val
-  LNothing :: Val
-  Tuple :: [Val] -> Val
-  List :: [Val] -> Val
+  JustVal :: Val -> Val
+  NothingVal :: Val
+  TupleVal :: [Val] -> Val
+  ListVal :: [Val] -> Val
   deriving (Typeable)
 
-type ArgsList = ([Expr], [Expr])
+type ArgsList = [Expr]
 
 instance Show Val where
-  show (Function ts env args@(allArgs, remainingArgs) _) = "<fun \nENV: " ++ show env ++ "\nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
-  show Pattern {} = "<pattern>"
+  show (FunctionVal ts env remainingArgs _) = "<fun \nENV: " ++ show env ++ "\nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
+  show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show Undefined = "Undefined"
-  show (Tuple ns) = "{" ++ List.intercalate ", " (map show ns) ++ "}"
-  show (List ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
-  show (Dictionary m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (LJust v) = "Just " ++ show v
-  show (LNothing) = "Nothing"
+  show (TupleVal ns) = "{" ++ List.intercalate ", " (map show ns) ++ "}"
+  show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
+  show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
+  show (JustVal v) = "Just " ++ show v
+  show (NothingVal) = "Nothing"
   show (DictKey n) = n
   show (StringVal n) = show n
-  show (Boolean n) = show n
+  show (BoolVal n) = show n
+  show Undefined = "Undefined"
 
 class Num a => Arith a where
   cmpOp :: String -> (a -> a -> Val)
@@ -166,36 +166,36 @@ instance Ord Val where
   compare (IntVal i1) (IntVal i2) = compare i1 i2
 
 instance Eq Val where
-  (Tuple a) == (Tuple b) = a == b
-  LNothing == LNothing = True
-  LJust v1 == LJust v2 = v1 == v2
+  (TupleVal a) == (TupleVal b) = a == b
+  NothingVal == NothingVal = True
+  JustVal v1 == JustVal v2 = v1 == v2
   (FloatVal i1) == (FloatVal i2) = i1 == i2
   (IntVal i1) == (IntVal i2) = i1 == i2
-  (Boolean True) == (Boolean True) = True
-  (Boolean False) == (Boolean False) = True
-  (List xs) == (List ys) = xs == ys
-  (Dictionary m1) == (Dictionary m2) = m1 == m2
+  (BoolVal True) == (BoolVal True) = True
+  (BoolVal False) == (BoolVal False) = True
+  (ListVal xs) == (ListVal ys) = xs == ys
+  (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (Function ts1 env1 ids1 e1) == (Function ts2 env2 ids2 e2) =
+  (FunctionVal ts1 env1 ids1 e1) == (FunctionVal ts2 env2 ids2 e2) =
     ts1 == ts2 && envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Arith Val where
-  cmpOp ">" = \a b -> Boolean $ a > b
-  cmpOp "<" = \a b -> Boolean $ a < b
-  cmpOp ">=" = \a b -> Boolean $ a >= b
-  cmpOp "<=" = \a b -> Boolean $ a <= b
+  cmpOp ">" = \a b -> BoolVal $ a > b
+  cmpOp "<" = \a b -> BoolVal $ a < b
+  cmpOp ">=" = \a b -> BoolVal $ a >= b
+  cmpOp "<=" = \a b -> BoolVal $ a <= b
   evalOp Add = (+)
   evalOp Sub = (-)
   evalOp Mul = (*)
-  evalOp Eql = \a b -> Boolean $ a == b
-  evalOp NotEql = \a b -> Boolean $ a /= b
+  evalOp Eql = \a b -> BoolVal $ a == b
+  evalOp NotEql = \a b -> BoolVal $ a /= b
   evalOp And = \a b -> case (a, b) of
-    (Boolean a, Boolean b) -> Boolean $ a && b
-    _ -> Boolean False
+    (BoolVal a, BoolVal b) -> BoolVal $ a && b
+    _ -> BoolVal False
   evalOp Or = \a b -> case (a, b) of
-    (Boolean a, Boolean b) -> Boolean $ a || b
-    _ -> Boolean False
+    (BoolVal a, BoolVal b) -> BoolVal $ a || b
+    _ -> BoolVal False
 
 -- TypeSig
 
@@ -255,15 +255,15 @@ instance LangTypeable Val where
     IntVal {} -> IntType
     FloatVal {} -> FloatType
     StringVal {} -> StringType
-    Function {} -> FunctionType
-    Boolean {} -> BooleanType
-    Dictionary {} -> DictionaryType
+    FunctionVal {} -> FunctionType
+    BoolVal {} -> BooleanType
+    DictVal {} -> DictionaryType
     DictKey {} -> DictKeyType
     Undefined {} -> UndefinedType
-    LJust {} -> MaybeType
-    LNothing {} -> MaybeType
-    Tuple {} -> ListType AnyType
-    List {} -> ListType AnyType
+    JustVal {} -> MaybeType
+    NothingVal {} -> MaybeType
+    TupleVal {} -> ListType AnyType
+    ListVal {} -> ListType AnyType
 
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 
