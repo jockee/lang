@@ -40,14 +40,14 @@
   - TODO: let-in multiple. #reqcleverexpsplit
     * depends on each other
   - TODO: sets
-  - TODO: `filter` if-then-else without comma around predicate
   - TODO: string interpolation "#{intval}"
     * Could be LString ["val of a: ", (Atom "a"), "!"]?
   - TODO: repl catch eval error and continue
-  - TODO: where clause.
-  - TODO: guard clause.
+  - TODO: where clause. reqcleverexpsplit
+  - TODO: guard clause. reqcleverexpsplit
     fun x a
     | x > 1 = true
+  - TODO: `filter` if-then-else without comma around predicate
   - TODO: replace string with T.Text?
 
 # NOTES

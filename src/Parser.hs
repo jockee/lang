@@ -8,6 +8,7 @@ import Exceptions
 import Syntax
 import Text.Parsec.Combinator (parserTraced)
 import Text.Parsec.Error
+import Text.Parsec.Indent as Indent
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -20,8 +21,8 @@ expr =
            ( ifthen
                <|> try typeDef
                <|> letin
-               <|> try ternary
                <|> try lambda
+               <|> try ternary
                <|> try function
                <|> formula
            )

@@ -47,6 +47,7 @@ library
     , haskeline
     , hspec
     , hspec-discover
+    , indents
     , mtl
     , parsec
     , pretty
@@ -70,6 +71,7 @@ executable lang-exe
     , haskeline
     , hspec
     , hspec-discover
+    , indents
     , lang
     , mtl
     , parsec
@@ -97,6 +99,7 @@ test-suite lang-test
     , haskeline
     , hspec
     , hspec-discover
+    , indents
     , lang
     , mtl
     , parsec
