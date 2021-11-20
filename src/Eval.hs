@@ -26,7 +26,9 @@ instance Evaluatable Expr where
   evalIn env (PIf condition ifTrue ifFalse) =
     let (val, env') = evalIn env condition
      in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
-  evalIn env (Lambda ts args e) = trace ("ould produde pattern here" ++ show ts) $ (FunctionVal ts env args e, env)
+  evalIn env (Lambda ts args e) =
+    -- trace ("ould produde pattern here" ++ show ts) $
+    (FunctionVal ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = apply (withScope env) e1 e2
   evalIn env (PJust ts s) = (JustVal (fst $ evalIn env s), env)

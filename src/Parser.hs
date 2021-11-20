@@ -19,22 +19,21 @@ blockComment :: Parser ()
 blockComment = L.skipBlockComment "/*" "*/"
 
 sc :: Parser ()
-sc = L.space space1 lineComment blockComment
+sc = L.space hspace1 lineComment blockComment
 
 expr :: Parser Expr
 expr =
-  sc
-    >> ( ( ifthen
-             <|> try typeDef
-             <|> letin
-             <|> try lambda
-             <|> try ternary
-             <|> try function
-             <|> formula
-         )
+  comment <|> sc
+    *> ( comment
+           <|> ifthen
+           <|> try typeDef
+           <|> letin
+           <|> try lambda
+           <|> try ternary
+           <|> try function
+           <|> formula
            <|> noop
        )
-      <* sc
     <?> "expr"
 
 formula :: Parser Expr
@@ -56,23 +55,23 @@ formula = makeExprParser juxta table <?> "formula"
       PInteger x -> PInteger $ negate x
       PFloat x -> PFloat $ negate x
     not' (PBool b) = PBool $ not b
-    notEqOp = InfixL (string "!=" <* space >> return (Binop NotEql))
-    eqOp = InfixR (string "==" <* space >> return (Binop Eql))
-    subOp = InfixL (string "-" <* space >> return (Binop Sub))
-    addOp = InfixL (try $ string "+" <* notFollowedBy (char '+') <* space >> return (Binop Add))
-    mulOp = InfixL (string "*" <* space >> return (Binop Mul))
-    andOp = InfixL (string "&&" <* space >> return (Binop And))
-    gtOp = InfixL (string ">" <* space >> return (Cmp ">"))
-    ltOp = InfixL (string "<" <* space >> return (Cmp "<"))
-    gteOp = InfixL (string ">=" <* space >> return (Cmp ">="))
-    lteOp = InfixL (string "<=" <* space >> return (Cmp "<="))
-    orOp = InfixL (string "||" <* space >> return (Binop Or))
-    concatOp = InfixL (string "++" <* space >> return (Binop Concat))
-    pipeOp = InfixL (string "|>" <* space >> return (Binop Pipe))
+    notEqOp = InfixL (string "!=" <* optional sc >> return (Binop NotEql))
+    eqOp = InfixR (string "==" <* optional sc >> return (Binop Eql))
+    subOp = InfixL (string "-" <* optional sc >> return (Binop Sub))
+    addOp = InfixL (try $ string "+" <* notFollowedBy (char '+') <* optional sc >> return (Binop Add))
+    mulOp = InfixL (string "*" <* optional sc >> return (Binop Mul))
+    andOp = InfixL (string "&&" <* optional sc >> return (Binop And))
+    gtOp = InfixL (string ">" <* optional sc >> return (Cmp ">"))
+    ltOp = InfixL (string "<" <* optional sc >> return (Cmp "<"))
+    gteOp = InfixL (string ">=" <* optional sc >> return (Cmp ">="))
+    lteOp = InfixL (string "<=" <* optional sc >> return (Cmp "<="))
+    orOp = InfixL (string "||" <* optional sc >> return (Binop Or))
+    concatOp = InfixL (string "++" <* optional sc >> return (Binop Concat))
+    pipeOp = InfixL (string "|>" <* optional sc >> return (Binop Pipe))
 
-lexeme = L.lexeme space
+lexeme = L.lexeme hspace
 
-symbol = L.symbol space
+symbol = L.symbol hspace
 
 parens = between (symbol "(") (symbol ")")
 
@@ -125,14 +124,14 @@ dictContents = do
   where
     pair = do
       key <- try (dictKey <* string ":") <|> (variable <* string "=>")
-      space
+      hspace
       val <- expr
       return (key, val)
 
 dict :: Parser Expr
 dict = do
   char '{'
-  space
+  hspace
   x <- try $ dictContents
   char '}'
   return x
@@ -140,13 +139,13 @@ dict = do
 dictUpdate :: Parser Expr
 dictUpdate = do
   char '{'
-  space
+  hspace
   dct <- variable <|> dict
-  space
+  hspace
   char '|'
-  space
+  hspace
   optional $ char '{'
-  space
+  hspace
   updates <- try dictContents <|> variable
   char '}'
   optional $ many (spaceChar <|> (char '}'))
@@ -178,10 +177,10 @@ listContents = (juxta <|> formula) `sepBy` many (spaceChar <|> char ',')
 range :: Parser Expr
 range = do
   char '['
-  space
+  hspace
   lBound <- term
   string ".."
-  space
+  hspace
   uBound <- term
   char ']'
   return (PRange (sig [AnyType] AnyType) lBound uBound)
@@ -189,7 +188,7 @@ range = do
 tuple :: Parser Expr
 tuple = do
   char '('
-  space
+  hspace
   x <- try tupleContents
   char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
@@ -197,7 +196,7 @@ tuple = do
 list :: Parser Expr
 list = do
   char '['
-  space
+  hspace
   x <- try listContents
   char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
@@ -205,7 +204,7 @@ list = do
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
   string "InternalFunction"
-  space
+  hspace
   f <- identifier
   args <- list <|> variable
   return (InternalFunction f args)
@@ -213,10 +212,10 @@ parseInternalFunction = do
 parseModule :: Parser Expr
 parseModule = do
   string "module"
-  space
+  hspace
   first <- upperChar
   rest <- many (letterChar <|> digitChar)
-  optional space
+  optional hspace
   string "{"
   contents <- manyExpressions
   string "}"
@@ -225,13 +224,13 @@ parseModule = do
 letin :: Parser Expr
 letin = do
   string "let"
-  space
+  hspace
   x <- variable
-  space
+  hspace
   string "="
-  space
+  hspace
   e1 <- term
-  space
+  hspace
   string "in"
   e2 <- expr
   return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
@@ -253,9 +252,9 @@ dictKey = PDictKey `fmap` identifier
 typeDef :: Parser Expr
 typeDef = do
   name <- identifier
-  space
+  hspace
   string "::"
-  space
+  hspace
   bindings <- identifier `sepBy1` (string "->" <* (many spaceChar))
   let args = case init bindings of
         [] -> []
@@ -274,7 +273,7 @@ typeDef = do
 
 function :: Parser Expr
 function = do
-  terms <- term `sepBy1` space
+  terms <- term `sepBy1` hspace
   string "="
   let (name : args) = terms
   body <- expr
@@ -288,7 +287,7 @@ function = do
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (variable <|> tuple) `sepBy` space
+  identifiers <- (variable <|> tuple) `sepBy` hspace
   string ":"
   body <- expr
   return (Lambda (sig [AnyType] AnyType) identifiers body)
@@ -296,25 +295,25 @@ lambda = do
 ifthen :: Parser Expr
 ifthen = do
   string "if"
-  space
+  hspace
   cond <- term
-  space
+  hspace
   string "then"
-  space
+  hspace
   tr <- term
-  space
+  hspace
   string "else"
-  space
+  hspace
   PIf cond tr <$> term
 
 ternary :: Parser Expr
 ternary = do
   cond <- term
   string "?"
-  space
+  hspace
   tr <- term
   string ":"
-  space
+  hspace
   PIf cond tr <$> term
 
 parseMaybe' :: Parser Expr
@@ -325,7 +324,7 @@ parseMaybe' = nothing <|> just
       return PNothing
     just = do
       string "Just"
-      space
+      hspace
       justVal <- expr
       return $ PJust (sig [AnyType] AnyType) justVal
 
@@ -343,7 +342,13 @@ parseInteger = do
 
 noop :: Parser Expr
 noop = do
-  lexeme eof
+  hspace *> lexeme eol
+  return PNoop
+
+comment :: Parser Expr
+comment = do
+  string "//"
+  many $ anySingleBut '\n'
   return PNoop
 
 allOf :: Parser a -> Parser a
@@ -363,7 +368,7 @@ parseExprs s = case parseExprs' s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr) `sepBy` (char ';')
+manyExpressions = (parseModule <|> expr) `sepBy` many (newline <|> char ';')
 
 parseExprs' :: String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (allOf (manyExpressions)) "stdin"

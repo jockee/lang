@@ -206,3 +206,13 @@ spec = describe "Parser" $ do
 
     it "comment line" $
       show (parseExpr "// comment") `shouldBe` show PNoop
+
+  describe "Expression separation" $ do
+    it "semicolon splits" $
+      show (parseExprs "1;a=2") `shouldBe` show [(PInteger 1), (Binop Assign (Atom anyTypeSig "a") (PInteger 2))]
+
+    it "newline splits" $
+      show (parseExprs "1\na=2") `shouldBe` show [(PInteger 1), (Binop Assign (Atom anyTypeSig "a") (PInteger 2))]
+
+    it "avoids split before pipe" $
+      s (parseExpr "5 \n  |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
