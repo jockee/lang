@@ -7,6 +7,7 @@
 
 # KEY
 
+  - TODO: typeof (constructor, and type respectively)
   - TODO: PATTERN MATCHING
     - TODO: destructuring in named function arguments. #reqpatternmatching
       - TODO: dict full, dict partial
