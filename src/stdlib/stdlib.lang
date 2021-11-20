@@ -19,9 +19,10 @@ max xs := sort xs |> reverse |> head;
 min xs := sort xs |> head;
 zipWith f xs ys := (InternalFunction zipWith [f, xs, ys]);
 zip xs ys := zipWith (x y: {x, y}) xs ys;
-// toDict xs := fold (acc {k,v}: { acc | {k => v} ) {} xs;
+toDict xs := fold (acc {k,v}: { acc | {k => v} ) {} xs;
 
 // DICTIONARIES
+print a := (InternalFunction print [a]);
 toList xs := (InternalFunction dictToList [xs]);
 keys dict := toList dict |> map ({a,b}: a);
 values dict := toList dict |> map ({a,b}: b);
@@ -30,12 +31,23 @@ merge d1 d2 := { d1 | d2 };
 // MAYBE
 // maybe default f mb :=
 
-at x [] := Nothing;
-at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
+at q [] := Nothing;
+at q xs := zip qqq [0 .. (length xs)] |> find ({a,b}: (b == q));
 
 // module List {
 //   at x [] := Nothing;
 //   at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
+// let x = b {
+//   case mb {
+//     a ->
+//     b ->
+//   }
 // }
+
+// let x = b
+//   in case mb of
+//     a ->
+//     b ->
+
 // partial
   // list `at` - needs counting ability. zipping with range would solve

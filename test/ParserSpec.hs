@@ -137,6 +137,12 @@ spec = describe "Parser" $ do
   it "dict update alternative syntax (merge)" $
     s (parseExpr "{ {a: 1} | {a:2} }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(PDictKey "a", PInteger 2)]))
 
+  it "dict dynamic key" $
+    s (parseExpr "{ a => 1 }") `shouldBe` s (PDict anyTypeSig [((Atom anyTypeSig "a"), (PInteger 1))])
+
+  it "dict update dynamic key" $
+    s (parseExpr "{ {a: 1} | a => 2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]) (PDict anyTypeSig [((Atom anyTypeSig "a"), (PInteger 2))]))
+
   it "function definiton" $
     s (parseExpr "s x := x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
 
@@ -183,6 +189,12 @@ spec = describe "Parser" $ do
 
     it "all-atom tuple in function definition" $
       s (parseExpr "a {b, c} := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b"), (Atom anyTypeSig "c")])]) (PInteger 1)))
+
+    it "dict full match" $
+      s (parseExpr "a {b: c} := c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
+
+    xit "dict partial match" $
+      s (parseExpr "a {b: c, ...} := c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
 
   describe "Modules" $ do
     it "parses module" $

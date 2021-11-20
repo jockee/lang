@@ -5,6 +5,7 @@ import Debug.Trace
 import Eval ()
 import Exceptions
 import Syntax
+import Text.Parsec.Combinator (parserTraced)
 import Text.Parsec.Error
 import Text.Parsec.Token qualified as Tok
 import Text.ParserCombinators.Parsec
@@ -74,7 +75,7 @@ langDef =
       Tok.opStart = oneOf "",
       Tok.opLetter = oneOf "",
       Tok.reservedNames = [],
-      Tok.reservedOpNames = [";", ":=", "in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
+      Tok.reservedOpNames = ["=>", ";", ":=", "in", "|>", "+", "++", "*", "-", "=", "==", "<", ">"],
       Tok.caseSensitive = True
     }
 
@@ -143,8 +144,7 @@ dictContents = do
   return (PDict (sig [AnyType] AnyType) pairs)
   where
     pair = do
-      key <- dictKey
-      char ':'
+      key <- try (dictKey <* string ":") <|> (variable <* string "=>")
       whitespace
       val <- expr
       return (key, val)
@@ -153,7 +153,7 @@ dict :: Parser Expr
 dict = do
   char '{'
   whitespace
-  x <- try dictContents
+  x <- try $ dictContents
   char '}'
   return x
 

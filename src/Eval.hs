@@ -10,6 +10,7 @@ import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Syntax
+import System.IO.Unsafe
 import TypeCheck
 
 instance Evaluatable Val where
@@ -49,7 +50,13 @@ instance Evaluatable Expr where
      in (fromJust (Map.lookup kv m), env)
   evalIn env (PDictKey k) = (DictKey k, env)
   evalIn env (PDict ts pairs) =
-    let fn (k, v) = (fst $ evalIn env k, fst $ evalIn env v)
+    let fn (k, v) =
+          let key = case fst $ evalIn env k of
+                (DictKey s) -> (DictKey s)
+                (StringVal s) -> (DictKey s)
+                _ -> error "Non-string dict key"
+              val = fst $ evalIn env v
+           in (key, val)
      in (DictVal $ Map.fromList $ map fn pairs, env)
   evalIn env (PRange ts lBoundExp uBoundExp) =
     let lBound = fst $ evalIn env lBoundExp
@@ -123,7 +130,7 @@ internalFunction env f argsList = case evaledArgsList of
   where
     evaledArgsList = fst $ evalIn env argsList
     fun "fold" (fun : init : ListVal xs : _) =
-      let foldFun acc x = trace ("calling f with x = " ++ show x) $ fst $ evalIn env $ App (App (funToExpr fun) acc) x
+      let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
        in foldl foldFun init xs
     fun "zipWith" (fun : ListVal xs : ListVal ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
@@ -134,6 +141,7 @@ internalFunction env f argsList = case evaledArgsList of
       (x : _) -> JustVal x
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> (TupleVal [k, v])) (Map.toList d)
+    fun "print" (a : _) = unsafePerformIO (print a >> pure a)
     fun "sort" xs = ListVal . List.sort $ xs
     fun x r = error ("No such function " ++ show x ++ show r)
     funToExpr (FunctionVal ts env args e) = (Lambda ts args e)
@@ -144,7 +152,9 @@ apply env e1 e2 = case evalIn env e1 of
     Just (FunctionVal ts _ args e3) -> runFun env' ts args e2 e3
     Nothing -> error "Pattern match fail"
   (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
-  (val, env) -> trace ("Cannot apply val: " ++ show val ++ "!") $ error ("Cannot apply value" ++ show env)
+  (val, env) ->
+    -- trace ("Cannot apply val: " ++ show val ++ "!") $
+    error ("Cannot apply value" ++ show env)
   where
     (passedArg, _) = evalIn env e2
 
@@ -180,15 +190,12 @@ runFun env ts argsList expr funExpr =
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)
 
 eval :: Evaluatable e => e -> Val
-eval = fst . evalInEnv emptyEnv
-
-evalInEnv :: Evaluatable e => Env -> e -> (Val, Env)
-evalInEnv = evalIn
+eval = fst . evalIn emptyEnv
 
 evalsIn :: Evaluatable e => Env -> [e] -> (Val, Env)
 evalsIn env exprs = foldl fl (Undefined, env) exprs
   where
-    fl (_val, env) ex = evalInEnv env ex
+    fl (_val, env) ex = evalIn env ex
 
 evals :: Evaluatable e => [e] -> Val
 evals exprs = fst $ evalsIn emptyEnv exprs

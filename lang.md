@@ -1,23 +1,24 @@
 # WIP
 
   - TODO: at function
+    * foldl ends up with last argument first (??)
+    * tuple destructuring seemingly not working for lambdas? has it ever
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
     * when it's done we, `maybe` function
   - TODO: modules/namespacing.
     * nested
-    * parses
-    * can call without namespacing in module
-    * needs namespacing outside of module
 
 # KEY
 
   - TODO: PATTERN MATCHING
     - TODO: destructuring in named function arguments. #reqpatternmatching
+      - TODO: dict full, dict partial
       - TODO: head and tail of list
       - TODO: tuple
   - TODO: (STATIC) TYPE SYSTEM #typesystem
     - TODO: if function is defined with set list in a position, that argument must be a list
     - TODO: handle lists and tuples as input types
+    - TODO: handle tuple, dict, list
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
     - TODO: parse nested type definition
@@ -35,12 +36,10 @@
 
 # MID
 
-  - TODO: list index/at
   - TODO: `data` types ()
 
 # BACKLOG
 
-  - TODO: dynamic dict keys. enables toDict
   - TODO: let-in multiple. #reqcleverexpsplit
     * depends on each other
   - TODO: sets

@@ -200,6 +200,10 @@ spec = describe "Eval" $ do
       ev <- evalWithLib (parseExpr "merge {a: 1} {b: 2}")
       ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
+    it "toDict" $ do
+      ev <- evalWithLib (parseExpr "toDict [{\"a\", 1}]")
+      ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
+
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
       evals [parseExpr "1 + 1"] `shouldBe` IntVal 2
@@ -236,6 +240,12 @@ spec = describe "Eval" $ do
 
     it "dict update on atom" $ do
       evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [((DictKey "b"), (IntVal 1))])
+
+  it "dict dynamic key" $
+    evals (parseExprs "a = \"s\"; { a => 1 }") `shouldBe` DictVal (Map.fromList [((DictKey "s"), (IntVal 1))])
+
+  it "dict update dynamic key" $
+    evals (parseExprs "a = \"s\"; { {a: 1} | a => 2 }") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1)), ((DictKey "s"), (IntVal 2))])
 
   describe "General" $ do
     it "adds to global scope" $ do
@@ -343,7 +353,7 @@ spec = describe "Eval" $ do
       evaluate (evals (parseExprs "a :: Integer -> Integer; a b c = b + c ")) `shouldThrow` anyException
 
     it "Binding definition pushed to env" $ do
-      evalInEnv emptyEnv (parseExpr "a :: Integer")
+      evalIn emptyEnv (parseExpr "a :: Integer")
         `shouldSatisfy` ( \case
                             (_, env) ->
                               Map.lookup "a" (typeSigs env)
@@ -367,7 +377,7 @@ spec = describe "Eval" $ do
       evals (parseExprs "a [] := 1; a b := [2]; a 3") `shouldBe` ListVal [IntVal 2]
 
     it "empty list should only match empty list" $ do
-      evals (parseExprs "a [] := [0]; a b := b; a [1]") `shouldBe` ListVal [IntVal 1]
+      evals (parseExprs "a [] := [0]; a b := [2]; a [1]") `shouldBe` ListVal [IntVal 2]
 
     it "matches specific integer value" $ do
       evals (parseExprs "f 1 := 2; f s := 3; f 1") `shouldBe` IntVal 2

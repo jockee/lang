@@ -37,7 +37,7 @@ evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
 evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
   where
     allExprs lib = parseExprs lib ++ exprs
-    fl (_val, env) ex = evalInEnv (resetScope env) ex
+    fl (_val, env) ex = evalIn (resetScope env) ex
 
 repl :: IO ()
 repl = replWithEnv emptyEnv
