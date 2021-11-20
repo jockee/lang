@@ -26,7 +26,7 @@ instance Evaluatable Expr where
   evalIn env (PIf condition ifTrue ifFalse) =
     let (val, env') = evalIn env condition
      in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
-  evalIn env (Lambda ts args e) = (FunctionVal ts env args e, env)
+  evalIn env (Lambda ts args e) = trace ("ould produde pattern here" ++ show ts) $ (FunctionVal ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = apply (withScope env) e1 e2
   evalIn env (PJust ts s) = (JustVal (fst $ evalIn env s), env)
@@ -147,14 +147,15 @@ internalFunction env f argsList = case evaledArgsList of
     funToExpr (FunctionVal ts env args e) = (Lambda ts args e)
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
-apply env e1 e2 = case evalIn env e1 of
-  (Pattern definitions, env') -> case List.find (patternMatch passedArg) definitions of
-    Just (FunctionVal ts _ args e3) -> runFun env' ts args e2 e3
-    Nothing -> error "Pattern match fail"
-  (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
-  (val, env) ->
-    -- trace ("Cannot apply val: " ++ show val ++ "!") $
-    error ("Cannot apply value" ++ show env)
+apply env e1 e2 =
+  trace ("called apply") $ case evalIn env e1 of
+    (Pattern definitions, env') -> case List.find (patternMatch passedArg) definitions of
+      Just (FunctionVal ts _ args e3) -> runFun env' ts args e2 e3
+      Nothing -> error "Pattern match fail"
+    (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
+    (val, env) ->
+      -- trace ("Cannot apply val: " ++ show val ++ "!") $
+      error ("Cannot apply value" ++ show env)
   where
     (passedArg, _) = evalIn env e2
 
@@ -173,18 +174,20 @@ patternMatch passedArg definition = case definition of
         patternMatches (PInteger e) (IntVal v) = e == v
         patternMatches (PFloat e) (FloatVal v) = e == v
         patternMatches _ _ = True
-     in --trace ("calling f with x = " ++ show passedArg ++ " - " ++ show expectedArgExp) $
-        typesMatch && patternMatches expectedArgExp passedArg
+     in trace ("patternmatch " ++ show passedArg ++ " - " ++ show expectedArgExp) $
+          typesMatch && patternMatches expectedArgExp passedArg
 
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let allArgs@(arg : remainingArgs') = argsList
       -- NOTE: move extension of 'whatever' to separate function
-      newEnv = case arg of
+      -- NOTE: this is where destructuring is put into env
+      newEnv = trace ("calling f with x = " ++ show arg) $ case arg of
         (Atom _ts atomId) -> extend env atomId (expectedType env ts $ length allArgs) expr
         (PTuple _ts bindings) -> case fst $ evalIn env expr of
           (TupleVal vals) -> extendWithTuple env bindings vals
           _ -> error "Non-tuple value received for tuple destructuring"
+        _ -> env
    in if null remainingArgs'
         then evalIn newEnv funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)

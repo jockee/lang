@@ -1,5 +1,6 @@
 module Parser where
 
+import Control.Monad
 import Data.List
 import Debug.Trace
 import Eval ()
@@ -16,12 +17,12 @@ expr :: Parser Expr
 expr =
   whitespace
     >> ( lexeme
-           ( try function
-               <|> ifthen
+           ( ifthen
                <|> try typeDef
                <|> letin
                <|> try ternary
                <|> try lambda
+               <|> try function
                <|> formula
            )
            <|> noop
@@ -40,8 +41,7 @@ formula = buildExpressionParser table juxta <?> "formula"
         [orOp],
         [gteOp, lteOp, gtOp, ltOp],
         [concatOp],
-        [pipeOp],
-        [assignOp]
+        [pipeOp]
       ]
     prefix name fun = Prefix (do reservedOp name; return fun)
     neg n = case n of
@@ -60,7 +60,6 @@ formula = buildExpressionParser table juxta <?> "formula"
     lteOp = Infix (reservedOp "<=" >> return (Cmp "<=")) AssocLeft
     orOp = Infix (reservedOp "||" >> return (Binop Or)) AssocLeft
     concatOp = Infix (reservedOp "++" >> return (Binop Concat)) AssocLeft
-    assignOp = Infix (reservedOp "=" >> return (Binop Assign)) AssocRight
     pipeOp = Infix (reservedOp "|>" >> return (Binop Pipe)) AssocLeft
 
 langDef :: Tok.LanguageDef ()
@@ -127,8 +126,8 @@ term =
         <|> false
         <|> parseString
         <|> variable
+        <|> try tuple
         <|> parens expr
-        <|> tuple
     )
     <?> "term"
 
@@ -166,6 +165,7 @@ dictUpdate = do
   char '|'
   whitespace
   optional $ char '{'
+  whitespace
   updates <- try dictContents <|> variable
   char '}'
   optional $ many (space <|> (char '}'))
@@ -186,6 +186,11 @@ dictAccess = dotKey <|> try dictDotKey
       x <- dictKey
       return (DictAccess x (Atom (sig [DictionaryType] (DictionaryType)) (first : rest)))
 
+tupleContents :: Parser [Expr]
+tupleContents = (juxta <|> formula) `sepBy2` many (space <|> char ',')
+
+sepBy2 p sep = liftM2 (:) p (many1 (sep >> p))
+
 listContents :: Parser [Expr]
 listContents = (juxta <|> formula) `sepBy` many (space <|> char ',')
 
@@ -202,10 +207,10 @@ range = do
 
 tuple :: Parser Expr
 tuple = do
-  char '{'
+  char '('
   whitespace
-  x <- try listContents
-  char '}'
+  x <- try tupleContents
+  char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
 
 list :: Parser Expr
@@ -293,13 +298,17 @@ typeDef = do
 
 function :: Parser Expr
 function = do
-  name <- variable
-  args <- term `sepBy` many space
-  reservedOp ":="
+  terms <- term `sepBy1` many space
+  reservedOp "="
+  let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
   let funSig = TypeSig {typeSigName = Just nameStr, typeSigIn = [], typeSigReturn = AnyType}
-  return $ Binop Assign name (Lambda funSig args body)
+  if null args
+    then return $ Binop Assign name body
+    else case name of
+      (Atom _ _) -> return $ Binop Assign name (Lambda funSig args body)
+      destructureObject -> return $ Binop Assign destructureObject body
 
 lambda :: Parser Expr
 lambda = do

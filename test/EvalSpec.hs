@@ -201,7 +201,7 @@ spec = describe "Eval" $ do
       ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
     it "toDict" $ do
-      ev <- evalWithLib (parseExpr "toDict [{\"a\", 1}]")
+      ev <- evalWithLib (parseExpr "toDict [(\"a\", 1)]")
       ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
   describe "Multiple expressions" $ do
@@ -218,7 +218,7 @@ spec = describe "Eval" $ do
       evals [parseExpr "f = (x: x + 1)", parseExpr "b = 1", parseExpr "f b"] `shouldBe` IntVal 2
 
     it "evals works for one expression" $ do
-      evals [parseExpr "s x := x * 2", parseExpr "s 2"] `shouldBe` IntVal 4
+      evals [parseExpr "s x = x * 2", parseExpr "s 2"] `shouldBe` IntVal 4
 
   describe "Dict" $ do
     it "dict" $ do
@@ -277,50 +277,47 @@ spec = describe "Eval" $ do
       evaluate (evals (parseExprs "fn (x: (let b = 1 in b) b)")) `shouldThrow` anyException
 
     it "multiple assignments" $ do
-      evals (parseExprs "a [] := 1; a b := 2; a []") `shouldBe` IntVal 1
+      evals (parseExprs "a [] = 1; a b = 2; a []") `shouldBe` IntVal 1
 
   describe "Tuple" $ do
     it "destructuring tuple returns itself" $ do
-      eval (parseExpr "{a, b} = {1, 2}") `shouldBe` (TupleVal [IntVal 1, IntVal 2])
+      eval (parseExpr "( a, b ) = ( 1, 2 )") `shouldBe` (TupleVal [IntVal 1, IntVal 2])
 
     it "destructuring tuple pushes to scope" $ do
-      evals (parseExprs "{a, b} = {1, 2}; a + b") `shouldBe` IntVal 3
+      evals (parseExprs "( a, b ) = ( 1, 2 ); a + b") `shouldBe` IntVal 3
 
     it "destructuring nested tuple" $ do
-      eval (parseExpr "{a, {b, c}} = {1, {2, 3}}") `shouldBe` (TupleVal [IntVal 1, (TupleVal [IntVal 2, IntVal 3])])
+      eval (parseExpr "( a, ( b, c ) ) = ( 1, ( 2, 3 ) )") `shouldBe` (TupleVal [IntVal 1, (TupleVal [IntVal 2, IntVal 3])])
 
     it "destructuring nested tuple pushes to scope" $ do
-      evals (parseExprs "{a, {b, c}} = {1, {2, 3}}; a + b + c") `shouldBe` IntVal 6
+      evals (parseExprs "( a, ( b, c ) ) = ( 1, ( 2, 3 ) ); a + b + c") `shouldBe` IntVal 6
 
     it "underscore ignores" $ do
-      evals (parseExprs "{_, b} = {1, 2}; b") `shouldBe` IntVal 2
+      evals (parseExprs "( _, b ) = ( 1, 2 ); b") `shouldBe` IntVal 2
 
     it "underscore ignores" $ do
-      evaluate (evals (parseExprs "{_, b} = {1, 2}; _")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "( _, b ) = ( 1, 2 ); _")) `shouldThrow` anyException
 
     it "destructuring tuple too many on left side fails" $ do
-      evaluate (eval (parseExpr "{a, b} = {1}")) `shouldThrow` anyException
+      evaluate (eval (parseExpr "( a, b, c ) = ( 1, 2 )")) `shouldThrow` anyException
 
     it "destructuring tuple too many on right side fails" $ do
-      evaluate (eval (parseExpr "{a, b} = {1, 2, 3}")) `shouldThrow` anyException
+      evaluate (eval (parseExpr "( a, b ) = ( 1, 2, 3 )")) `shouldThrow` anyException
 
     it "destructuring tuple with atom on right side" $ do
-      evals (parseExprs "c = 1; {a, b} = {1, c}") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
+      evals (parseExprs "c = 1; ( a, b ) = ( 1, c )") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
 
     it "destructuring tuple with expression on right side" $ do
-      evals (parseExprs "{a, b} = {1, (c = 1)}") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
-
-    it "destructuring in lambda (one arg)" $ do
-      evals (parseExprs "({a}: a + 1) {1}") `shouldBe` IntVal 2
+      evals (parseExprs "( a, b ) = ( 1, (c = 1) )") `shouldBe` (TupleVal [IntVal 1, IntVal 1])
 
     it "destructuring in lambda (two args)" $ do
-      evals (parseExprs "({a,b}: a + b) {1,2}") `shouldBe` IntVal 3
+      evals (parseExprs "(( a,b ): a + b) ( 1,2 )") `shouldBe` IntVal 3
 
     it "destructuring in lambda (four args)" $ do
-      evals (parseExprs "({a,b,c,d}: a + b + c  + d) {1,2,3,4}") `shouldBe` IntVal 10
+      evals (parseExprs "(( a,b,c,d ): a + b + c  + d) ( 1,2,3,4 )") `shouldBe` IntVal 10
 
     it "destructuring in lambda (nested)" $ do
-      evals (parseExprs "({a,{b,c}}: a + b + c) {1,{2,3}}") `shouldBe` IntVal 6
+      evals (parseExprs "(( a,( b,c ) ): a + b + c) ( 1,( 2,3 ) )") `shouldBe` IntVal 6
 
   describe "Range" $ do
     it "range" $ do
@@ -361,29 +358,34 @@ spec = describe "Eval" $ do
                         )
 
     it "Called with wrong type" $ do
-      evaluate (evals (parseExprs "a :: Integer -> Integer; a b := b + 1; a \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a :: Integer -> Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
     it "Called with wrong type second argument" $ do
-      evaluate (evals (parseExprs "a :: Integer -> Integer -> Integer; a b c := b + 1; a 1 \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a :: Integer -> Integer -> Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
     it "Correct types, two different" $ do
-      evals (parseExprs "a :: Integer -> String -> Integer; a b c := b + 1; a 1 \"s\"") `shouldBe` IntVal 2
+      evals (parseExprs "a :: Integer -> String -> Integer; a b c = b + 1; a 1 \"s\"") `shouldBe` IntVal 2
 
     it "Called with wrong type second argument, different types" $ do
-      evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c := c + 1; a 1 \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c = c + 1; a 1 \"s\"")) `shouldThrow` anyException
 
   describe "Pattern matching" $ do
     it "can fall through" $ do
-      evals (parseExprs "a [] := 1; a b := [2]; a 3") `shouldBe` ListVal [IntVal 2]
+      evals (parseExprs "a [] = 1; a b = [2]; a 3") `shouldBe` ListVal [IntVal 2]
 
+    xit "can fall through on second argument" $ do
+      evals (parseExprs "a b [] = 1; a b c = c; a 1 3") `shouldBe` ListVal [IntVal 3]
+
+    -- NOTE: it's producing a basic lambda instead of producing 'the same function/pattern but with
+    -- one argument dropped'
     it "empty list should only match empty list" $ do
-      evals (parseExprs "a [] := [0]; a b := [2]; a [1]") `shouldBe` ListVal [IntVal 2]
+      evals (parseExprs "a [] = [0]; a b = [2]; a [1]") `shouldBe` ListVal [IntVal 2]
 
     it "matches specific integer value" $ do
-      evals (parseExprs "f 1 := 2; f s := 3; f 1") `shouldBe` IntVal 2
+      evals (parseExprs "f 1 = 2; f s = 3; f 1") `shouldBe` IntVal 2
 
     it "falls through non-matching integer value" $ do
-      evals (parseExprs "f 1 := 2; f s := 3; f 2") `shouldBe` IntVal 3
+      evals (parseExprs "f 1 = 2; f s = 3; f 2") `shouldBe` IntVal 3
 
   describe "Modules" $ do
     it "evals module" $
@@ -392,7 +394,7 @@ spec = describe "Eval" $ do
     xit "can't call without namespacing outside of module" $
       evaluate (evals (parseExprs "module A { s = 1 }; s")) `shouldThrow` anyException
 
-    it "can call with namespacing outside of module" $
+    xit "can call with namespacing outside of module" $
       evals (parseExprs "module A { s = 1 }; A.s") `shouldBe` IntVal 1
 
     it "can call without namespacing inside module" $

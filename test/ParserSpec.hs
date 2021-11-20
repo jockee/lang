@@ -144,7 +144,7 @@ spec = describe "Parser" $ do
     s (parseExpr "{ {a: 1} | a => 2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]) (PDict anyTypeSig [((Atom anyTypeSig "a"), (PInteger 2))]))
 
   it "function definiton" $
-    s (parseExpr "s x := x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
+    s (parseExpr "s x = x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
 
   it "nothing" $
     s (parseExpr "Nothing") `shouldBe` s PNothing
@@ -162,10 +162,10 @@ spec = describe "Parser" $ do
     s (parseExpr "[1..a]") `shouldBe` s (PRange anyTypeSig (PInteger 1) (Atom anyTypeSig "a"))
 
   it "tuple" $
-    s (parseExpr "{1, a}") `shouldBe` s (PTuple anyTypeSig [PInteger 1, Atom anyTypeSig "a"])
+    s (parseExpr "( 1, a )") `shouldBe` s (PTuple anyTypeSig [PInteger 1, Atom anyTypeSig "a"])
 
   it "destructuring tuple" $
-    s (parseExpr "{a, b} = {1, 2}") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
+    s (parseExpr "( a, b ) = ( 1, 2 )") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
 
   describe "Type definition" $ do
     it "Binding definition" $
@@ -179,22 +179,22 @@ spec = describe "Parser" $ do
 
   describe "Pattern matching" $ do
     it "empty list in function definition" $
-      s (parseExpr "a [] := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PList anyTypeSig [])]) (PInteger 1)))
+      s (parseExpr "a [] = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PList anyTypeSig [])]) (PInteger 1)))
 
     it "integer in function definition" $
-      s (parseExpr "a 1 := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PInteger 1)]) (PInteger 1)))
+      s (parseExpr "a 1 = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PInteger 1)]) (PInteger 1)))
 
     it "tuple with integer function definition" $
-      s (parseExpr "a {b} := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b")])]) (PInteger 1)))
+      s (parseExpr "a ( b, c ) = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b"), (Atom anyTypeSig "c")])]) (PInteger 1)))
 
     it "all-atom tuple in function definition" $
-      s (parseExpr "a {b, c} := 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b"), (Atom anyTypeSig "c")])]) (PInteger 1)))
+      s (parseExpr "a ( b, c ) = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PTuple anyTypeSig [(Atom anyTypeSig "b"), (Atom anyTypeSig "c")])]) (PInteger 1)))
 
     it "dict full match" $
-      s (parseExpr "a {b: c} := c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
+      s (parseExpr "a {b: c} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
 
     xit "dict partial match" $
-      s (parseExpr "a {b: c, ...} := c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
+      s (parseExpr "a {b: c, ...} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDict anyTypeSig [((PDictKey "b"), (Atom anyTypeSig "c"))])]) (Atom anyTypeSig "c")))
 
   describe "Modules" $ do
     it "parses module" $

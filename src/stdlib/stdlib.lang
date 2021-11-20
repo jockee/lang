@@ -1,42 +1,43 @@
 // LIST
-fold x init xs := (InternalFunction fold [x, init, xs]);
+fold x init xs = (InternalFunction fold [x, init, xs]);
 // map :: (Int -> Int) -> [Int] -> [Int];
-map k xs := fold (acc x: (acc ++ [k x])) [] xs;
-filter f xs := fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs;
-reject f xs := fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs;
-length xs := fold (acc x: acc + 1) 0 xs;
-take n xs := fold (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs;
-empty? [] := true;
-empty? s := false;
-includes? x xs := fold (acc p: (p == x) ? true : false) false xs;
-unique xs := fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs;
-head xs := (InternalFunction head xs);
-last xs := reverse xs |> head;
-find f xs := filter f xs |> head;
-sort xs := (InternalFunction sort xs); // NOTE: implement without internal?
-reverse xs := fold (acc x: [x] ++ acc) [] xs;
-max xs := sort xs |> reverse |> head;
-min xs := sort xs |> head;
-zipWith f xs ys := (InternalFunction zipWith [f, xs, ys]);
-zip xs ys := zipWith (x y: {x, y}) xs ys;
-toDict xs := fold (acc {k,v}: { acc | {k => v} ) {} xs;
+map k xs = fold (acc x: (acc ++ [k x])) [] xs;
+filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs;
+reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs;
+length xs = fold (acc x: acc + 1) 0 xs;
+take n xs = fold (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs;
+empty? [] = true;
+empty? s = false;
+includes? x xs = fold (acc p: (p == x) ? true : false) false xs;
+unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs;
+head xs = (InternalFunction head xs);
+last xs = reverse xs |> head;
+find f xs = filter f xs |> head;
+sort xs = (InternalFunction sort xs); // NOTE: implement without internal?
+reverse xs = fold (acc x: [x] ++ acc) [] xs;
+max xs = sort xs |> reverse |> head;
+min xs = sort xs |> head;
+zipWith f xs ys = (InternalFunction zipWith [f, xs, ys]);
+zip xs ys = zipWith (x y: (x, y)) xs ys;
+toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs;
+// toDict xs := fold (acc {k,v}: { acc | {k => v} ) {} xs;
 
 // DICTIONARIES
-print a := (InternalFunction print [a]);
-toList xs := (InternalFunction dictToList [xs]);
-keys dict := toList dict |> map ({a,b}: a);
-values dict := toList dict |> map ({a,b}: b);
-merge d1 d2 := { d1 | d2 };
+print a = (InternalFunction print [a]);
+toList xs = (InternalFunction dictToList [xs]);
+keys dict = toList dict |> map ((a, b): a);
+values dict = toList dict |> map ((a, b): b);
+merge d1 d2 = { d1 | d2 };
 
 // MAYBE
-// maybe default f mb :=
+// maybe default f mb =
 
-at q [] := Nothing;
-at q xs := zip qqq [0 .. (length xs)] |> find ({a,b}: (b == q));
+at q xs = zip xs [0 .. (length xs)] |> find ((a, b): (b == q));
+at q [] = Nothing;
 
 // module List {
-//   at x [] := Nothing;
-//   at x xs := zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
+//   at x [] = Nothing;
+//   at x xs = zip xs [0 .. (length xs)] |> find ({a, i}: (i == x));
 // let x = b {
 //   case mb {
 //     a ->

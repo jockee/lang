@@ -1,10 +1,7 @@
 # WIP
 
-  - TODO: at function
-    * foldl ends up with last argument first (??)
-    * tuple destructuring seemingly not working for lambdas? has it ever
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
-    * when it's done we, `maybe` function
+    * when it's done we, `maybe` function. exposes constructors?
   - TODO: modules/namespacing.
     * nested
 
@@ -47,8 +44,6 @@
   - TODO: string interpolation "#{intval}"
     * Could be LString ["val of a: ", (Atom "a"), "!"]?
   - TODO: repl catch eval error and continue
-  - TODO: use `=` for function definition
-  - TODO: use parens for tuples
   - TODO: where clause.
   - TODO: guard clause.
     fun x a
