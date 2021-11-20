@@ -20,7 +20,6 @@ min xs = sort xs |> head;
 zipWith f xs ys = (InternalFunction zipWith [f, xs, ys]);
 zip xs ys = zipWith (x y: (x, y)) xs ys;
 toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs;
-// toDict xs := fold (acc {k,v}: { acc | {k => v} ) {} xs;
 
 // DICTIONARIES
 print a = (InternalFunction print [a]);

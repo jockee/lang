@@ -48,8 +48,10 @@ library
     , hspec
     , hspec-discover
     , indents
+    , megaparsec
     , mtl
     , parsec
+    , parser-combinators
     , pretty
     , protolude
     , text
@@ -73,8 +75,10 @@ executable lang-exe
     , hspec-discover
     , indents
     , lang
+    , megaparsec
     , mtl
     , parsec
+    , parser-combinators
     , pretty
     , protolude
     , text
@@ -101,8 +105,10 @@ test-suite lang-test
     , hspec-discover
     , indents
     , lang
+    , megaparsec
     , mtl
     , parsec
+    , parser-combinators
     , pretty
     , protolude
     , text

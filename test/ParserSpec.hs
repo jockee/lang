@@ -199,3 +199,10 @@ spec = describe "Parser" $ do
   describe "Modules" $ do
     it "parses module" $
       show (parseExpr "module A { 1 }") `shouldBe` show (Module "A" [PInteger 1])
+
+  describe "Comment" $ do
+    it "inline" $
+      show (parseExpr "1 // comment") `shouldBe` show (PInteger 1)
+
+    it "comment line" $
+      show (parseExpr "// comment") `shouldBe` show PNoop
