@@ -1,20 +1,18 @@
-# WIP
+# KEY
 
+  - TODO: if line ends or starts with infix operator, it's not a line-break
+  - TODO: inject stdlib when testing ,so it's not read for ever ytest
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
     * when it's done we, `maybe` function. exposes constructors?
   - TODO: modules/namespacing.
     * nested
-
-# KEY
-
   - TODO: typeof (constructor, and type respectively)
   - TODO: PATTERN MATCHING
     - TODO: destructuring in named function arguments. #reqpatternmatching
-      - TODO: dict full, dict partial
-      - TODO: head and tail of list
-      - TODO: tuple
+      - TODO: dict partial - spread operator
+      - TODO: move pattern matching check out of extend
   - TODO: (STATIC) TYPE SYSTEM #typesystem
-    - TODO: if function is defined with set list in a position, that argument must be a list
+    - TODO: if function is defined with set list in a position, that argument must be a list for all definitions
     - TODO: handle lists and tuples as input types
     - TODO: handle tuple, dict, list
     - TODO: handle functions as input types
@@ -34,15 +32,17 @@
 
 # MID
 
+  - tofloat
+  - tointeger
+  - division
+  - mod
+
+  - TODO: implement `odd?` and `even?`
   - TODO: `data` types ()
 
 # BACKLOG
 
-  - TODO: let-in multiple. #reqcleverexpsplit
-    * depends on each other
   - TODO: sets
-  - TODO: string interpolation "#{intval}"
-    * Could be LString ["val of a: ", (Atom "a"), "!"]?
   - TODO: repl catch eval error and continue
   - TODO: where clause. reqcleverexpsplit
   - TODO: guard clause. reqcleverexpsplit
@@ -50,6 +50,9 @@
     | x > 1 = true
   - TODO: `filter` if-then-else without comma around predicate
   - TODO: replace string with T.Text?
+  - TODO: negate atom (a=1; fib 1 = 1-a)
+
+
 
 # NOTES
 

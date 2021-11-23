@@ -3,6 +3,7 @@
 
 module Eval where
 
+import Control.Concurrent
 import Control.Exception
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -27,7 +28,6 @@ instance Evaluatable Expr where
     let (val, env') = evalIn env condition
      in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
   evalIn env (Lambda ts args e) =
-    -- trace ("ould produde pattern here" ++ show ts) $
     (FunctionVal ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
   evalIn env (App e1 e2) = apply (withScope env) e1 e2
@@ -39,7 +39,12 @@ instance Evaluatable Expr where
       FunctionVal {} -> (Pattern definitions, env)
       lastDef -> (lastDef, env)
     Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
-  evalIn env (PString n) = (StringVal n, env)
+  evalIn env (PString parts) =
+    let fn x = case fst $ evalIn env x of
+          StringVal s -> s
+          o -> show o
+     in (StringVal $ List.intercalate "" $ map fn parts, env)
+  evalIn env (PChar n) = (StringVal n, env)
   evalIn env (PFloat n) = (FloatVal n, env)
   evalIn env (PInteger n) = (IntVal n, env)
   evalIn env (PDictUpdate baseDict updateDict) =
@@ -76,12 +81,8 @@ instance Evaluatable Expr where
           then throw $ EvalException "Destructuring failed. Mismatched parameter count"
           else (TupleVal evaledValues, newEnv)
   evalIn env (Binop Concat e1 e2) =
-    let (ListVal xs, _) =
-          -- trace ("E1: " ++ show (evalIn env e1)) $
-          evalIn env e1
-        (ListVal ys, _) =
-          -- trace ("E2: " ++ show (evalIn env e2)) $
-          evalIn env e2
+    let (ListVal xs, _) = evalIn env e1
+        (ListVal ys, _) = evalIn env e2
         e = error "Invalid"
      in (ListVal $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = apply (withScope env) e2 e1
@@ -104,15 +105,54 @@ instance Evaluatable Expr where
 
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
-  -- trace ("bindings:" ++ List.intercalate ", " (map show bindings) ++ "\n values: " ++ List.intercalate ", " (map show vs)) $
-  let foldFun :: Env -> (Expr, Val) -> Env
-      foldFun accEnv (atom, val) = case atom of
-        Atom ts atomId -> extend accEnv atomId AnyType val
-        PTuple ts nBindings -> case val of
-          (TupleVal vls) -> extendWithTuple accEnv nBindings vls
-          _ -> error "Trying to destructure into non-atom"
+  let foldFun accEnv (binding, val) = case binding of
+        Atom _ts atomId -> extend accEnv atomId AnyType val
+        argExpr -> extendNonAtom accEnv argExpr val
         _ -> error "Trying to destructure into non-atom"
    in foldl foldFun env (zip bindings vs)
+
+-- let {a: b} = {a: 1} in
+-- let {a: 1, b: c} = {a: 1, b: 2} in
+-- let {a: b, ...} = {a: 1, b: 2, c: 2} in
+extendWithDict :: Env -> [(Expr, Expr)] -> Map.Map Val Val -> Env
+extendWithDict env exprPairs valMap = foldl foldFun env exprPairs
+  where
+    foldFun :: Env -> (Expr, Expr) -> Env
+    foldFun accEnv expr = case expr of
+      (PDictKey a, Atom _ts atomId) -> case Map.lookup (DictKey a) valMap of
+        Just val -> extend accEnv atomId AnyType val
+        Nothing -> error "Dict doesn't contain key"
+      (PDictKey a, expr) ->
+        let evaledExpr = fst $ evalIn accEnv expr
+         in ( case Map.lookup (DictKey a) valMap of
+                Just val -> if val == evaledExpr then accEnv else error "Dict not matching pattern"
+                Nothing -> error "Dict doesn't contain key"
+            )
+
+extendWithConsList :: Env -> [String] -> [Val] -> Env
+extendWithConsList env bindings vs
+  | (length bindings - 1) > length vs = error "Too many bindings"
+  | otherwise =
+    let llast = (last bindings, ListVal $ drop (length bindings - 1) vs)
+        linit = zip (take (length bindings - 1) bindings) vs
+     in foldFun llast (foldr foldFun env linit)
+  where
+    foldFun (binding, val) accEnv = extend accEnv binding AnyType val
+
+extendNonAtom :: Evaluatable e => Env -> Expr -> e -> Env
+extendNonAtom env argExpr expr = case argExpr of
+  (PDict _ts exprPairs) -> case val of
+    (DictVal valMap) -> extendWithDict env exprPairs valMap
+    _ -> error "Non-dict value received for dict destructuring"
+  (ConsList bindings) -> case val of
+    (ListVal vals) -> extendWithConsList env bindings vals
+    _ -> error "Non-list value received for list destructuring"
+  (PTuple _ts bindings) -> case val of
+    (TupleVal vals) -> extendWithTuple env bindings vals
+    _ -> error "Non-tuple value received for tuple destructuring"
+  _ -> env
+  where
+    val = fst $ evalIn env expr
 
 extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
@@ -143,21 +183,21 @@ internalFunction env f argsList = case evaledArgsList of
       (x : _) -> JustVal x
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> (TupleVal [k, v])) (Map.toList d)
+    fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "print" (a : _) = unsafePerformIO (print a >> pure a)
+    fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "sort" xs = ListVal . List.sort $ xs
     fun x r = error ("No such function " ++ show x ++ show r)
     funToExpr (FunctionVal ts env args e) = (Lambda ts args e)
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
-  trace ("called apply") $ case evalIn env e1 of
+  case evalIn env e1 of
     (Pattern definitions, env') -> case List.find (patternMatch passedArg) definitions of
       Just (FunctionVal ts _ args e3) -> runFun env' ts args e2 e3
       Nothing -> error "Pattern match fail"
     (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
-    (val, env) ->
-      -- trace ("Cannot apply val: " ++ show val ++ "!") $
-      error ("Cannot apply value" ++ show env)
+    (val, env) -> error ("Cannot apply value" ++ show env)
   where
     (passedArg, _) = evalIn env e2
 
@@ -176,20 +216,18 @@ patternMatch passedArg definition = case definition of
         patternMatches (PInteger e) (IntVal v) = e == v
         patternMatches (PFloat e) (FloatVal v) = e == v
         patternMatches _ _ = True
-     in trace ("patternmatch " ++ show passedArg ++ " - " ++ show expectedArgExp) $
-          typesMatch && patternMatches expectedArgExp passedArg
+     in typesMatch && patternMatches expectedArgExp passedArg
 
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let allArgs@(arg : remainingArgs') = argsList
       -- NOTE: move extension of 'whatever' to separate function
       -- NOTE: this is where destructuring is put into env
-      newEnv = trace ("calling f with x = " ++ show arg) $ case arg of
-        (Atom _ts atomId) -> extend env atomId (expectedType env ts $ length allArgs) expr
-        (PTuple _ts bindings) -> case fst $ evalIn env expr of
-          (TupleVal vals) -> extendWithTuple env bindings vals
-          _ -> error "Non-tuple value received for tuple destructuring"
-        _ -> env
+      newEnv =
+        case arg of
+          (Atom _ts atomId) -> extend env atomId (expectedType env ts $ length allArgs) expr
+          argExpr -> extendNonAtom env argExpr expr
+          _ -> env
    in if null remainingArgs'
         then evalIn newEnv funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)

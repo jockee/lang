@@ -2,6 +2,7 @@ module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
+import Data.List qualified as List
 import Data.Void
 import Debug.Trace
 import Eval ()
@@ -9,6 +10,9 @@ import Syntax
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
+
+doesntLineBreak :: [Char]
+doesntLineBreak = [',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
 
 type Parser = Parsec Void String
 
@@ -55,19 +59,19 @@ formula = makeExprParser juxta table <?> "formula"
       PInteger x -> PInteger $ negate x
       PFloat x -> PFloat $ negate x
     not' (PBool b) = PBool $ not b
-    notEqOp = InfixL (string "!=" <* optional sc >> return (Binop NotEql))
-    eqOp = InfixR (string "==" <* optional sc >> return (Binop Eql))
-    subOp = InfixL (string "-" <* optional sc >> return (Binop Sub))
-    addOp = InfixL (try $ string "+" <* notFollowedBy (char '+') <* optional sc >> return (Binop Add))
-    mulOp = InfixL (string "*" <* optional sc >> return (Binop Mul))
-    andOp = InfixL (string "&&" <* optional sc >> return (Binop And))
-    gtOp = InfixL (string ">" <* optional sc >> return (Cmp ">"))
-    ltOp = InfixL (string "<" <* optional sc >> return (Cmp "<"))
-    gteOp = InfixL (string ">=" <* optional sc >> return (Cmp ">="))
-    lteOp = InfixL (string "<=" <* optional sc >> return (Cmp "<="))
-    orOp = InfixL (string "||" <* optional sc >> return (Binop Or))
-    concatOp = InfixL (string "++" <* optional sc >> return (Binop Concat))
-    pipeOp = InfixL (string "|>" <* optional sc >> return (Binop Pipe))
+    notEqOp = InfixL (try $ space *> string "!=" <* optional space >> return (Binop NotEql))
+    eqOp = InfixR (try $ space *> string "==" <* optional space >> return (Binop Eql))
+    subOp = InfixL (try $ space *> string "-" <* optional space >> return (Binop Sub))
+    addOp = InfixL (try $ (space >> string "+") <* notFollowedBy (char '+') <* optional space >> return (Binop Add))
+    mulOp = InfixL (try $ space *> string "*" <* optional space >> return (Binop Mul))
+    andOp = InfixL (try $ space *> string "&&" <* optional space >> return (Binop And))
+    gtOp = InfixL (try $ space *> string ">" <* optional space >> return (Cmp ">"))
+    ltOp = InfixL (try $ space *> string "<" <* optional space >> return (Cmp "<"))
+    gteOp = InfixL (try $ space *> string ">=" <* optional space >> return (Cmp ">="))
+    lteOp = InfixL (try $ space *> string "<=" <* optional space >> return (Cmp "<="))
+    orOp = InfixL (try $ space *> string "||" <* optional space >> return (Binop Or))
+    concatOp = InfixL (try $ space *> string "++" <* optional space >> return (Binop Concat))
+    pipeOp = InfixL (try $ space *> string "|" <* optional space >> return (Binop Pipe))
 
 lexeme = L.lexeme hspace
 
@@ -80,7 +84,7 @@ rws = ["module", "case", "let"]
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p = (:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '?')
+    p = (:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '?' <|> char '\'')
     check x =
       if x `elem` rws
         then fail $ "keyword " ++ show x ++ " cannot be an identifier"
@@ -104,7 +108,8 @@ term =
         <|> list
         <|> true
         <|> false
-        <|> parseString
+        <|> parseInterpolatedString
+        <|> try consList
         <|> variable
         <|> try tuple
         <|> parens expr
@@ -124,14 +129,23 @@ dictContents = do
   where
     pair = do
       key <- try (dictKey <* string ":") <|> (variable <* string "=>")
-      hspace
+      space
       val <- expr
       return (key, val)
+
+consList :: Parser Expr
+consList = do
+  char '('
+  space
+  listContents <- identifier `sepBy` (space *> string "::" <* space)
+  space
+  char ')'
+  return $ ConsList listContents
 
 dict :: Parser Expr
 dict = do
   char '{'
-  hspace
+  space
   x <- try $ dictContents
   char '}'
   return x
@@ -139,13 +153,13 @@ dict = do
 dictUpdate :: Parser Expr
 dictUpdate = do
   char '{'
-  hspace
+  space
   dct <- variable <|> dict
-  hspace
+  space
   char '|'
-  hspace
+  space
   optional $ char '{'
-  hspace
+  space
   updates <- try dictContents <|> variable
   char '}'
   optional $ many (spaceChar <|> (char '}'))
@@ -167,8 +181,9 @@ dictAccess = dotKey <|> try dictDotKey
       return (DictAccess x (Atom (sig [DictionaryType] (DictionaryType)) (first : rest)))
 
 tupleContents :: Parser [Expr]
-tupleContents = (juxta <|> formula) `sepBy2` many (spaceChar <|> char ',')
+tupleContents = juxta `sepBy2` many (spaceChar <|> char ',')
 
+sepBy2 :: MonadPlus m => m a -> m sep -> m [a]
 sepBy2 p sep = liftM2 (:) p (some (sep >> p))
 
 listContents :: Parser [Expr]
@@ -176,19 +191,19 @@ listContents = (juxta <|> formula) `sepBy` many (spaceChar <|> char ',')
 
 range :: Parser Expr
 range = do
-  char '['
-  hspace
+  char '('
+  space
   lBound <- term
   string ".."
-  hspace
+  space
   uBound <- term
-  char ']'
+  char ')'
   return (PRange (sig [AnyType] AnyType) lBound uBound)
 
 tuple :: Parser Expr
 tuple = do
   char '('
-  hspace
+  space
   x <- try tupleContents
   char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
@@ -196,7 +211,7 @@ tuple = do
 list :: Parser Expr
 list = do
   char '['
-  hspace
+  space
   x <- try listContents
   char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
@@ -204,7 +219,7 @@ list = do
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
   string "InternalFunction"
-  hspace
+  space
   f <- identifier
   args <- list <|> variable
   return (InternalFunction f args)
@@ -212,10 +227,10 @@ parseInternalFunction = do
 parseModule :: Parser Expr
 parseModule = do
   string "module"
-  hspace
+  space
   first <- upperChar
   rest <- many (letterChar <|> digitChar)
-  optional hspace
+  optional space
   string "{"
   contents <- manyExpressions
   string "}"
@@ -224,16 +239,21 @@ parseModule = do
 letin :: Parser Expr
 letin = do
   string "let"
-  hspace
-  x <- variable
-  hspace
-  string "="
-  hspace
-  e1 <- term
-  hspace
+  space
+  pairs <- pair `sepBy1` many (spaceChar <|> char ',')
+  space
   string "in"
-  e2 <- expr
-  return (App (Lambda (sig [AnyType] AnyType) [x] e2) e1)
+  body <- expr
+  return $ foldr foldFun body pairs
+  where
+    foldFun (pairKey, pairVal) acc =
+      (App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal)
+    pair = do
+      space
+      key <- try (term <* string "=")
+      space
+      val <- term <|> formula
+      return (key, val)
 
 moduleAccess :: Parser Expr
 moduleAccess = do
@@ -252,10 +272,10 @@ dictKey = PDictKey `fmap` identifier
 typeDef :: Parser Expr
 typeDef = do
   name <- identifier
-  hspace
-  string "::"
-  hspace
-  bindings <- identifier `sepBy1` (string "->" <* (many spaceChar))
+  space
+  string "#"
+  space
+  bindings <- identifier `sepBy1` ((string ":" <|> string ",") <* (many spaceChar))
   let args = case init bindings of
         [] -> []
         ["TakesAnyArgsType"] -> [TakesAnyArgsType]
@@ -275,6 +295,7 @@ function :: Parser Expr
 function = do
   terms <- term `sepBy1` hspace
   string "="
+  space
   let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
@@ -287,33 +308,33 @@ function = do
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (variable <|> tuple) `sepBy` hspace
-  string ":"
+  identifiers <- (variable <|> tuple) `sepBy` space
+  string ":" <* notFollowedBy (string ":")
   body <- expr
   return (Lambda (sig [AnyType] AnyType) identifiers body)
 
 ifthen :: Parser Expr
 ifthen = do
   string "if"
-  hspace
+  space
   cond <- term
-  hspace
+  space
   string "then"
-  hspace
+  space
   tr <- term
-  hspace
+  space
   string "else"
-  hspace
+  space
   PIf cond tr <$> term
 
 ternary :: Parser Expr
 ternary = do
   cond <- term
   string "?"
-  hspace
+  space
   tr <- term
   string ":"
-  hspace
+  space
   PIf cond tr <$> term
 
 parseMaybe' :: Parser Expr
@@ -368,17 +389,26 @@ parseExprs s = case parseExprs' s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr) `sepBy` many (newline <|> char ';')
+manyExpressions = (parseModule <|> expr) `sepBy` many (split1 <|> split <|> char ';')
+  where
+    split1 = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
+    split = do
+      newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (allOf (manyExpressions)) "stdin"
 
-parseString :: Parser Expr
-parseString = do
-  char '"'
-  s <- many (escapedChars <|> noneOf ['\\', '"'])
-  char '"'
-  return $ PString s
+parseInterpolatedString :: Parser Expr
+parseInterpolatedString = do
+  string "\""
+  parts <- some $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
+  string "\""
+  return $ PString parts
+
+parseStringContent :: Parser Expr
+parseStringContent = do
+  s <- (escapedChars <|> noneOf ['\\', '"'])
+  return $ PChar [s]
 
 escapedChars :: Parser Char
 escapedChars = do

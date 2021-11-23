@@ -45,7 +45,7 @@ spec = describe "Parser" $ do
     s (parseExpr "1 || 1") `shouldBe` s (Binop Or (PInteger 1) (PInteger 1))
 
   it "string" $
-    s (parseExpr "\"test\"") `shouldBe` s (PString "test")
+    s (parseExpr "\"test\"") `shouldBe` s (PString [(PChar "t"), (PChar "e"), (PChar "s"), (PChar "t")])
 
   it "ternary" $
     s (parseExpr "true ? 1 : 2") `shouldBe` s (PIf (PBool True) (PInteger 1) (PInteger 2))
@@ -63,16 +63,16 @@ spec = describe "Parser" $ do
     s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1)))
 
   it "pipe to lambda" $
-    s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+    s (parseExpr "5 | (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
 
   it "lambda application" $
     s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
   it "pipe to pipe" $
-    s (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` s (Binop Pipe (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1)))) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 2))))
+    s (parseExpr "5 | (y: y + 1) | (x: x + 2)") `shouldBe` s (Binop Pipe (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1)))) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 2))))
 
   it "pipe partial application" $
-    s (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` s (Binop Pipe (PList anyTypeSig [PInteger 1, PInteger 2]) (App (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2)))))
+    s (parseExpr "[1,2] | map (x: x * 2)") `shouldBe` s (Binop Pipe (PList anyTypeSig [PInteger 1, PInteger 2]) (App (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2)))))
 
   it "nested lambda application" $
     s (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (App (Lambda anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1))) (Atom anyTypeSig "x")) (PInteger 2))) (PInteger 5))
@@ -156,26 +156,26 @@ spec = describe "Parser" $ do
     s (parseExpr "(InternalFunction head [xs])") `shouldBe` s (InternalFunction "head" (PList anyTypeSig [Atom anyTypeSig "xs"]))
 
   it "range" $
-    s (parseExpr "[1..3]") `shouldBe` s (PRange anyTypeSig (PInteger 1) (PInteger 3))
+    s (parseExpr "(1..3)") `shouldBe` s (PRange anyTypeSig (PInteger 1) (PInteger 3))
 
   it "range to atom" $
-    s (parseExpr "[1..a]") `shouldBe` s (PRange anyTypeSig (PInteger 1) (Atom anyTypeSig "a"))
+    s (parseExpr "(1..a)") `shouldBe` s (PRange anyTypeSig (PInteger 1) (Atom anyTypeSig "a"))
 
   it "tuple" $
-    s (parseExpr "( 1, a )") `shouldBe` s (PTuple anyTypeSig [PInteger 1, Atom anyTypeSig "a"])
+    s (parseExpr "(1, a)") `shouldBe` s (PTuple anyTypeSig [PInteger 1, Atom anyTypeSig "a"])
 
   it "destructuring tuple" $
-    s (parseExpr "( a, b ) = ( 1, 2 )") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
+    s (parseExpr "(a, b) = (1, 2)") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
 
   describe "Type definition" $ do
     it "Binding definition" $
-      show (parseExpr "a :: Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
+      show (parseExpr "a # Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
 
     it "Function definition" $
-      show (parseExpr "a :: Integer -> Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
+      show (parseExpr "a # Integer: Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
 
   -- xit "Function definition contains function" $ do
-  --   s (parseExpr "a :: (Integer -> Integer) -> Integer") `shouldBe` s (LTypeDef "a" TypeSig {typeSigIn=[Any], typeSigReturn=[Function [Type "Integer", Type "Integer"], Type "Integer"])
+  --   s (parseExpr "a # (Integer: Integer): Integer") `shouldBe` s (LTypeDef "a" TypeSig {typeSigIn=[Any], typeSigReturn=[Function [Type "Integer", Type "Integer"], Type "Integer"])
 
   describe "Pattern matching" $ do
     it "empty list in function definition" $
@@ -214,5 +214,19 @@ spec = describe "Parser" $ do
     it "newline splits" $
       show (parseExprs "1\na=2") `shouldBe` show [(PInteger 1), (Binop Assign (Atom anyTypeSig "a") (PInteger 2))]
 
+    it "newline doesn't split if preceded by infix operator" $
+      show (parseExpr "a =\n 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (PInteger 1))
+
     it "avoids split before pipe" $
-      s (parseExpr "5 \n  |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+      s (parseExpr "5 \n | (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+
+  describe "String interpolation" $ do
+    it "just an integer" $
+      show (parseExpr "\"a#{1}b\"") `shouldBe` show (PString [(PChar "a"), (PInteger 1), (PChar "b")])
+
+    it "addition" $
+      show (parseExpr "\"a#{1+1}b\"") `shouldBe` show (PString [(PChar "a"), (Binop Add (PInteger 1) (PInteger 1)), (PChar "b")])
+
+  describe "Cons list" $ do
+    it "function definition" $
+      show (parseExpr "a (x::xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(ConsList ["x", "xs"])]) (PInteger 1)))

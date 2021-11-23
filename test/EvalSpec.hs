@@ -80,7 +80,22 @@ spec = describe "Eval" $ do
       it "let-in binding list" $ do
         eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
 
+      it "let-in binding list" $ do
+        eval (parseExpr "let (a, b) = (1,2) in a+b") `shouldBe` IntVal 3
+
+      it "let-in binding list multiple bindings" $ do
+        eval (parseExpr "let x = 5, y = 2 in x + y") `shouldBe` IntVal 7
+
+      it "let-in binding list multiple bindings with dependency" $ do
+        eval (parseExpr "let x = 5, y = (x + 2) in x + y") `shouldBe` IntVal 12
+
   describe "Arithmetic" $ do
+    it "subtraction" $ do
+      eval (parseExpr "1-1") `shouldBe` IntVal 0
+
+    it "subtraction" $ do
+      evals (parseExprs "a = 1; (a-1)") `shouldBe` IntVal 0
+
     it "negative integer " $ do
       eval (parseExpr "-1") `shouldBe` IntVal (-1)
 
@@ -123,13 +138,13 @@ spec = describe "Eval" $ do
       eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
 
     it "pipe to pipe" $ do
-      eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
+      eval (parseExpr "5 | (y: y + 1) | (x: x + 2)") `shouldBe` IntVal 8
 
     it "nested let-in" $ do
       eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
 
     it "pipes as last argument" $ do
-      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+      eval (parseExpr "[1,2] | (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
     it "fold function" $ do
@@ -247,6 +262,15 @@ spec = describe "Eval" $ do
   it "dict update dynamic key" $
     evals (parseExprs "a = \"s\"; { {a: 1} | a => 2 }") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1)), ((DictKey "s"), (IntVal 2))])
 
+  it "destructuring dict basic" $ do
+    evals (parseExprs "let {a: b} = {a: 2} in b") `shouldBe` IntVal 2
+
+  it "destructuring dict, requiring matching other values - succeeding" $ do
+    evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 1} in b") `shouldBe` IntVal 2
+
+  it "destructuring dict, requiring matching other values - failing" $ do
+    evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2} in b")) `shouldThrow` anyException
+
   describe "General" $ do
     it "adds to global scope" $ do
       (val, env) <- evalsWithLib $ parseExprs "folder = 1"
@@ -321,10 +345,10 @@ spec = describe "Eval" $ do
 
   describe "Range" $ do
     it "range" $ do
-      eval (parseExpr "[1..3]") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
+      eval (parseExpr "(1..3)") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
     it "range on atom" $ do
-      evals (parseExprs "a = 3; [1..a]") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
+      evals (parseExprs "a = 3; (1..a)") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
   describe "Internal functions" $ do
     it "head" $ do
@@ -341,16 +365,16 @@ spec = describe "Eval" $ do
 
   describe "Runtime type system" $ do
     xit "Can't declare Integer as String" $ do
-      evaluate (eval (parseExpr "i = 1 :: String")) `shouldThrow` anyException
+      evaluate (eval (parseExpr "i = 1 # String")) `shouldThrow` anyException
 
     xit "Can't declare integer as string typedef" $ do
-      evaluate (evals (parseExprs "a :: String; a = 1")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a # String; a = 1")) `shouldThrow` anyException
 
     xit "Too many arguments in function definition" $ do
-      evaluate (evals (parseExprs "a :: Integer -> Integer; a b c = b + c ")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a # Integer: Integer; a b c = b + c ")) `shouldThrow` anyException
 
     it "Binding definition pushed to env" $ do
-      evalIn emptyEnv (parseExpr "a :: Integer")
+      evalIn emptyEnv (parseExpr "a # Integer")
         `shouldSatisfy` ( \case
                             (_, env) ->
                               Map.lookup "a" (typeSigs env)
@@ -358,16 +382,16 @@ spec = describe "Eval" $ do
                         )
 
     it "Called with wrong type" $ do
-      evaluate (evals (parseExprs "a :: Integer -> Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a # Integer: Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
     it "Called with wrong type second argument" $ do
-      evaluate (evals (parseExprs "a :: Integer -> Integer -> Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a # Integer, Integer: Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
     it "Correct types, two different" $ do
-      evals (parseExprs "a :: Integer -> String -> Integer; a b c = b + 1; a 1 \"s\"") `shouldBe` IntVal 2
+      evals (parseExprs "a # Integer, String: Integer; a b c = b + 1; a 1 \"s\"") `shouldBe` IntVal 2
 
     it "Called with wrong type second argument, different types" $ do
-      evaluate (evals (parseExprs "a :: String -> Integer -> Integer; a b c = c + 1; a 1 \"s\"")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "a # String, Integer: Integer; a b c = c + 1; a 1 \"s\"")) `shouldThrow` anyException
 
   describe "Pattern matching" $ do
     it "can fall through" $ do
@@ -399,3 +423,27 @@ spec = describe "Eval" $ do
 
     it "can call without namespacing inside module" $
       evals (parseExprs "module A { s = 1; s }") `shouldBe` IntVal 1
+
+  describe "String interpolation" $ do
+    it "atoms and integer" $
+      evals (parseExprs "a=1; \"before#{a+1}after\"") `shouldBe` (StringVal "before2after")
+
+  describe "Cons list" $ do
+    it "destructuring list in let-in" $ do
+      evals (parseExprs "let (x::xs) = [1,2,3] in x") `shouldBe` IntVal 1
+
+    it "function destructuring x" $ do
+      evals (parseExprs "a (x::xs) = x; a [1,2,3]") `shouldBe` IntVal 1
+
+    it "function destructuring xs" $ do
+      evals (parseExprs "a (x::xs) = xs; a [1,2,3]") `shouldBe` (ListVal [IntVal 2, IntVal 3])
+
+    it "function destructuring empty xs" $ do
+      evals (parseExprs "a (x::xs) = xs; a [1]") `shouldBe` (ListVal [])
+
+    it "function destructuring doesn't match on empty list" $ do
+      evaluate (evals (parseExprs "a (x::xs) = x; a []")) `shouldThrow` anyException
+
+  describe "Recursion" $ do
+    it "recurs" $ do
+      evals (parseExprs "a b = (b == 0) ? [] : (a (b-1)); a 1") `shouldBe` (ListVal [])

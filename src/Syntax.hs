@@ -44,11 +44,13 @@ data Expr where
   PDictUpdate :: Expr -> Expr -> Expr
   DictAccess :: Expr -> Expr -> Expr
   PDictKey :: String -> Expr
+  ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Float -> Expr
   PJust :: TypeSig -> Expr -> Expr
   PNothing :: Expr
-  PString :: String -> Expr
+  PString :: [Expr] -> Expr
+  PChar :: String -> Expr
   PBool :: Bool -> Expr
   PIf :: Expr -> Expr -> Expr -> Expr
   InternalFunction :: Id -> Expr -> Expr
@@ -72,7 +74,8 @@ instance Show Expr where
 showWithTypes :: Expr -> String
 showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
-showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
+showWithTypes (PString parts) = "(PString [" ++ intercalate "," (map show parts) ++ "])"
+showWithTypes (PChar contents) = "(PChar \"" ++ contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
 showWithTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
@@ -86,6 +89,7 @@ showWithTypes (PList ts contents) = "(PList " ++ showTypeSig ts ++ " [" ++ joinC
 showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
+showWithTypes (ConsList cs) = "(ConsList [" ++ intercalate "," (map show cs) ++ "])"
 showWithTypes (PNothing) = "(PNothing)"
 showWithTypes (PJust ts e) = "(PJust " ++ showTypeSig ts ++ " " ++ showWithTypes e ++ ")"
 showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
@@ -95,29 +99,19 @@ showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ "
 showWithTypes _ = "UNKNOWN"
 
 showWithoutTypes :: Expr -> String
-showWithoutTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithoutTypes contents) ++ ")"
-showWithoutTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
 showWithoutTypes (Atom _ts name) = "(Atom anyTypeSig \"" ++ name ++ "\")"
-showWithoutTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
-showWithoutTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
-showWithoutTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
-showWithoutTypes (PBool True) = "(PBool True)"
 showWithoutTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithoutTypes a ++ " " ++ showWithoutTypes b ++ ")"
-showWithoutTypes PNoop = "(PNoop)"
-showWithoutTypes (PBool False) = "(PBool False)"
 showWithoutTypes (PDict _ts pairs) = "(PDict anyTypeSig [" ++ showDictContents pairs ++ "])"
 showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
-showWithoutTypes (PDictKey key) = "(PDictKey " ++ show key ++ ")"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
-showWithoutTypes (PNothing) = "(PNothing)"
 showWithoutTypes (PJust _ts e) = "(PJust anyTypeSig " ++ showWithoutTypes e ++ ")"
 showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
-showWithoutTypes s = "UNKNOWN"
+showWithoutTypes s = showWithTypes s
 
 -- Val
 
@@ -142,18 +136,21 @@ type ArgsList = [Expr]
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
+  show (FunctionVal ts env remainingArgs _) = "<fun>"
+  -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show (TupleVal ns) = "{" ++ List.intercalate ", " (map show ns) ++ "}"
+  show (TupleVal ns) = "(" ++ List.intercalate ", " (map show ns) ++ ")"
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (JustVal v) = "Just " ++ show v
   show (NothingVal) = "Nothing"
   show (DictKey n) = n
   show (StringVal n) = show n
-  show (BoolVal n) = show n
+  show (BoolVal n)
+    | n = "true"
+    | otherwise = "false"
   show Undefined = "Undefined"
 
 class Num a => Arith a where
@@ -172,9 +169,11 @@ instance Ord Val where
   compare (DictKey i1) (DictKey i2) = compare i1 i2
   compare (FloatVal i1) (FloatVal i2) = compare i1 i2
   compare (IntVal i1) (IntVal i2) = compare i1 i2
+  compare a b = error ("not implemented" ++ show a)
 
 instance Eq Val where
   (TupleVal a) == (TupleVal b) = a == b
+  StringVal s1 == StringVal s2 = s1 == s2
   NothingVal == NothingVal = True
   JustVal v1 == JustVal v2 = v1 == v2
   (FloatVal i1) == (FloatVal i2) = i1 == i2
@@ -232,6 +231,7 @@ instance LangTypeable String where
   toLangType s = case s of
     "String" -> StringType
     "Integer" -> IntType
+    _ -> UndefinedType
 
 instance LangTypeable Expr where
   toLangType e = case e of
@@ -257,6 +257,8 @@ instance LangTypeable Expr where
     Cmp {} -> UndefinedType
     NamedTypeSig {} -> UndefinedType
     PNoop {} -> UndefinedType
+    ConsList {} -> UndefinedType
+    s -> error (show s)
 
 instance LangTypeable Val where
   toLangType val = case val of
