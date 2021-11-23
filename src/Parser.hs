@@ -1,8 +1,10 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+
 module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
-import Data.List qualified as List
 import Data.Void
 import Debug.Trace
 import Eval ()
@@ -11,8 +13,11 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
 
-doesntLineBreak :: [Char]
+doesntLineBreak :: String
 doesntLineBreak = [',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
+
+-- doesntLineBreak :: [String]
+-- doesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
 
 type Parser = Parsec Void String
 
@@ -33,6 +38,7 @@ expr =
            <|> try typeDef
            <|> letin
            <|> try lambda
+           <|> parseDataDefinition
            <|> try ternary
            <|> try function
            <|> formula
@@ -79,6 +85,7 @@ symbol = L.symbol hspace
 
 parens = between (symbol "(") (symbol ")")
 
+rws :: [String]
 rws = ["module", "case", "let"]
 
 identifier :: Parser String
@@ -99,7 +106,7 @@ term =
     ( try parseFloat
         <|> try (parens parseInternalFunction)
         <|> try parseInteger
-        <|> parseMaybe'
+        <|> try dataConstructor
         <|> moduleAccess
         <|> dictAccess
         <|> try dict
@@ -128,7 +135,7 @@ dictContents = do
   return (PDict (sig [AnyType] AnyType) pairs)
   where
     pair = do
-      key <- try (dictKey <* string ":") <|> (variable <* string "=>")
+      key <- try (dictKey <* string ":") <|> variable <* string "=>"
       space
       val <- expr
       return (key, val)
@@ -146,7 +153,8 @@ dict :: Parser Expr
 dict = do
   char '{'
   space
-  x <- try $ dictContents
+  x <- try dictContents
+  space
   char '}'
   return x
 
@@ -162,7 +170,7 @@ dictUpdate = do
   space
   updates <- try dictContents <|> variable
   char '}'
-  optional $ many (spaceChar <|> (char '}'))
+  optional $ many (spaceChar <|> char '}')
   return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
 
 dictAccess :: Parser Expr
@@ -178,7 +186,7 @@ dictAccess = dotKey <|> try dictDotKey
       rest <- option [] identifier
       char '.'
       x <- dictKey
-      return (DictAccess x (Atom (sig [DictionaryType] (DictionaryType)) (first : rest)))
+      return (DictAccess x (Atom (sig [DictionaryType] DictionaryType) (first : rest)))
 
 tupleContents :: Parser [Expr]
 tupleContents = juxta `sepBy2` many (spaceChar <|> char ',')
@@ -242,12 +250,12 @@ letin = do
   space
   pairs <- pair `sepBy1` many (spaceChar <|> char ',')
   space
-  string "in"
+  string ":"
   body <- expr
   return $ foldr foldFun body pairs
   where
     foldFun (pairKey, pairVal) acc =
-      (App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal)
+      App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
       space
       key <- try (term <* string "=")
@@ -261,7 +269,7 @@ moduleAccess = do
   rest <- option [] identifier
   char '.'
   x <- identifier
-  return (Atom (sig [AnyType] (AnyType)) ([first] ++ rest ++ "." ++ x))
+  return (Atom (sig [AnyType] AnyType) ([first] ++ rest ++ "." ++ x))
 
 variable :: Parser Expr
 variable = Atom (sig [] AnyType) `fmap` identifier
@@ -275,21 +283,34 @@ typeDef = do
   space
   string "#"
   space
-  bindings <- identifier `sepBy1` ((string ":" <|> string ",") <* (many spaceChar))
+  bindings <- typeBinding
+  let (args, rtrn) = langTypes bindings
+  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn}
+
+typeBinding :: Parser [Expr]
+typeBinding = (parens funcType <|> variable) `sepBy1` ((string ":" <|> string ",") <* many spaceChar)
+  where
+    funcType = do
+      bindings <- typeBinding
+      let (args, rtrn) = langTypes bindings
+      return $ PTypeSig TypeSig {typeSigName = Nothing, typeSigIn = args, typeSigReturn = rtrn}
+
+langTypes :: [Expr] -> ([LangType], LangType)
+langTypes bindings =
   let args = case init bindings of
         [] -> []
-        ["TakesAnyArgsType"] -> [TakesAnyArgsType]
         ts ->
           map
             ( \case
-                "Any" -> AnyType
-                t -> toLangType t
+                (PTypeSig TypeSig {typeSigIn = inn, typeSigReturn = rt}) -> FunctionType inn rt
+                (Atom _ts t) -> toLangType t
+                s -> error (show s)
             )
             ts
-  let rtrn = case last bindings of
-        "Any" -> AnyType
-        s -> toLangType $ last bindings
-  return (NamedTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn})
+      rtrn = case last bindings of
+        (Atom _ts t) -> toLangType t
+        s -> error (show s)
+   in (args, rtrn)
 
 function :: Parser Expr
 function = do
@@ -310,8 +331,7 @@ lambda :: Parser Expr
 lambda = do
   identifiers <- (variable <|> tuple) `sepBy` space
   string ":" <* notFollowedBy (string ":")
-  body <- expr
-  return (Lambda (sig [AnyType] AnyType) identifiers body)
+  Lambda (sig [AnyType] AnyType) identifiers <$> expr
 
 ifthen :: Parser Expr
 ifthen = do
@@ -327,6 +347,32 @@ ifthen = do
   space
   PIf cond tr <$> term
 
+parseDataDefinition :: Parser Expr
+parseDataDefinition = do
+  string "data"
+  space
+  typeCons <- identifier
+  space
+  string "="
+  space
+  constructors <- constructor `sepBy1` many (spaceChar <|> char '|')
+  return $ PDataDefinition typeCons constructors
+  where
+    constructor = do
+      space
+      valueCons <- identifier
+      space
+      valueArgs <- identifier `sepBy` many spaceChar
+      return (valueCons, valueArgs)
+
+dataConstructor :: Parser Expr
+dataConstructor = do
+  first <- upperChar
+  rest <- many (letterChar <|> digitChar)
+  space
+  args <- many term
+  return (PDataConstructor (first : rest) args)
+
 ternary :: Parser Expr
 ternary = do
   cond <- term
@@ -336,18 +382,6 @@ ternary = do
   string ":"
   space
   PIf cond tr <$> term
-
-parseMaybe' :: Parser Expr
-parseMaybe' = nothing <|> just
-  where
-    nothing = do
-      string "Nothing"
-      return PNothing
-    just = do
-      string "Just"
-      hspace
-      justVal <- expr
-      return $ PJust (sig [AnyType] AnyType) justVal
 
 parseFloat :: Parser Expr
 parseFloat = do
@@ -389,14 +423,13 @@ parseExprs s = case parseExprs' s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr) `sepBy` many (split1 <|> split <|> char ';')
+manyExpressions = (parseModule <|> expr) `sepBy` many (splitAfterInfix <|> splitBeforeInfix <|> char ';')
   where
-    split1 = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
-    split = do
-      newline <* notFollowedBy (space *> oneOf doesntLineBreak)
+    splitAfterInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
+    splitBeforeInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> Either (ParseErrorBundle String Void) [Expr]
-parseExprs' = parse (allOf (manyExpressions)) "stdin"
+parseExprs' = parse (allOf manyExpressions) "stdin"
 
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do
@@ -407,7 +440,7 @@ parseInterpolatedString = do
 
 parseStringContent :: Parser Expr
 parseStringContent = do
-  s <- (escapedChars <|> noneOf ['\\', '"'])
+  s <- escapedChars <|> noneOf ['\\', '"']
   return $ PChar [s]
 
 escapedChars :: Parser Char

@@ -1,16 +1,18 @@
 # KEY
 
-  - TODO: if line ends or starts with infix operator, it's not a line-break
-  - TODO: inject stdlib when testing ,so it's not read for ever ytest
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
     * when it's done we, `maybe` function. exposes constructors?
+
+  - TODO: Type classes/traits:
+    * Maybe Functor
+    * Num (arithmetic)
+
   - TODO: modules/namespacing.
     * nested
-  - TODO: typeof (constructor, and type respectively)
+
   - TODO: PATTERN MATCHING
-    - TODO: destructuring in named function arguments. #reqpatternmatching
-      - TODO: dict partial - spread operator
-      - TODO: move pattern matching check out of extend
+    - TODO: dict partial - spread operator
+    - TODO: move pattern matching check out of extend
   - TODO: (STATIC) TYPE SYSTEM #typesystem
     - TODO: if function is defined with set list in a position, that argument must be a list for all definitions
     - TODO: handle lists and tuples as input types
@@ -18,17 +20,11 @@
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
     - TODO: parse nested type definition
-    - TODO: achieve polymorphism through type classes
-    * optional type system. a full type system is too much work?
-    * each Val should perhaps carry a struct/record specifying its type, along with other things of value
-    * https://rosettacode.org/wiki/Type_detection#Kotlin
-    - TODO: Type classes/traits:
-      * Num (arithmetic)
-      * Listable (fold as minimal complete definition)
-      * Dictable (needs Listable and then fromList?)
-  - TODO: SPLIT EXPRESSIONS on newline unless followed by (1) pipe or (2) indentation?. #cleverexpsplit
-    * both lexeme and whitespace slurps newline
-    - TODO: let in should be able to span multiple lines
+    - TODO: achieve polymorphism through type classes:
+      * optional type system. a full type system is too much work?
+      * each Val should perhaps carry a struct/record specifying its type, along with other things of value
+      * https://rosettacode.org/wiki/Type_detection#Kotlin
+
 
 # MID
 
@@ -38,10 +34,10 @@
   - mod
 
   - TODO: implement `odd?` and `even?`
-  - TODO: `data` types ()
 
 # BACKLOG
 
+  - TODO: inject stdlib when testing, so it's not read for ever ytest
   - TODO: sets
   - TODO: repl catch eval error and continue
   - TODO: where clause. reqcleverexpsplit
@@ -51,8 +47,6 @@
   - TODO: `filter` if-then-else without comma around predicate
   - TODO: replace string with T.Text?
   - TODO: negate atom (a=1; fib 1 = 1-a)
-
-
 
 # NOTES
 

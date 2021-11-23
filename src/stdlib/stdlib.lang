@@ -34,24 +34,43 @@ all? f xs = length (filter f xs) == length xs
 fun any? f xs = length (filter f xs) > 0
 
 sortt [] = []
-sortt (x::xs) =
-  let smaller = (filter (a: a <= x) xs),
-  larger = (filter (a: a > x) xs) in (sort smaller) ++ [x] ++ (sort larger)
+sortt (x::xs) = let smaller = (filter (a: a <= x) xs),
+                larger = (filter (a: a > x) xs):
+                (sort smaller) ++ [x] ++ (sort larger)
 
 // DICTIONARIES
 toList xs = (InternalFunction dictToList [xs])
-keys dict = toList dict
-            | map ((a, b): a)
-values dict = toList dict
-              | map ((a, b): b)
+keys dict = toList dict | map ((a, b): a)
+values dict = toList dict | map ((a, b): b)
 merge d1 d2 = { d1 | d2 }
 
+// requirements:
+// * trait parser
+// * instance parser
+// * wrapper (the f in Functor f) in type definition
+
+// data Shape = Circle Float Float Float | Rectangle Float Float Float Float
+
+// trait Functor f:
+//   fmap # (a: b), f a, f b
+
+// instance Maybe of Functor:
+//   fmap _ None = None
+//   fmap f (Just x) = Just (f x)
+
+
 // MAYBE
-// maybe default f mb =
+data Maybe = Some a | None;
+// a comment is needed for parsing here :(
+maybe default f None = default
+maybe default f (Some x) = Some (f x)
+
+
+
 
 at i xs = zip xs (0 .. (length xs))
           | find ((a, b): b == i)
-at i [] = Nothing
+at i [] = None
 
 // module List {
 //   at x [] = Nothing

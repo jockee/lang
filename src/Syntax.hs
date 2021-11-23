@@ -29,6 +29,7 @@ instance Eq Env where
   Env {typeSigs = t1, envValues = v1, envScopes = s1} == Env {typeSigs = t2, envValues = v2, envScopes = s2} = t1 == t2 && v1 == v2 && s1 == s2
 
 -- Evaluatable
+
 class Show e => Evaluatable e where
   evalIn :: Env -> e -> (Val, Env)
   toExpr :: e -> Expr
@@ -41,14 +42,14 @@ data Expr where
   PTuple :: TypeSig -> [Expr] -> Expr
   PList :: TypeSig -> [Expr] -> Expr
   PDict :: TypeSig -> [(Expr, Expr)] -> Expr
+  PDataDefinition :: DataConstructor -> [ConstructorWithArgs] -> Expr
+  PDataConstructor :: Name -> [Expr] -> Expr
   PDictUpdate :: Expr -> Expr -> Expr
   DictAccess :: Expr -> Expr -> Expr
   PDictKey :: String -> Expr
   ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Float -> Expr
-  PJust :: TypeSig -> Expr -> Expr
-  PNothing :: Expr
   PString :: [Expr] -> Expr
   PChar :: String -> Expr
   PBool :: Bool -> Expr
@@ -58,7 +59,7 @@ data Expr where
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
-  NamedTypeSig :: TypeSig -> Expr
+  PTypeSig :: TypeSig -> Expr
   PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
   deriving (Typeable)
@@ -74,11 +75,13 @@ instance Show Expr where
 showWithTypes :: Expr -> String
 showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
+showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ intercalate "," (map show args) ++ "])"
+showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ intercalate "," (map show args) ++ "])"
 showWithTypes (PString parts) = "(PString [" ++ intercalate "," (map show parts) ++ "])"
 showWithTypes (PChar contents) = "(PChar \"" ++ contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
-showWithTypes (NamedTypeSig ts) = "(NamedTypeSig " ++ showTypeSig ts ++ ")"
+showWithTypes (PTypeSig ts) = "(PTypeSig " ++ showTypeSig ts ++ ")"
 showWithTypes (PBool True) = "(PBool True)"
 showWithTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithTypes a ++ " " ++ showWithTypes b ++ ")"
 showWithTypes PNoop = "(PNoop)"
@@ -90,8 +93,6 @@ showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ intercalate "," (map show cs) ++ "])"
-showWithTypes (PNothing) = "(PNothing)"
-showWithTypes (PJust ts e) = "(PJust " ++ showTypeSig ts ++ " " ++ showWithTypes e ++ ")"
 showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
@@ -106,7 +107,6 @@ showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep 
 showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
-showWithoutTypes (PJust _ts e) = "(PJust anyTypeSig " ++ showWithoutTypes e ++ ")"
 showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
@@ -118,6 +118,8 @@ showWithoutTypes s = showWithTypes s
 data Val where
   ModuleVal :: String -> Val
   FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
+  DataVal :: DataConstructor -> Name -> [Val] -> Val
+  DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
   Pattern :: [Val] -> Val
   BoolVal :: Bool -> Val
   StringVal :: String -> Val
@@ -126,26 +128,30 @@ data Val where
   FloatVal :: Float -> Val
   DictKey :: String -> Val
   Undefined :: Val
-  JustVal :: Val -> Val
-  NothingVal :: Val
   TupleVal :: [Val] -> Val
   ListVal :: [Val] -> Val
   deriving (Typeable)
 
 type ArgsList = [Expr]
 
+type DataConstructor = String
+
+type Name = String
+
+type ConstructorWithArgs = (String, [String])
+
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
   show (FunctionVal ts env remainingArgs _) = "<fun>"
   -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
+  show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
+  show (DataVal dtype n args) = "Data " ++ show dtype ++ " " ++ show n ++ " " ++ show args
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (TupleVal ns) = "(" ++ List.intercalate ", " (map show ns) ++ ")"
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (JustVal v) = "Just " ++ show v
-  show (NothingVal) = "Nothing"
   show (DictKey n) = n
   show (StringVal n) = show n
   show (BoolVal n)
@@ -174,10 +180,9 @@ instance Ord Val where
 instance Eq Val where
   (TupleVal a) == (TupleVal b) = a == b
   StringVal s1 == StringVal s2 = s1 == s2
-  NothingVal == NothingVal = True
-  JustVal v1 == JustVal v2 = v1 == v2
   (FloatVal i1) == (FloatVal i2) = i1 == i2
   (IntVal i1) == (IntVal i2) = i1 == i2
+  (DataVal dtype1 n1 args1) == (DataVal dtype2 n2 args2) = dtype1 == dtype2 && n1 == n2 && args1 == args2
   (BoolVal True) == (BoolVal True) = True
   (BoolVal False) == (BoolVal False) = True
   (ListVal xs) == (ListVal ys) = xs == ys
@@ -209,16 +214,15 @@ instance Arith Val where
 data TypeSig = TypeSig {typeSigName :: Maybe String, typeSigIn :: [LangType], typeSigReturn :: LangType} deriving (Show, Eq)
 
 data LangType
-  = TakesAnyArgsType
-  | ListType LangType
+  = ListType LangType
   | IntType
   | FloatType
   | StringType
   | BooleanType
   | DictionaryType
   | DictKeyType
-  | MaybeType
-  | FunctionType
+  | FunctionType [LangType] LangType
+  | DataConstructorType
   | UndefinedType
   | AtomType
   | AnyType
@@ -231,7 +235,9 @@ instance LangTypeable String where
   toLangType s = case s of
     "String" -> StringType
     "Integer" -> IntType
-    _ -> UndefinedType
+    "Float" -> FloatType
+    "a" -> AnyType
+    s -> error $ "Not yet implemented " ++ s
 
 instance LangTypeable Expr where
   toLangType e = case e of
@@ -240,8 +246,6 @@ instance LangTypeable Expr where
     PDict {} -> DictionaryType
     PInteger {} -> IntType
     PFloat {} -> FloatType
-    PJust {} -> MaybeType
-    PNothing {} -> MaybeType
     PString {} -> StringType
     PBool {} -> BooleanType
     PRange {} -> ListType AnyType
@@ -255,9 +259,10 @@ instance LangTypeable Expr where
     App {} -> UndefinedType
     Binop {} -> UndefinedType
     Cmp {} -> UndefinedType
-    NamedTypeSig {} -> UndefinedType
+    PTypeSig {} -> UndefinedType
     PNoop {} -> UndefinedType
     ConsList {} -> UndefinedType
+    PDataConstructor {} -> DataConstructorType
     s -> error (show s)
 
 instance LangTypeable Val where
@@ -265,15 +270,14 @@ instance LangTypeable Val where
     IntVal {} -> IntType
     FloatVal {} -> FloatType
     StringVal {} -> StringType
-    FunctionVal {} -> FunctionType
+    FunctionVal {} -> FunctionType [UndefinedType] UndefinedType
     BoolVal {} -> BooleanType
     DictVal {} -> DictionaryType
     DictKey {} -> DictKeyType
     Undefined {} -> UndefinedType
-    JustVal {} -> MaybeType
-    NothingVal {} -> MaybeType
     TupleVal {} -> ListType AnyType
     ListVal {} -> ListType AnyType
+    DataVal {} -> DataConstructorType
 
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 

@@ -16,7 +16,7 @@ instance Hashable Env where
   hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v
 
 typeCheck :: Env -> LangType -> Expr -> (Either String Env)
-typeCheck env _ (NamedTypeSig ts) = Right (typeSigToEnv env ts)
+typeCheck env _ (PTypeSig ts) = Right (typeSigToEnv env ts)
 --
 -- TODO: check return type in expression:
 -- TODO: needs to recur down the ast
@@ -32,6 +32,13 @@ typeCheck env AnyType (PInteger n) = (Right env)
 typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " ++ show got)
 
 -- typeCheck env expects got = Left ("Expected " ++ show expects ++ ", but got " ++ show got)
+
+langTypeMatches :: LangType -> LangType -> Bool
+langTypeMatches AnyType _ = True
+langTypeMatches AtomType _ = True
+langTypeMatches _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
+langTypeMatches a b = a == b
+langTypeMatches _ _ = False
 
 expectedType :: Env -> TypeSig -> Int -> LangType
 expectedType env ts argsRemaining =
@@ -60,10 +67,10 @@ typeSigToEnv env ts =
     Nothing -> env
 
 inScope :: Env -> String -> Maybe [Val]
-inScope env atomId =
+inScope env lookupKey =
   asum $ map (\k -> Map.lookup k (envValues env)) scopeKeys
   where
-    scopeKeys = reverse $ map (\k -> k ++ ":" ++ atomId) $ envScopes env
+    scopeKeys = reverse $ map (\k -> k ++ ":" ++ lookupKey) $ envScopes env
 
 withScope :: Env -> Env
 withScope env = newEnv

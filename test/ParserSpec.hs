@@ -54,10 +54,7 @@ spec = describe "Parser" $ do
     s (parseExpr "if true then 1 else 2") `shouldBe` s (PIf (PBool True) (PInteger 1) (PInteger 2))
 
   it "let-in" $
-    s (parseExpr "let x = 5 in x + 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
-
-  -- it "let-in multiple args" $ do
-  --   s (parseExpr "let x = 5\ny = 2\n in x + 1") `shouldBe` s (App (Lambda anyTypeSig [(Atom anyTypeSig "x")] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
+    s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
   it "lambda" $
     s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1)))
@@ -81,7 +78,7 @@ spec = describe "Parser" $ do
     s (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (App (Lambda anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1))) (PInteger 2)))) (PInteger 5))
 
   it "bind function to name in let-in" $
-    s (parseExpr "let k = (x: x + 1) in k 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "k"] (App (Atom anyTypeSig "k") (PInteger 1))) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+    s (parseExpr "let k = (x: x + 1): k 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "k"] (App (Atom anyTypeSig "k") (PInteger 1))) (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
 
   it "partially applied lambda" $
     s (parseExpr "(x y: x + y) 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x", Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "x") (Atom anyTypeSig "y"))) (PInteger 1))
@@ -146,12 +143,6 @@ spec = describe "Parser" $ do
   it "function definiton" $
     s (parseExpr "s x = x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
 
-  it "nothing" $
-    s (parseExpr "Nothing") `shouldBe` s PNothing
-
-  it "just something" $
-    s (parseExpr "Just 1") `shouldBe` s (PJust anyTypeSig (PInteger 1))
-
   it "internal function" $
     s (parseExpr "(InternalFunction head [xs])") `shouldBe` s (InternalFunction "head" (PList anyTypeSig [Atom anyTypeSig "xs"]))
 
@@ -169,15 +160,22 @@ spec = describe "Parser" $ do
 
   describe "Type definition" $ do
     it "Binding definition" $
-      show (parseExpr "a # Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
+      show (parseExpr "a # Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
 
     it "Function definition" $
-      show (parseExpr "a # Integer: Integer") `shouldBe` show (NamedTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
+      show (parseExpr "a # Integer: Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
 
-  -- xit "Function definition contains function" $ do
-  --   s (parseExpr "a # (Integer: Integer): Integer") `shouldBe` s (LTypeDef "a" TypeSig {typeSigIn=[Any], typeSigReturn=[Function [Type "Integer", Type "Integer"], Type "Integer"])
+  it "Function definition contains function" $ do
+    s (parseExpr "a # (Integer: Integer): Integer")
+      `shouldBe` s (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [IntType] IntType], typeSigReturn = IntType})
 
   describe "Pattern matching" $ do
+    it "value constructor in function definition" $
+      s (parseExpr "a None = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDataConstructor "None" [])]) (PInteger 1)))
+
+    it "value constructor taking argument in function definition" $
+      s (parseExpr "a (Some b) = b") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PDataConstructor "Some" [(Atom anyTypeSig "b")])]) (Atom anyTypeSig "b")))
+
     it "empty list in function definition" $
       s (parseExpr "a [] = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(PList anyTypeSig [])]) (PInteger 1)))
 
@@ -230,3 +228,16 @@ spec = describe "Parser" $ do
   describe "Cons list" $ do
     it "function definition" $
       show (parseExpr "a (x::xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda anyTypeSig ([(ConsList ["x", "xs"])]) (PInteger 1)))
+
+  describe "Data" $ do
+    it "True and false" $
+      show (parseExpr "data Bool = False | True") `shouldBe` show (PDataDefinition "Bool" [("False", []), ("True", [])])
+
+    it "Value constructor - no args" $
+      show (parseExpr "True") `shouldBe` show (PDataConstructor "True" [])
+
+    it "Value constructor - multi args" $
+      show (parseExpr "Rectangle 1.0 1.0 1.0") `shouldBe` show (PDataConstructor "Rectangle" [PFloat 1.0, PFloat 1.0, PFloat 1.0])
+
+    it "Shape" $
+      show (parseExpr "data Shape = Circle Float Float Float | Rectangle Float Float Float Float") `shouldBe` show (PDataDefinition "Shape" [("Circle", ["Float", "Float", "Float"]), ("Rectangle", ["Float", "Float", "Float", "Float"])])

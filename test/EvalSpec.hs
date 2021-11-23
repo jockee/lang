@@ -78,16 +78,16 @@ spec = describe "Eval" $ do
         eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
 
       it "let-in binding list" $ do
-        eval (parseExpr "let x = [5] in x") `shouldBe` ListVal [IntVal 5]
+        eval (parseExpr "let x = [5]: x") `shouldBe` ListVal [IntVal 5]
 
       it "let-in binding list" $ do
-        eval (parseExpr "let (a, b) = (1,2) in a+b") `shouldBe` IntVal 3
+        eval (parseExpr "let (a, b) = (1,2): a+b") `shouldBe` IntVal 3
 
       it "let-in binding list multiple bindings" $ do
-        eval (parseExpr "let x = 5, y = 2 in x + y") `shouldBe` IntVal 7
+        eval (parseExpr "let x = 5, y = 2: x + y") `shouldBe` IntVal 7
 
       it "let-in binding list multiple bindings with dependency" $ do
-        eval (parseExpr "let x = 5, y = (x + 2) in x + y") `shouldBe` IntVal 12
+        eval (parseExpr "let x = 5, y = (x + 2): x + y") `shouldBe` IntVal 12
 
   describe "Arithmetic" $ do
     it "subtraction" $ do
@@ -119,7 +119,7 @@ spec = describe "Eval" $ do
 
   describe "Function application" $ do
     it "let-in with lambda" $ do
-      eval (parseExpr "let x = 5 in x + 2") `shouldBe` IntVal 7
+      eval (parseExpr "let x = 5: x + 2") `shouldBe` IntVal 7
 
     it "lambda one argument" $ do
       eval (parseExpr "(x: x + 1) 2") `shouldBe` IntVal 3
@@ -141,7 +141,7 @@ spec = describe "Eval" $ do
       eval (parseExpr "5 | (y: y + 1) | (x: x + 2)") `shouldBe` IntVal 8
 
     it "nested let-in" $ do
-      eval (parseExpr "let k = 1 in (let v = 2 in v + k)") `shouldBe` IntVal 3
+      eval (parseExpr "let k = 1: (let v = 2: v + k)") `shouldBe` IntVal 3
 
     it "pipes as last argument" $ do
       eval (parseExpr "[1,2] | (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
@@ -165,11 +165,11 @@ spec = describe "Eval" $ do
 
     it "max" $ do
       ev <- evalWithLib (parseExpr "max [1, 2]")
-      ev `shouldBe` JustVal (IntVal 2)
+      ev `shouldBe` (DataVal "Maybe" "Some" [IntVal 2])
 
     it "head" $ do
       ev <- evalWithLib (parseExpr "head [1]")
-      ev `shouldBe` JustVal (IntVal 1)
+      ev `shouldBe` (DataVal "Maybe" "Some" [IntVal 1])
 
     it "stdlib fold function leveraging foldInternal" $ do
       ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
@@ -263,13 +263,13 @@ spec = describe "Eval" $ do
     evals (parseExprs "a = \"s\"; { {a: 1} | a => 2 }") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1)), ((DictKey "s"), (IntVal 2))])
 
   it "destructuring dict basic" $ do
-    evals (parseExprs "let {a: b} = {a: 2} in b") `shouldBe` IntVal 2
+    evals (parseExprs "let {a: b} = {a: 2}: b") `shouldBe` IntVal 2
 
   it "destructuring dict, requiring matching other values - succeeding" $ do
-    evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 1} in b") `shouldBe` IntVal 2
+    evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 1}: b") `shouldBe` IntVal 2
 
   it "destructuring dict, requiring matching other values - failing" $ do
-    evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2} in b")) `shouldThrow` anyException
+    evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2}: b")) `shouldThrow` anyException
 
   describe "General" $ do
     it "adds to global scope" $ do
@@ -289,7 +289,7 @@ spec = describe "Eval" $ do
       Map.keys (envValues env) `shouldNotContain` ["global:f"]
 
     it "let-in does not leak state" $ do
-      (val, env) <- evalsWithLib $ parseExprs "let x = 2 in x"
+      (val, env) <- evalsWithLib $ parseExprs "let x = 2: x"
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
 
     it "fold does not leak state" $ do
@@ -352,10 +352,10 @@ spec = describe "Eval" $ do
 
   describe "Internal functions" $ do
     it "head" $ do
-      eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` JustVal (IntVal 2)
+      eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
     it "head returns Nothing on empty list" $ do
-      eval (parseExpr "(InternalFunction head [])") `shouldBe` NothingVal
+      eval (parseExpr "(InternalFunction head [])") `shouldBe` DataVal "Maybe" "None" []
 
     it "sort" $ do
       eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
@@ -400,8 +400,6 @@ spec = describe "Eval" $ do
     xit "can fall through on second argument" $ do
       evals (parseExprs "a b [] = 1; a b c = c; a 1 3") `shouldBe` ListVal [IntVal 3]
 
-    -- NOTE: it's producing a basic lambda instead of producing 'the same function/pattern but with
-    -- one argument dropped'
     it "empty list should only match empty list" $ do
       evals (parseExprs "a [] = [0]; a b = [2]; a [1]") `shouldBe` ListVal [IntVal 2]
 
@@ -410,6 +408,18 @@ spec = describe "Eval" $ do
 
     it "falls through non-matching integer value" $ do
       evals (parseExprs "f 1 = 2; f s = 3; f 2") `shouldBe` IntVal 3
+
+    it "value constructor" $ do
+      (val, env) <- evalsWithLib $ parseExprs "a None = 1; a (Some 1) = 2; a None"
+      val `shouldBe` IntVal 1
+
+    it "value constructor call fall through" $ do
+      (val, env) <- evalsWithLib $ parseExprs "a None = 1; a (Some b) = b; a (Some 2)"
+      val `shouldBe` IntVal 2
+
+    it "value constructor non-first" $ do
+      (val, env) <- evalsWithLib $ parseExprs "maybe default f None = default; maybe 1 1 None"
+      val `shouldBe` IntVal 1
 
   describe "Modules" $ do
     it "evals module" $
@@ -430,7 +440,7 @@ spec = describe "Eval" $ do
 
   describe "Cons list" $ do
     it "destructuring list in let-in" $ do
-      evals (parseExprs "let (x::xs) = [1,2,3] in x") `shouldBe` IntVal 1
+      evals (parseExprs "let (x::xs) = [1,2,3]: x") `shouldBe` IntVal 1
 
     it "function destructuring x" $ do
       evals (parseExprs "a (x::xs) = x; a [1,2,3]") `shouldBe` IntVal 1
@@ -447,3 +457,23 @@ spec = describe "Eval" $ do
   describe "Recursion" $ do
     it "recurs" $ do
       evals (parseExprs "a b = (b == 0) ? [] : (a (b-1)); a 1") `shouldBe` (ListVal [])
+
+  describe "Data" $ do
+    it "Defines and constructs zero-argument value" $
+      evals (parseExprs "data Bool = False | True; True") `shouldBe` (DataVal "Bool" "True" [])
+
+    it "Defines and constructs multi-argument value" $
+      evals (parseExprs "data Shape = Circle Float Float Float | Rectangle Float Float Float Float; (Rectangle 1.0 1.0 1.0)") `shouldBe` (DataVal "Shape" "Rectangle" [FloatVal 1.0, FloatVal 1.0, FloatVal 1.0])
+
+    it "Needs to match argument types - success" $
+      evals (parseExprs "data Point = Point Float Float; Point 1.0 1.0") `shouldBe` (DataVal "Point" "Point" [FloatVal 1.0, FloatVal 1.0])
+
+    it "Needs to match argument types - failure" $
+      evaluate (evals (parseExprs "data Point = Point Float Float; Point 1 1")) `shouldThrow` anyException
+
+    it "Can't provide too many arguments" $
+      evaluate (evals (parseExprs "data Point = Point Float Float; Point 1.0 1.0 1.0")) `shouldThrow` anyException
+
+    it "destructures" $ do
+      (val, env) <- evalsWithLib $ parseExprs "a (Some b) = b; a (Some 1)"
+      val `shouldBe` IntVal 1
