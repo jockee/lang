@@ -50,9 +50,8 @@ merge d1 d2 = { d1 | d2 }
 //   | false: 0
 
 // requirements:
-// * evaluate trait parser
-// * evaluate instance parser
-// * wrapper (the f in Functor f) in type definition
+// * put trait in env
+// * put instance definitions in env
 
 // trait Functor f:
 //   | fmap # (a: b), f a, f b

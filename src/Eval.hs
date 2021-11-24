@@ -266,7 +266,7 @@ eval = fst . evalIn emptyEnv
 evalsIn :: Evaluatable e => Env -> [e] -> (Val, Env)
 evalsIn env = foldl fl (Undefined, env)
   where
-    fl (_val, env) ex = evalIn env ex
+    fl (_val, env) ex = evalIn (resetScope env) ex
 
 evals :: Evaluatable e => [e] -> Val
 evals exprs = fst $ evalsIn emptyEnv exprs

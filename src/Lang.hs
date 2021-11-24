@@ -18,6 +18,8 @@ import System.IO
 import System.IO.Unsafe
 import TypeCheck
 
+type RawStdLib = String
+
 haskelineSettings :: Settings IO
 haskelineSettings =
   Settings
@@ -25,18 +27,8 @@ haskelineSettings =
       autoAddHistory = True
     }
 
-evalWithLib :: Expr -> Val
-evalWithLib expr = fst $ evalsWithLibAndEnv emptyEnv [expr]
-
--- NOTE: entry point for reading in non-stdlib source files?
-evalsWithLib :: [Expr] -> (Val, Env)
-evalsWithLib = evalsWithLibAndEnv emptyEnv
-
-evalsWithLibAndEnv :: Env -> [Expr] -> (Val, Env)
-evalsWithLibAndEnv env exprs = foldl fl (Undefined, env) allExprs
-  where
-    allExprs = parseExprs stdLib ++ exprs
-    fl (_val, env) ex = evalIn (resetScope env) ex
+evaledStdLibEnv :: IO Env
+evaledStdLibEnv = snd . evalsIn emptyEnv . parseExprs <$> rawStdLib
 
 repl :: IO ()
 repl = replWithEnv emptyEnv
@@ -54,8 +46,9 @@ replWithEnv env = runInputT haskelineSettings $ do
           outputStrLn $ show e ++ "\n"
           liftIO $ replWithEnv env
         Right exprs -> do
-          s <- liftIO . try $ evaluate $ evalsWithLibAndEnv env exprs
-          case s of
+          env <- liftIO evaledStdLibEnv
+          evaled <- liftIO . try $ evaluate $ evalsIn env exprs
+          case evaled of
             Left (e :: SomeException) -> do
               outputStrLn "\n# Evaluation error\n"
               outputStrLn $ show e ++ "\n"
@@ -64,5 +57,5 @@ replWithEnv env = runInputT haskelineSettings $ do
               outputStrLn $ show val ++ " : " ++ show (toLangType val)
               liftIO $ replWithEnv newEnv
 
-stdLib :: String
-stdLib = unsafePerformIO $ readFile "src/stdlib/stdlib.lang"
+rawStdLib :: IO String
+rawStdLib = readFile "src/stdlib/stdlib.lang"
