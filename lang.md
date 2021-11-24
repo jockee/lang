@@ -1,7 +1,5 @@
 # KEY
 
-  - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
-
   - TODO: Type classes/traits:
     * Add Num constraint to function doing addition
     * when calling fmap, it should be maybe's version of fmap
@@ -14,6 +12,7 @@
   - TODO: PATTERN MATCHING
     - TODO: dict partial - spread operator
     - TODO: move pattern matching check out of extend
+
   - TODO: (STATIC) TYPE SYSTEM #typesystem
     - TODO: if function is defined with set list in a position, that argument must be a list for all definitions
     - TODO: handle lists and tuples as input types
@@ -26,6 +25,7 @@
       * each Val should perhaps carry a struct/record specifying its type, along with other things of value
       * https://rosettacode.org/wiki/Type_detection#Kotlin
 
+  - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
 
 # MID
 

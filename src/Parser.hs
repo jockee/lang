@@ -372,10 +372,10 @@ traitDefinition = do
   string "trait" *> space
   name <- identifier <* space
   vars <- identifier `sepBy` many spaceChar
-  let varMappings = [(head vars, name) | not (null vars)]
+  let typeConstructors = [(head vars, name) | not (null vars)]
   space *> string ":" <* space
   space *> string "|" <* space
-  defs <- typeDef varMappings `sepBy1` many (spaceChar <|> char '|')
+  defs <- typeDef typeConstructors `sepBy1` many (spaceChar <|> char '|') <* hspace
   return $ PTrait name defs
 
 implementationDefinition :: Parser Expr

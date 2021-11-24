@@ -138,6 +138,7 @@ data Val where
   Undefined :: Val
   TupleVal :: [Val] -> Val
   ListVal :: [Val] -> Val
+  TraitVal :: Name -> [Expr] -> Val -- change from Expr? Just sliming tests
   deriving (Typeable)
 
 type ArgsList = [Expr]
@@ -161,6 +162,7 @@ instance Show Val where
   show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = n
+  show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ List.intercalate ", " (map show defs)
   show (StringVal n) = show n
   show (BoolVal n)
     | n = "true"

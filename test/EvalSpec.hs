@@ -493,3 +493,35 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
         it "handles more difficult expressions" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv (parseExprs "case (Some 1): | (Some x): x | None: 0")
           val `shouldBe` IntVal 1
+
+      describe "Trait" $ do
+        it "can create trait" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable: | xmap # (a: b): a: b")
+          Map.keys (envValues env) `shouldContain` ["global:Mappable"]
+
+        it "handles type variables" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f: | fmap # (a: b), f a: f b")
+          Map.keys (envValues env) `shouldContain` ["global:Functor"]
+
+      describe "Implementation" $ do
+        it "can create implementation" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable: | xmap # (a: b), a: b; implement Mappable for Maybe: | map f a = None")
+          Map.keys (envValues env) `shouldContain` ["global:map"]
+
+        it "can create implementation with multiple definitions" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable: | xmap # (a: b), a: b; implement Mappable for Maybe: | xmap _ None = None | xmap f (Some x) = f x")
+          length (sequenceA $ Map.lookup "global:xmap" (envValues env)) `shouldBe` 2
+
+        xit "Needs to implement the right function" $ \stdLibEnv -> do
+          evaluate
+            ( evals
+                ( parseExprs
+                    "trait Mappable: | xmap # (a: b), a: b; \
+                    \ implement Mappable for Maybe: \
+                    \ | ymap _ None = None"
+                )
+            )
+            `shouldThrow` anyException
+
+        xit "uses the right definition" $ \stdLibEnv -> do
+          pending

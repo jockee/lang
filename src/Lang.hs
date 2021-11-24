@@ -42,16 +42,14 @@ replWithEnv env = runInputT haskelineSettings $ do
     Just finput -> do
       case parseExprs' finput of
         Left e -> do
-          outputStrLn "\n# Parse error\n"
-          outputStrLn $ show e ++ "\n"
+          outputStrLn $ "*** " ++ show e
           liftIO $ replWithEnv env
         Right exprs -> do
           env <- liftIO evaledStdLibEnv
           evaled <- liftIO . try $ evaluate $ evalsIn env exprs
           case evaled of
             Left (e :: SomeException) -> do
-              outputStrLn "\n# Evaluation error\n"
-              outputStrLn $ show e ++ "\n"
+              outputStrLn $ "*** " ++ show e
               liftIO $ replWithEnv env
             Right (val, newEnv) -> do
               outputStrLn $ show val ++ " : " ++ show (toLangType val)

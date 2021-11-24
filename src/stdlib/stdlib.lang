@@ -45,26 +45,29 @@ values dict = toList dict |> map ((a, b): b)
 merge d1 d2 = { d1 | d2 }
 
 
-// case true:
-//   | true: 1
-//   | false: 0
-
 // requirements:
 // * put trait in env
 // * put instance definitions in env
-
-// trait Functor f:
-//   | fmap # (a: b), f a, f b
-
-// implement Functor for Maybe:
-//  | fmap _ None = None
-//  | fmap f (Just x) = Just (f x)
 
 
 // MAYBE
 data Maybe = Some a | None;
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
+
+// trait Functor f: | fmap # (a: b), f a: f b
+// trait Functor f: | fmap # (a: b), f a: f b
+
+      // class Functor f where
+      //   fmap        :: (a -> b) -> f a -> f b
+
+// implement Functor for Maybe:
+//  | fmap _ None = None
+//  | fmap f (Some x) = Some (f x)
+
+      // instance  Functor Maybe  where
+      //     fmap _ Nothing       = Nothing
+      //     fmap f (Just a)      = Just (f a)
 
 // at # Integer, [a]: Maybe a
 at i xs =

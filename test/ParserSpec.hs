@@ -266,11 +266,11 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f: | fmap # (a: b): f a: f b") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TypeConstructorType "Functor" AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType}))])
+      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TypeConstructorType "Functor" AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType})])
 
   describe "Implementation" $ do
     it "can create implementation" $
-      s (parseExpr "implement Mappable for Maybe: | map f a = None") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [(Atom anyTypeSig "f"), (Atom anyTypeSig "a")] (PDataConstructor "None" []))])
+      s (parseExpr "implement Mappable for Maybe: | map f a = None") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", Atom anyTypeSig "a"] (PDataConstructor "None" []))])
 
     it "can create implementation with multiple definitions" $
-      s (parseExpr "implement Mappable for Maybe: | map _ None = None | map f (Some x) = f x") `shouldBe` s (PImplementation "Mappable" "Maybe" [(Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig ([(Atom anyTypeSig "_"), (PDataConstructor "None" [])]) (PDataConstructor "None" []))), (Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (PDataConstructor "Some" [(Atom anyTypeSig "x")])]) (App (Atom anyTypeSig "f") (Atom anyTypeSig "x"))))])
+      s (parseExpr "implement Mappable for Maybe: | map _ None = None | map f (Some x) = f x") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "_", PDataConstructor "None" []] (PDataConstructor "None" [])), Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", PDataConstructor "Some" [Atom anyTypeSig "x"]] (App (Atom anyTypeSig "f") (Atom anyTypeSig "x")))])

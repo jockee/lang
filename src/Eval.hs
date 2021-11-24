@@ -21,6 +21,8 @@ instance Evaluatable Val where
 
 instance Evaluatable Expr where
   toExpr expr = expr
+  evalIn env (PTrait name defs) = (Undefined, extendWithTrait env name defs)
+  evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
   evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
   evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
   evalIn env (PDataConstructor name exprArgs) =
@@ -120,7 +122,7 @@ instance Evaluatable Expr where
         x = cmpOp op
      in (v1 `x` v2, env)
   evalIn env PNoop = (Undefined, env)
-  evalIn _ a = error $ "failed to find match in evalIn" ++ show a
+  evalIn _ a = error $ "failed to find match in evalIn: " ++ show a
 
 extendWithDataDefinition :: Env -> String -> [ConstructorWithArgs] -> Env
 extendWithDataDefinition env typeCons = foldl foldFun env
@@ -134,6 +136,16 @@ extendWithTuple env bindings vs =
         Atom _ts atomId -> extend accEnv atomId AnyType val
         argExpr -> extendNonAtom accEnv argExpr val
    in foldl foldFun env (zip bindings vs)
+
+extendWithTrait :: Env -> String -> [Expr] -> Env
+extendWithTrait env name defs = extend env name AnyType $ TraitVal name defs
+
+-- FIXME: slime
+extendWithImplementation :: Env -> String -> String -> [Expr] -> Env
+extendWithImplementation env trait for defs = foldl foldFun env defs
+  where
+    foldFun accEnv def = case def of
+      (Binop Assign (Atom _ts a) v) -> extend accEnv a AnyType v
 
 -- let {a: b} = {a: 1} in
 -- let {a: 1, b: c} = {a: 1, b: 2} in
