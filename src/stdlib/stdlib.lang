@@ -17,16 +17,16 @@ includes? x xs = fold (acc p: (p == x) ? true : false) false xs
 unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
 head xs = (InternalFunction head xs)
 last xs = reverse xs
-          | head
+          |> head
 find f xs = filter f xs
-            | head
+            |> head
 sort xs = (InternalFunction sort xs) // NOTE: implement without internal?
-reverse xs = fold (acc x: [x] ++ acc) [] xs
+reverse xs = fold (acc x: x :: acc) [] xs
 max xs = sort xs
-         | reverse
-         | head
+         |> reverse
+         |> head
 min xs = sort xs
-         | head
+         |> head
 zipWith f xs ys = (InternalFunction zipWith [f, xs, ys])
 zip xs ys = zipWith (x y: (x, y)) xs ys
 toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
@@ -40,36 +40,37 @@ sortt (x::xs) = let smaller = (filter (a: a <= x) xs),
 
 // DICTIONARIES
 toList xs = (InternalFunction dictToList [xs])
-keys dict = toList dict | map ((a, b): a)
-values dict = toList dict | map ((a, b): b)
+keys dict = toList dict |> map ((a, b): a)
+values dict = toList dict |> map ((a, b): b)
 merge d1 d2 = { d1 | d2 }
 
+
+// case true:
+//   | true: 1
+//   | false: 0
+
 // requirements:
-// * trait parser
-// * instance parser
+// * evaluate trait parser
+// * evaluate instance parser
 // * wrapper (the f in Functor f) in type definition
 
-// data Shape = Circle Float Float Float | Rectangle Float Float Float Float
-
 // trait Functor f:
-//   fmap # (a: b), f a, f b
+//   | fmap # (a: b), f a, f b
 
-// instance Maybe of Functor:
-//   fmap _ None = None
-//   fmap f (Just x) = Just (f x)
+// implement Functor for Maybe:
+//  | fmap _ None = None
+//  | fmap f (Just x) = Just (f x)
 
 
 // MAYBE
 data Maybe = Some a | None;
-// a comment is needed for parsing here :(
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 
-
-
-
-at i xs = zip xs (0 .. (length xs))
-          | find ((a, b): b == i)
+// at # Integer, [a]: Maybe a
+at i xs =
+  zip xs (0 .. (length xs))
+  |> find ((a, b): b == i)
 at i [] = None
 
 // module List {

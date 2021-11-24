@@ -1,9 +1,10 @@
 # KEY
 
   - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
-    * when it's done we, `maybe` function. exposes constructors?
 
   - TODO: Type classes/traits:
+    * Add Num constraint to function doing addition
+    * when calling fmap, it should be maybe's version of fmap
     * Maybe Functor
     * Num (arithmetic)
 
@@ -33,20 +34,19 @@
   - division
   - mod
 
-  - TODO: implement `odd?` and `even?`
+  - TODO: implement `odd?` and `even?` for Num trait
 
 # BACKLOG
 
-  - TODO: inject stdlib when testing, so it's not read for ever ytest
   - TODO: sets
-  - TODO: repl catch eval error and continue
-  - TODO: where clause. reqcleverexpsplit
-  - TODO: guard clause. reqcleverexpsplit
+  - TODO: where clause
+  - TODO: guard clause
     fun x a
     | x > 1 = true
-  - TODO: `filter` if-then-else without comma around predicate
+  - TODO: `filter` if-then-else without parens around predicate
   - TODO: replace string with T.Text?
   - TODO: negate atom (a=1; fib 1 = 1-a)
+  - TODO: implement PIf as PCase
 
 # NOTES
 

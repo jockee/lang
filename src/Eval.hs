@@ -34,6 +34,11 @@ instance Evaluatable Expr where
                 Nothing -> (DataVal dtype name evaledArgs, env)
           Nothing -> error $ "No such constructor found: " ++ show name
   evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
+  evalIn env (PCase ts cond cases) =
+    let condVal = fst $ evalIn env cond
+        findFun (pred, predDo) = patternMatch condVal (FunctionVal ts env [pred] predDo)
+     in case List.find findFun cases of
+          Just (_pred, predDo) -> (fst $ evalIn env predDo, env)
   evalIn env (PIf (PBool True) t _) = evalIn env t
   evalIn env (PIf (PBool False) _ f) = evalIn env f
   evalIn env (PIf condition ifTrue ifFalse) =
@@ -96,6 +101,10 @@ instance Evaluatable Expr where
         _ = error "Invalid"
      in (ListVal $ xs ++ ys, env)
   evalIn env (Binop Pipe e1 e2) = apply (withScope env) e2 e1
+  evalIn env (Binop Cons e1 e2) =
+    let (v1, _) = evalIn env e1
+     in case fst $ evalIn env e2 of
+          ListVal xs -> (ListVal (v1 : xs), env)
   evalIn env (Binop Assign (Atom _ts a) v) =
     let env'' = extend env' a AnyType v
         (value, env') = evalIn env v

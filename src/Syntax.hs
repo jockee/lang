@@ -44,8 +44,11 @@ data Expr where
   PDict :: TypeSig -> [(Expr, Expr)] -> Expr
   PDataDefinition :: DataConstructor -> [ConstructorWithArgs] -> Expr
   PDataConstructor :: Name -> [Expr] -> Expr
+  PTrait :: Name -> [Expr] -> Expr
+  PImplementation :: Name -> DataConstructor -> [Expr] -> Expr
   PDictUpdate :: Expr -> Expr -> Expr
   DictAccess :: Expr -> Expr -> Expr
+  PCase :: TypeSig -> Expr -> [Case] -> Expr
   PDictKey :: String -> Expr
   ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
@@ -66,7 +69,9 @@ data Expr where
 
 type Id = String
 
-data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat
+type Case = (Expr, Expr)
+
+data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat | Cons
   deriving (Show, Data)
 
 instance Show Expr where
@@ -75,8 +80,10 @@ instance Show Expr where
 showWithTypes :: Expr -> String
 showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
-showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ intercalate "," (map show args) ++ "])"
-showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ intercalate "," (map show args) ++ "])"
+showWithTypes (PTrait name defs) = "(PTrait " ++ show name ++ " [" ++ intercalate ", " (map show defs) ++ "])"
+showWithTypes (PImplementation trait dtype defs) = "(PImplementation " ++ show trait ++ " " ++ show dtype ++ " [" ++ intercalate ", " (map show defs) ++ "])"
+showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
+showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
 showWithTypes (PString parts) = "(PString [" ++ intercalate "," (map show parts) ++ "])"
 showWithTypes (PChar contents) = "(PChar \"" ++ contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
@@ -93,6 +100,7 @@ showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ intercalate "," (map show cs) ++ "])"
+showWithTypes (PCase ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
@@ -223,6 +231,7 @@ data LangType
   | DictKeyType
   | FunctionType [LangType] LangType
   | DataConstructorType
+  | TypeConstructorType Name LangType
   | UndefinedType
   | AtomType
   | AnyType
@@ -236,8 +245,8 @@ instance LangTypeable String where
     "String" -> StringType
     "Integer" -> IntType
     "Float" -> FloatType
-    "a" -> AnyType
-    s -> error $ "Not yet implemented " ++ s
+    "Boolean" -> BooleanType
+    _ -> AnyType
 
 instance LangTypeable Expr where
   toLangType e = case e of
@@ -253,6 +262,7 @@ instance LangTypeable Expr where
     PDictUpdate {} -> UndefinedType
     DictAccess {} -> UndefinedType
     PDictKey {} -> UndefinedType
+    PCase {} -> UndefinedType
     PIf {} -> UndefinedType
     InternalFunction {} -> UndefinedType
     Lambda {} -> UndefinedType
@@ -263,6 +273,7 @@ instance LangTypeable Expr where
     PNoop {} -> UndefinedType
     ConsList {} -> UndefinedType
     PDataConstructor {} -> DataConstructorType
+    PTrait {} -> UndefinedType
     s -> error (show s)
 
 instance LangTypeable Val where

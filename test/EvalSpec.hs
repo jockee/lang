@@ -138,86 +138,68 @@ spec = describe "Eval" $ do
       eval (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` IntVal 8
 
     it "pipe to pipe" $ do
-      eval (parseExpr "5 | (y: y + 1) | (x: x + 2)") `shouldBe` IntVal 8
+      eval (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` IntVal 8
 
     it "nested let-in" $ do
       eval (parseExpr "let k = 1: (let v = 2: v + k)") `shouldBe` IntVal 3
 
     it "pipes as last argument" $ do
-      eval (parseExpr "[1,2] | (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+      eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
   describe "Stdlib" $ do
     it "fold function" $ do
-      ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
-      ev `shouldBe` IntVal 6
+      evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
 
     it "inline partially applied mapping fold function" $ do
-      ev <- evalWithLib (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)")
-      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
+      evalWithLib (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "inline fully applied mapping fold function" $ do
-      ev <- evalWithLib (parseExpr "(f xs: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
+      evalWithLib (parseExpr "(f xs: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "reverse" $ do
-      ev <- evalWithLib (parseExpr "reverse [1, 2]")
-      ev `shouldBe` ListVal [IntVal 2, IntVal 1]
+      evalWithLib (parseExpr "reverse [1, 2]") `shouldBe` ListVal [IntVal 2, IntVal 1]
 
     it "max" $ do
-      ev <- evalWithLib (parseExpr "max [1, 2]")
-      ev `shouldBe` (DataVal "Maybe" "Some" [IntVal 2])
+      evalWithLib (parseExpr "max [1, 2]") `shouldBe` (DataVal "Maybe" "Some" [IntVal 2])
 
     it "head" $ do
-      ev <- evalWithLib (parseExpr "head [1]")
-      ev `shouldBe` (DataVal "Maybe" "Some" [IntVal 1])
+      evalWithLib (parseExpr "head [1]") `shouldBe` (DataVal "Maybe" "Some" [IntVal 1])
 
     it "stdlib fold function leveraging foldInternal" $ do
-      ev <- evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
-      ev `shouldBe` IntVal 6
+      evalWithLib (parseExpr "fold (acc x: acc * x) 1 [2, 3]") `shouldBe` IntVal 6
 
     it "applied map" $ do
-      ev <- evalWithLib (parseExpr "map (n: n * 2) [1]")
-      ev `shouldBe` ListVal [IntVal 2]
+      evalWithLib (parseExpr "map (n: n * 2) [1]") `shouldBe` ListVal [IntVal 2]
 
     it "maps over list" $ do
-      ev <- evalWithLib (parseExpr "map (x: x * 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 2, IntVal 4]
+      evalWithLib (parseExpr "map (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     it "filters list" $ do
-      ev <- evalWithLib (parseExpr "filter (x: x == 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 2]
+      evalWithLib (parseExpr "filter (x: x == 2) [1,2]") `shouldBe` ListVal [IntVal 2]
 
     it "rejects list" $ do
-      ev <- evalWithLib (parseExpr "reject (x: x == 2) [1,2]")
-      ev `shouldBe` ListVal [IntVal 1]
+      evalWithLib (parseExpr "reject (x: x == 2) [1,2]") `shouldBe` ListVal [IntVal 1]
 
     it "list length" $ do
-      ev <- evalWithLib (parseExpr "length [1,2]")
-      ev `shouldBe` IntVal 2
+      evalWithLib (parseExpr "length [1,2]") `shouldBe` IntVal 2
 
     it "take" $ do
-      ev <- evalWithLib (parseExpr "take 3 [1,2,3,4,5]")
-      ev `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+      evalWithLib (parseExpr "take 3 [1,2,3,4,5]") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
     it "toList" $ do
-      ev <- evalWithLib (parseExpr "toList {a: 1, b: 2}")
-      ev `shouldBe` ListVal [(TupleVal [DictKey "a", IntVal 1]), (TupleVal [DictKey "b", IntVal 2])]
+      evalWithLib (parseExpr "toList {a: 1, b: 2}") `shouldBe` ListVal [(TupleVal [DictKey "a", IntVal 1]), (TupleVal [DictKey "b", IntVal 2])]
 
     it "values" $ do
-      ev <- evalWithLib (parseExpr "values {a: 1, b: 2}")
-      ev `shouldBe` ListVal [IntVal 1, IntVal 2]
+      evalWithLib (parseExpr "values {a: 1, b: 2}") `shouldBe` ListVal [IntVal 1, IntVal 2]
 
     it "keys" $ do
-      ev <- evalWithLib (parseExpr "keys {a: 1, b: 2}")
-      ev `shouldBe` ListVal [DictKey "a", DictKey "b"]
+      evalWithLib (parseExpr "keys {a: 1, b: 2}") `shouldBe` ListVal [DictKey "a", DictKey "b"]
 
     it "merge" $ do
-      ev <- evalWithLib (parseExpr "merge {a: 1} {b: 2}")
-      ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
+      evalWithLib (parseExpr "merge {a: 1} {b: 2}") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
     it "toDict" $ do
-      ev <- evalWithLib (parseExpr "toDict [(\"a\", 1)]")
-      ev `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
+      evalWithLib (parseExpr "toDict [(\"a\", 1)]") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
   describe "Multiple expressions" $ do
     it "evals works for one expression" $ do
@@ -273,27 +255,27 @@ spec = describe "Eval" $ do
 
   describe "General" $ do
     it "adds to global scope" $ do
-      (val, env) <- evalsWithLib $ parseExprs "folder = 1"
+      let (val, env) = evalsWithLib $ parseExprs "folder = 1"
       Map.keys (envValues env) `shouldContain` ["global:folder"]
 
     it "assignment in lambda does not leak" $ do
-      (val, env) <- evalsWithLib $ parseExprs "fn = (x: f = 1); fn 1"
+      let (val, env) = evalsWithLib $ parseExprs "fn = (x: f = 1); fn 1"
       Map.keys (envValues env) `shouldNotContain` ["global:f"]
 
     it "moves back up to global" $ do
-      (val, env) <- evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
+      let (val, env) = evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
       Map.keys (envValues env) `shouldContain` ["global:a"]
 
     it "does not leak state" $ do
-      (val, env) <- evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
+      let (val, env) = evalsWithLib $ parseExprs "fn = (f: f); fn 1; a = 1"
       Map.keys (envValues env) `shouldNotContain` ["global:f"]
 
     it "let-in does not leak state" $ do
-      (val, env) <- evalsWithLib $ parseExprs "let x = 2: x"
+      let (val, env) = evalsWithLib $ parseExprs "let x = 2: x"
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
 
     it "fold does not leak state" $ do
-      (val, env) <- evalsWithLib $ parseExprs "fold (acc x: acc) 1 [1]"
+      let (val, env) = evalsWithLib $ parseExprs "fold (acc x: acc) 1 [1]"
       Map.keys (envValues env) `shouldNotContain` ["global:x"]
       Map.keys (envValues env) `shouldNotContain` ["global:acc"]
 
@@ -302,6 +284,9 @@ spec = describe "Eval" $ do
 
     it "multiple assignments" $ do
       evals (parseExprs "a [] = 1; a b = 2; a []") `shouldBe` IntVal 1
+
+    it "cons" $ do
+      evals (parseExprs "1 :: []") `shouldBe` ListVal [IntVal 1]
 
   describe "Tuple" $ do
     it "destructuring tuple returns itself" $ do
@@ -410,15 +395,15 @@ spec = describe "Eval" $ do
       evals (parseExprs "f 1 = 2; f s = 3; f 2") `shouldBe` IntVal 3
 
     it "value constructor" $ do
-      (val, env) <- evalsWithLib $ parseExprs "a None = 1; a (Some 1) = 2; a None"
+      let (val, env) = evalsWithLib $ parseExprs "a None = 1; a (Some 1) = 2; a None"
       val `shouldBe` IntVal 1
 
     it "value constructor call fall through" $ do
-      (val, env) <- evalsWithLib $ parseExprs "a None = 1; a (Some b) = b; a (Some 2)"
+      let (val, env) = evalsWithLib $ parseExprs "a None = 1; a (Some b) = b; a (Some 2)"
       val `shouldBe` IntVal 2
 
     it "value constructor non-first" $ do
-      (val, env) <- evalsWithLib $ parseExprs "maybe default f None = default; maybe 1 1 None"
+      let (val, env) = evalsWithLib $ parseExprs "maybe default f None = default; maybe 1 1 None"
       val `shouldBe` IntVal 1
 
   describe "Modules" $ do
@@ -475,5 +460,13 @@ spec = describe "Eval" $ do
       evaluate (evals (parseExprs "data Point = Point Float Float; Point 1.0 1.0 1.0")) `shouldThrow` anyException
 
     it "destructures" $ do
-      (val, env) <- evalsWithLib $ parseExprs "a (Some b) = b; a (Some 1)"
+      let (val, env) = evalsWithLib $ parseExprs "a (Some b) = b; a (Some 1)"
+      val `shouldBe` IntVal 1
+
+  describe "Case expression" $ do
+    it "two boolean cases" $
+      evals (parseExprs "case true: | true: 1 | false: 0") `shouldBe` IntVal 1
+
+    it "handles more difficult expressions" $ do
+      let (val, env) = evalsWithLib $ parseExprs "case (Some 1): | (Some x): x | None: 0"
       val `shouldBe` IntVal 1

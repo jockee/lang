@@ -15,6 +15,7 @@ import Syntax
 import System.Console.Haskeline
 import System.Console.Haskeline.History
 import System.IO
+import System.IO.Unsafe
 import TypeCheck
 
 haskelineSettings :: Settings IO
@@ -24,19 +25,17 @@ haskelineSettings =
       autoAddHistory = True
     }
 
-evalWithLib :: Expr -> IO Val
-evalWithLib expr = do
-  (val, _) <- evalsWithLibAndEnv emptyEnv [expr]
-  pure val
+evalWithLib :: Expr -> Val
+evalWithLib expr = fst $ evalsWithLibAndEnv emptyEnv [expr]
 
 -- NOTE: entry point for reading in non-stdlib source files?
-evalsWithLib :: [Expr] -> IO (Val, Env)
+evalsWithLib :: [Expr] -> (Val, Env)
 evalsWithLib = evalsWithLibAndEnv emptyEnv
 
-evalsWithLibAndEnv :: Env -> [Expr] -> IO (Val, Env)
-evalsWithLibAndEnv env exprs = stdLib >>= (pure . foldl fl (Undefined, env) . allExprs)
+evalsWithLibAndEnv :: Env -> [Expr] -> (Val, Env)
+evalsWithLibAndEnv env exprs = foldl fl (Undefined, env) allExprs
   where
-    allExprs lib = parseExprs lib ++ exprs
+    allExprs = parseExprs stdLib ++ exprs
     fl (_val, env) ex = evalIn (resetScope env) ex
 
 repl :: IO ()
@@ -49,21 +48,21 @@ replWithEnv env = runInputT haskelineSettings $ do
     Nothing -> outputStrLn "Noop"
     Just "quit" -> return ()
     Just finput -> do
-      case parseExprs' finput of -- catches parsing errors, but not evaluation errors
+      case parseExprs' finput of
         Left e -> do
-          outputStrLn "\n-- PARSE ERROR\n"
+          outputStrLn "\n# Parse error\n"
           outputStrLn $ show e ++ "\n"
           liftIO $ replWithEnv env
         Right exprs -> do
-          result <- liftIO $ try $ evalsWithLibAndEnv env exprs :: InputT IO (Either LangException (Val, Env))
-          case result of
-            Left e -> outputStrLn "\n-- EVAL ERROR\n"
-            Right (val, newenv) -> do
-              outputStrLn $ show val ++ " : " -- ++ val
-              liftIO $ replWithEnv newenv
+          s <- liftIO . try $ evaluate $ evalsWithLibAndEnv env exprs
+          case s of
+            Left (e :: SomeException) -> do
+              outputStrLn "\n# Evaluation error\n"
+              outputStrLn $ show e ++ "\n"
+              liftIO $ replWithEnv env
+            Right (val, newEnv) -> do
+              outputStrLn $ show val ++ " : " ++ show (toLangType val)
+              liftIO $ replWithEnv newEnv
 
--- conName :: Data a => a -> String
--- conName x = showConstr (toConstr x)
-
-stdLib :: IO String
-stdLib = do readFile "src/stdlib/stdlib.lang"
+stdLib :: String
+stdLib = unsafePerformIO $ readFile "src/stdlib/stdlib.lang"

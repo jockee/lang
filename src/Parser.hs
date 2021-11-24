@@ -5,6 +5,8 @@ module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
+import Data.Functor ((<&>))
+import Data.List qualified as List (find)
 import Data.Void
 import Debug.Trace
 import Eval ()
@@ -14,7 +16,7 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
 
 doesntLineBreak :: String
-doesntLineBreak = [',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
+doesntLineBreak = ['!', ',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
 
 -- doesntLineBreak :: [String]
 -- doesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
@@ -35,10 +37,13 @@ expr =
   comment <|> sc
     *> ( comment
            <|> ifthen
-           <|> try typeDef
-           <|> letin
+           <|> try (typeDef [])
+           <|> letBinding
+           <|> parseCase
            <|> try lambda
            <|> parseDataDefinition
+           <|> traitDefinition
+           <|> implementationDefinition
            <|> try ternary
            <|> try function
            <|> formula
@@ -58,7 +63,8 @@ formula = makeExprParser juxta table <?> "formula"
         [orOp],
         [gteOp, lteOp, gtOp, ltOp],
         [concatOp],
-        [pipeOp]
+        [pipeOp],
+        [consOp]
       ]
     prefix name fun = Prefix (do string name; return fun)
     neg n = case n of
@@ -77,13 +83,16 @@ formula = makeExprParser juxta table <?> "formula"
     lteOp = InfixL (try $ space *> string "<=" <* optional space >> return (Cmp "<="))
     orOp = InfixL (try $ space *> string "||" <* optional space >> return (Binop Or))
     concatOp = InfixL (try $ space *> string "++" <* optional space >> return (Binop Concat))
-    pipeOp = InfixL (try $ space *> string "|" <* optional space >> return (Binop Pipe))
+    consOp = InfixL (try $ space *> string "::" <* optional space >> return (Binop Cons))
+    pipeOp = InfixL (try $ space *> string "|>" <* optional space >> return (Binop Pipe))
 
 lexeme = L.lexeme hspace
 
 symbol = L.symbol hspace
 
 parens = between (symbol "(") (symbol ")")
+
+brackets = between (symbol "[") (symbol "]")
 
 rws :: [String]
 rws = ["module", "case", "let"]
@@ -136,38 +145,29 @@ dictContents = do
   where
     pair = do
       key <- try (dictKey <* string ":") <|> variable <* string "=>"
-      space
       val <- expr
       return (key, val)
 
 consList :: Parser Expr
 consList = do
-  char '('
-  space
+  char '(' <* space
   listContents <- identifier `sepBy` (space *> string "::" <* space)
-  space
-  char ')'
+  space *> char ')'
   return $ ConsList listContents
 
 dict :: Parser Expr
 dict = do
-  char '{'
-  space
+  char '{' <* space
   x <- try dictContents
-  space
-  char '}'
+  space *> char '}'
   return x
 
 dictUpdate :: Parser Expr
 dictUpdate = do
-  char '{'
-  space
+  char '{' <* space
   dct <- variable <|> dict
-  space
-  char '|'
-  space
-  optional $ char '{'
-  space
+  space *> char '|' <* space
+  optional $ char '{' <* space
   updates <- try dictContents <|> variable
   char '}'
   optional $ many (spaceChar <|> char '}')
@@ -199,67 +199,70 @@ listContents = (juxta <|> formula) `sepBy` many (spaceChar <|> char ',')
 
 range :: Parser Expr
 range = do
-  char '('
-  space
+  char '(' <* space
   lBound <- term
-  string ".."
-  space
+  string ".." <* space
   uBound <- term
   char ')'
   return (PRange (sig [AnyType] AnyType) lBound uBound)
 
 tuple :: Parser Expr
 tuple = do
-  char '('
-  space
+  char '(' <* space
   x <- try tupleContents
   char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
 
 list :: Parser Expr
 list = do
-  char '['
-  space
+  char '[' <* space
   x <- try listContents
   char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
-  string "InternalFunction"
-  space
+  string "InternalFunction" <* space
   f <- identifier
   args <- list <|> variable
   return (InternalFunction f args)
 
 parseModule :: Parser Expr
 parseModule = do
-  string "module"
-  space
+  string "module" <* space
   first <- upperChar
   rest <- many (letterChar <|> digitChar)
-  optional space
-  string "{"
+  space *> string "{"
   contents <- manyExpressions
   string "}"
   return (Module (first : rest) contents)
 
-letin :: Parser Expr
-letin = do
-  string "let"
-  space
+parseCase :: Parser Expr
+parseCase = do
+  string "case" <* space
+  predicate <- expr
+  space *> string ":" <* space
+  string "|" <* space
+  cases <- singleCase `sepBy1` many (spaceChar <|> char '|')
+  return $ PCase (sig [AnyType] AnyType) predicate cases
+  where
+    singleCase = do
+      casePred <- space *> try (term <* string ":") <* space
+      caseDo <- term <|> formula
+      return (casePred, caseDo)
+
+letBinding :: Parser Expr
+letBinding = do
+  string "let" <* space
   pairs <- pair `sepBy1` many (spaceChar <|> char ',')
-  space
-  string ":"
+  space *> string ":"
   body <- expr
   return $ foldr foldFun body pairs
   where
     foldFun (pairKey, pairVal) acc =
       App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
-      space
-      key <- try (term <* string "=")
-      space
+      key <- space *> try (term <* string "=") <* space
       val <- term <|> formula
       return (key, val)
 
@@ -277,46 +280,55 @@ variable = Atom (sig [] AnyType) `fmap` identifier
 dictKey :: Parser Expr
 dictKey = PDictKey `fmap` identifier
 
-typeDef :: Parser Expr
-typeDef = do
-  name <- identifier
-  space
-  string "#"
-  space
-  bindings <- typeBinding
-  let (args, rtrn) = langTypes bindings
+typeDef :: [(String, String)] -> Parser Expr
+typeDef typeConstructors = do
+  name <- identifier <* space
+  string "#" *> space
+  bindings <- typeBinding typeConstructors
+  let (args, rtrn) = (init bindings, last bindings)
   return $ PTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn}
 
-typeBinding :: Parser [Expr]
-typeBinding = (parens funcType <|> variable) `sepBy1` ((string ":" <|> string ",") <* many spaceChar)
+typeBinding :: [(String, String)] -> Parser [LangType]
+typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType) `sepBy1` ((string ":" <|> string ",") <* many spaceChar)
   where
     funcType = do
-      bindings <- typeBinding
-      let (args, rtrn) = langTypes bindings
-      return $ PTypeSig TypeSig {typeSigName = Nothing, typeSigIn = args, typeSigReturn = rtrn}
-
-langTypes :: [Expr] -> ([LangType], LangType)
-langTypes bindings =
-  let args = case init bindings of
-        [] -> []
-        ts ->
-          map
-            ( \case
-                (PTypeSig TypeSig {typeSigIn = inn, typeSigReturn = rt}) -> FunctionType inn rt
-                (Atom _ts t) -> toLangType t
-                s -> error (show s)
-            )
-            ts
-      rtrn = case last bindings of
-        (Atom _ts t) -> toLangType t
-        s -> error (show s)
-   in (args, rtrn)
+      string "(" <* space
+      bindings <- typeBinding typeConstructors
+      space *> string ")"
+      let (args, rtrn) = (init bindings, last bindings)
+      return $ FunctionType args rtrn
+    typeVariable = do
+      first <- lowerChar
+      rest <- many (letterChar <|> digitChar)
+      pure $ toLangType (first : rest)
+    variableTypeConstructor = do
+      first <- lowerChar
+      rest <- many (letterChar <|> digitChar) <* space
+      arg <- typeVariable
+      let typeConstructor = first : rest
+      case List.find (\x -> typeConstructor == fst x) typeConstructors of
+        Just (_, tCons) -> pure $ TypeConstructorType tCons arg
+        Nothing -> error ("Can't find type constructor variable binding for " ++ show typeConstructor)
+    concreteTypeConstructor = do
+      first <- upperChar
+      rest <- many (letterChar <|> digitChar) <* space
+      arg <- option AnyType typeVariable
+      let dataConstructor = first : rest
+      let existingType = toLangType dataConstructor
+      if existingType /= AnyType
+        then pure existingType
+        else pure $ TypeConstructorType (first : rest) arg
+    listType = do
+      string "[" <* space
+      bindings <- typeBinding typeConstructors
+      space *> string "]"
+      let (tp : _) = bindings
+      return $ ListType tp
 
 function :: Parser Expr
 function = do
   terms <- term `sepBy1` hspace
-  string "="
-  space
+  string "=" <* space
   let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
@@ -335,52 +347,60 @@ lambda = do
 
 ifthen :: Parser Expr
 ifthen = do
-  string "if"
-  space
+  string "if" <* space
   cond <- term
-  space
-  string "then"
-  space
+  space *> string "then" <* space
   tr <- term
-  space
-  string "else"
-  space
+  space *> string "else" <* space
   PIf cond tr <$> term
 
 parseDataDefinition :: Parser Expr
 parseDataDefinition = do
-  string "data"
-  space
+  string "data" <* space
   typeCons <- identifier
-  space
-  string "="
-  space
+  space *> string "=" <* space
   constructors <- constructor `sepBy1` many (spaceChar <|> char '|')
   return $ PDataDefinition typeCons constructors
   where
     constructor = do
-      space
-      valueCons <- identifier
-      space
+      valueCons <- space *> identifier <* space
       valueArgs <- identifier `sepBy` many spaceChar
       return (valueCons, valueArgs)
+
+traitDefinition :: Parser Expr
+traitDefinition = do
+  string "trait" *> space
+  name <- identifier <* space
+  vars <- identifier `sepBy` many spaceChar
+  let varMappings = [(head vars, name) | not (null vars)]
+  space *> string ":" <* space
+  space *> string "|" <* space
+  defs <- typeDef varMappings `sepBy1` many (spaceChar <|> char '|')
+  return $ PTrait name defs
+
+implementationDefinition :: Parser Expr
+implementationDefinition = do
+  string "implement" <* space
+  trait <- identifier
+  space *> string "for" <* space
+  dtype <- identifier
+  space *> string ":" <* space
+  string "|" *> space
+  functions <- function `sepBy1` many (spaceChar <|> char '|')
+  return $ PImplementation trait dtype functions
 
 dataConstructor :: Parser Expr
 dataConstructor = do
   first <- upperChar
-  rest <- many (letterChar <|> digitChar)
-  space
+  rest <- many (letterChar <|> digitChar) <* space
   args <- many term
   return (PDataConstructor (first : rest) args)
 
 ternary :: Parser Expr
 ternary = do
-  cond <- term
-  string "?"
-  space
+  cond <- term <* string "?" <* space
   tr <- term
-  string ":"
-  space
+  string ":" <* space
   PIf cond tr <$> term
 
 parseFloat :: Parser Expr
