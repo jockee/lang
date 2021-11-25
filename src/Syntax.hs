@@ -226,6 +226,7 @@ instance Arith Val where
   evalOp Or = \a b -> case (a, b) of
     (BoolVal a, BoolVal b) -> BoolVal $ a || b
     _ -> BoolVal False
+  evalOp s = error $ show s
 
 -- TypeSig
 
@@ -247,7 +248,8 @@ data LangType
   | AnyType
   deriving (Show, Eq, Data, Typeable)
 
-prettyLangType (DataConstructorType name) = name
+prettyLangType (TypeConstructorType name _) = name
+prettyLangType (DataConstructorType dtype) = dtype
 prettyLangType x = show $ toConstr x
 
 class LangTypeable a where

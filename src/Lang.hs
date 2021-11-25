@@ -13,4 +13,7 @@ evaledStdLibEnv :: IO Env
 evaledStdLibEnv = snd . evalsIn emptyEnv . parseExprs <$> rawStdLib
 
 rawStdLib :: IO String
-rawStdLib = readFile "src/stdlib/stdlib.lang"
+rawStdLib = do
+  types <- readFile "src/stdlib/types.lang"
+  stdLib <- readFile "src/stdlib/stdlib.lang"
+  pure $ types ++ stdLib

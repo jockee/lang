@@ -43,18 +43,6 @@ keys dict = toList dict |> map ((a, b): a)
 values dict = toList dict |> map ((a, b): b)
 merge d1 d2 = { d1 | d2 }
 
-
-// requirements:
-// * fix bug where trait can't be defined here in stdlib
-// * pattern match on nth argument
-
-data Maybe = Some a | None;
-data Result = Ok a | Err b;
-
-trait Functor f: | fmap # (a: b), f a: f b;
-implement Functor for Maybe: | fmap _ None = None | fmap f (Some x) = Some (f x);
-implement Functor for Result: | fmap _ (Err b) = Err b | fmap f (Ok a) = (Ok (f a));
-
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 

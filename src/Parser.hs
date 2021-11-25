@@ -18,7 +18,7 @@ doesntLineBreak :: String
 doesntLineBreak = ['!', ',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
 
 -- doesntLineBreak :: [String]
--- doesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
+-- oesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
 
 type Parser = Parsec Void String
 
@@ -39,10 +39,10 @@ expr =
            <|> try (typeDef [])
            <|> letBinding
            <|> parseCase
-           <|> try lambda
-           <|> parseDataDefinition
            <|> traitDefinition
+           <|> parseDataDefinition
            <|> implementationDefinition
+           <|> try lambda
            <|> try ternary
            <|> try function
            <|> formula
@@ -168,8 +168,8 @@ dictUpdate = do
   space *> char '|' <* space
   optional $ char '{' <* space
   updates <- try dictContents <|> variable
-  char '}'
-  optional $ many (spaceChar <|> char '}')
+  space *> char '}'
+  hspace *> optional (char '}')
   return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
 
 dictAccess :: Parser Expr
@@ -209,14 +209,14 @@ tuple :: Parser Expr
 tuple = do
   char '(' <* space
   x <- try tupleContents
-  char ')'
+  space *> char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
 
 list :: Parser Expr
 list = do
   char '[' <* space
   x <- try listContents
-  char ']'
+  space *> char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
 
 parseInternalFunction :: Parser Expr
@@ -285,11 +285,10 @@ typeDef typeConstructors = do
   string "#" *> space
   bindings <- typeBinding typeConstructors
   let (args, rtrn) = (init bindings, last bindings)
-  hspace
   return $ PTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn}
 
 typeBinding :: [(String, String)] -> Parser [LangType]
-typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType) `sepBy1` ((string ":" <|> string ",") <* many spaceChar)
+typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType) `sepBy1` ((string ":" <|> string ",") <* hspace)
   where
     funcType = do
       string "(" <* space
@@ -341,7 +340,7 @@ function = do
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (variable <|> tuple) `sepBy` space
+  identifiers <- (variable <|> tuple) `sepBy` hspace
   string ":" <* notFollowedBy (string ":")
   Lambda (sig [AnyType] AnyType) identifiers <$> expr
 
@@ -359,24 +358,23 @@ parseDataDefinition = do
   string "data" <* space
   typeCons <- identifier
   space *> string "=" <* space
-  constructors <- constructor `sepBy1` many (spaceChar <|> char '|')
+  constructors <- constructor `sepBy1` char '|'
   return $ PDataDefinition typeCons constructors
   where
     constructor = do
-      valueCons <- space *> identifier <* space
-      valueArgs <- identifier `sepBy` many spaceChar
+      valueCons <- space *> identifier <* hspace
+      valueArgs <- many identifier
       return (valueCons, valueArgs)
 
 traitDefinition :: Parser Expr
 traitDefinition = do
-  string "trait" *> space
+  string "trait" <* space
   name <- identifier <* space
-  vars <- identifier `sepBy` many spaceChar
+  vars <- many identifier
   let typeConstructors = [(head vars, name) | not (null vars)]
   space *> string ":" <* space
-  space *> string "|" <* space
-  defs <- typeDef typeConstructors `sepBy1` many (spaceChar <|> char '|')
-  hspace
+  space *> string "|" <* hspace
+  defs <- typeDef typeConstructors `sepBy1` (space *> char '|' <* hspace)
   return $ PTrait name defs
 
 implementationDefinition :: Parser Expr
@@ -386,9 +384,8 @@ implementationDefinition = do
   space *> string "for" <* space
   dtype <- identifier
   space *> string ":" <* space
-  string "|" *> space
-  functions <- function `sepBy1` many (spaceChar <|> char '|')
-  hspace
+  space *> string "|" <* hspace
+  functions <- function `sepBy1` many (space *> char '|' <* hspace)
   return $ PImplementation trait dtype functions
 
 dataConstructor :: Parser Expr
@@ -445,10 +442,10 @@ parseExprs s = case parseExprs' s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr) `sepBy` many (splitAfterInfix <|> splitBeforeInfix <|> char ';')
+manyExpressions = (parseModule <|> expr) `sepBy` many (notPrecededByInfix <|> notFollowedByInfix <|> char ';')
   where
-    splitAfterInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
-    splitBeforeInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
+    notPrecededByInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
+    notFollowedByInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (allOf manyExpressions) "stdin"

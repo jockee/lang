@@ -2,8 +2,6 @@
 
   - TODO: Type classes/traits:
     * Add Num constraint to function doing addition
-    * when calling fmap, it should be maybe's version of fmap
-    * Maybe Functor
     * Num (arithmetic)
 
   * Either/result type instead of exceptions. Result Ok Err in rust

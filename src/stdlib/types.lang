@@ -1,0 +1,13 @@
+data Maybe = Some a | None
+data Result = Ok a | Err b
+
+trait Functor f:
+| fmap # (a: b), f a: f b;
+
+implement Functor for Maybe:
+| fmap _ None = None
+| fmap f (Some x) = Some (f x);
+
+implement Functor for Result:
+| fmap f (Ok a) = Ok (f a)
+| fmap _ (Err b) = Err b;
