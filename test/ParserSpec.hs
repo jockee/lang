@@ -266,7 +266,7 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TypeConstructorType "Functor" AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType})])
+      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType}))])
 
   describe "Implementation" $ do
     it "can create implementation" $

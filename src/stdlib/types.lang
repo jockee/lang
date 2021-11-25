@@ -4,6 +4,12 @@ data Result = Ok a | Err b
 trait Functor f:
 | fmap # (a: b), f a: f b;
 
+trait Applicative f:
+| ap # f (a: b), f a: f b;
+
+// trait Monad f:
+// | bind # m a, (a: m b): m b;
+
 implement Functor for Maybe:
 | fmap _ None = None
 | fmap f (Some x) = Some (f x);
@@ -11,3 +17,11 @@ implement Functor for Maybe:
 implement Functor for Result:
 | fmap f (Ok a) = Ok (f a)
 | fmap _ (Err b) = Err b;
+
+// implement Applicative for Maybe:
+// | ap (Ok f) (Ok a) = (Ok (f a))
+// | ap _ (Err b) = Err b;
+
+// implement Monad for Maybe:
+// | bind (Ok f) (Ok a) = (Ok (f a))
+// | bind _ (Err b) = Err b;

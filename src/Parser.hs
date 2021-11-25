@@ -303,10 +303,10 @@ typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typ
     variableTypeConstructor = do
       first <- lowerChar
       rest <- many (letterChar <|> digitChar) <* space
-      arg <- typeVariable
+      args <- typeBinding typeConstructors
       let typeConstructor = first : rest
       case List.find (\x -> typeConstructor == fst x) typeConstructors of
-        Just (_, tCons) -> pure $ TypeConstructorType tCons arg
+        Just (_, tCons) -> pure $ TypeConstructorType tCons $ head args
         Nothing -> error ("Can't find type constructor variable binding for " ++ show typeConstructor)
     concreteTypeConstructor = do
       first <- upperChar

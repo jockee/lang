@@ -1,5 +1,9 @@
 # KEY
 
+  - TODO: applicative & monad
+
+  - TODO: sockets
+
   - TODO: Type classes/traits:
     * Add Num constraint to function doing addition
     * Num (arithmetic)
