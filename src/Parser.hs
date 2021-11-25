@@ -44,7 +44,7 @@ expr =
            <|> implementationDefinition
            <|> try lambda
            <|> try ternary
-           <|> try function
+           <|> try (function Nothing)
            <|> formula
            <|> noop
        )
@@ -285,7 +285,7 @@ typeDef typeConstructors = do
   string "#" *> space
   bindings <- typeBinding typeConstructors
   let (args, rtrn) = (init bindings, last bindings)
-  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn}
+  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigTraitBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
 
 typeBinding :: [(String, String)] -> Parser [LangType]
 typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType) `sepBy1` ((string ":" <|> string ",") <* hspace)
@@ -324,14 +324,14 @@ typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typ
       let (tp : _) = bindings
       return $ ListType tp
 
-function :: Parser Expr
-function = do
+function :: Maybe TypeConstructor -> Parser Expr
+function traitBinding = do
   terms <- term `sepBy1` hspace
   string "=" <* space
   let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
-  let funSig = TypeSig {typeSigName = Just nameStr, typeSigIn = [], typeSigReturn = AnyType}
+  let funSig = TypeSig {typeSigName = Just nameStr, typeSigTraitBinding = traitBinding, typeSigIn = [], typeSigReturn = AnyType}
   if null args
     then return $ Binop Assign name body
     else case name of
@@ -382,11 +382,11 @@ implementationDefinition = do
   string "implement" <* space
   trait <- identifier
   space *> string "for" <* space
-  dtype <- identifier
+  typeConstructor <- identifier
   space *> string ":" <* space
   space *> string "|" <* hspace
-  functions <- function `sepBy1` many (space *> char '|' <* hspace)
-  return $ PImplementation trait dtype functions
+  functions <- function (Just typeConstructor) `sepBy1` many (space *> char '|' <* hspace)
+  return $ PImplementation trait typeConstructor functions
 
 dataConstructor :: Parser Expr
 dataConstructor = do
@@ -468,4 +468,4 @@ escapedChars = do
   oneOf ['\\', '"']
 
 sig :: [LangType] -> LangType -> TypeSig
-sig inn out = TypeSig {typeSigName = Nothing, typeSigIn = inn, typeSigReturn = out}
+sig inn out = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigIn = inn, typeSigReturn = out}

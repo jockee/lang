@@ -18,7 +18,7 @@ import TypeCheck
 type TestEnv = [Expr]
 
 spec :: Spec
-spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
+spec = beforeAll (let !std = evaledStdLibEnv in std) $
   describe "Eval" $ do
     describe "Boolean" $ do
       it "negation of bool" $ \stdLibEnv -> do
@@ -388,7 +388,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
             `shouldSatisfy` ( \case
                                 (_, env) ->
                                   Map.lookup "a" (typeSigs env)
-                                    == Just (TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
+                                    == Just (TypeSig {typeSigName = Just "a", typeSigTraitBinding = Nothing, typeSigIn = [], typeSigReturn = IntType})
                             )
 
         it "Called with wrong type" $ \stdLibEnv -> do
@@ -542,3 +542,17 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
                     | ymap _ None = None
                 |]
           evaluate (evals (parseExprs expr)) `shouldThrow` anyException
+
+        it "Needs to implement the right function" $ \stdLibEnv -> do
+          let expr =
+                [iii|
+                  trait Applicative2 f:
+                  | ap2 \# f (a: b), f a: f b;
+                  implement Applicative2 for Maybe:
+                  | ap2 _ _ = None;
+                  implement Applicative2 for Result:
+                  | ap2 _ (Err a) = Err a;
+                  ap (Ok (x: x*2)) (Err 1)
+                |]
+          let (val, env) = evalsIn stdLibEnv $ parseExprs expr
+          val `shouldBe` (DataVal "Result" "Err" [IntVal 1])

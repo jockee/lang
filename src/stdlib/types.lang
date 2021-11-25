@@ -5,23 +5,34 @@ trait Functor f:
 | fmap # (a: b), f a: f b;
 
 trait Applicative f:
-| ap # f (a: b), f a: f b;
+| ap # f (a: b), f a: f b
+| pure # a: f a;
 
-// trait Monad f:
-// | bind # m a, (a: m b): m b;
+trait Monad m:
+| bind # m a, (a: m b): m b;
 
 implement Functor for Maybe:
 | fmap _ None = None
 | fmap f (Some x) = Some (f x);
 
+implement Applicative for Maybe:
+| ap (Some f) (Some a) = (Some (f a))
+| ap _ _ = None
+| pure a = Some a;
+
+implement Monad for Maybe:
+| bind (Some a) (Some a) = (Some (f a))
+| bind _ None = None;
+
 implement Functor for Result:
 | fmap f (Ok a) = Ok (f a)
 | fmap _ (Err b) = Err b;
 
-// implement Applicative for Maybe:
-// | ap (Ok f) (Ok a) = (Ok (f a))
-// | ap _ (Err b) = Err b;
+implement Applicative for Result:
+| ap (Ok f) (Ok a) = (Ok (f a))
+| ap _ (Err b) = Err b
+| pure a = Ok a;
 
-// implement Monad for Maybe:
-// | bind (Ok f) (Ok a) = (Ok (f a))
-// | bind _ (Err b) = Err b;
+implement Monad for Result:
+| bind (Ok f) (Ok a) = (Ok (f a))
+| bind _ (Err b) = Err b;

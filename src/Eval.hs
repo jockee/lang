@@ -22,7 +22,7 @@ instance Evaluatable Val where
 instance Evaluatable Expr where
   toExpr expr = expr
   evalIn env (PTrait name defs) = (Undefined, extendWithTrait env name defs)
-  evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
+  evalIn env (PImplementation _trait for defs) = (Undefined, extendWithImplementation env for defs)
   evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
   evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
   evalIn env (PDataConstructor name exprArgs) =
@@ -140,9 +140,8 @@ extendWithTuple env bindings vs =
 extendWithTrait :: Env -> String -> [Expr] -> Env
 extendWithTrait env name defs = extend env name AnyType $ TraitVal name defs
 
--- FIXME: slime, not using trait or for
-extendWithImplementation :: Env -> String -> String -> [Expr] -> Env
-extendWithImplementation env trait for defs = foldl foldFun env defs
+extendWithImplementation :: Env -> TypeConstructor -> [Expr] -> Env
+extendWithImplementation env for = foldl foldFun env
   where
     foldFun accEnv def = case def of
       (Binop Assign (Atom _ts a) v) -> extend accEnv a AnyType v
@@ -179,7 +178,7 @@ extendWithDataConstructor :: Env -> String -> [Expr] -> [Val] -> Env
 extendWithDataConstructor env name exprs vals = foldl foldFun env (zip exprs vals)
   where
     foldFun :: Env -> (Expr, Val) -> Env
-    foldFun accEnv ((Atom _ts atomId), val) = extend accEnv atomId AnyType val
+    foldFun accEnv (Atom _ts atomId, val) = extend accEnv atomId AnyType val
 
 extendNonAtom :: Evaluatable e => Env -> Expr -> e -> Env
 extendNonAtom env argExpr expr = case argExpr of
@@ -207,6 +206,7 @@ extend env id expectedType ex =
     else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
     gotType = toLangType val
+    newEnv = env {envValues = Map.insertWith (flip (++)) key [val] (envValues env)}
     val = fst $ evalIn env ex
     key = last (envScopes env) ++ ":" ++ id
 
@@ -263,10 +263,18 @@ apply env e1 e2 =
 
 patternMatch :: Env -> Val -> Val -> Bool
 patternMatch env passedArg definition = case definition of
-  FunctionVal _ _ (expectedArgExp : _) _ ->
+  FunctionVal ts _ (expectedArgExp : _) _ ->
     let passedArgType = toLangType passedArg
         expectedType = toLangType expectedArgExp
-     in typeMatches env expectedType passedArgType && patternMatches expectedArgExp passedArg
+     in typeMatches env expectedType passedArgType
+          && traitBindingMatches passedArg ts
+          && patternMatches expectedArgExp passedArg
+
+traitBindingMatches :: Val -> TypeSig -> Bool
+traitBindingMatches (DataVal dConsFromPassed _ _) ts = case typeSigTraitBinding ts of
+  Nothing -> True
+  dConsFromDef -> Just dConsFromPassed == dConsFromDef
+traitBindingMatches _ _ = True
 
 patternMatches :: Expr -> Val -> Bool
 patternMatches (PList _ []) (ListVal []) = True

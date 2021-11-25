@@ -1,6 +1,8 @@
 # KEY
 
-  - TODO: applicative & monad
+  - TODO: repl history
+
+  - TODO: monad
 
   - TODO: sockets
 

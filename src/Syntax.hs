@@ -152,6 +152,10 @@ type ArgsList = [Expr]
 
 type DataConstructor = String
 
+type Trait = String
+
+type TypeConstructor = String
+
 type Name = String
 
 type ConstructorWithArgs = (String, [String])
@@ -230,7 +234,13 @@ instance Arith Val where
 
 -- TypeSig
 
-data TypeSig = TypeSig {typeSigName :: Maybe String, typeSigIn :: [LangType], typeSigReturn :: LangType} deriving (Show, Eq)
+data TypeSig = TypeSig
+  { typeSigName :: Maybe String,
+    typeSigTraitBinding :: Maybe String,
+    typeSigIn :: [LangType],
+    typeSigReturn :: LangType
+  }
+  deriving (Show, Eq)
 
 data LangType
   = ListType LangType
