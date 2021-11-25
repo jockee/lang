@@ -45,29 +45,32 @@ merge d1 d2 = { d1 | d2 }
 
 
 // requirements:
-// * when selecting which definition to use, trait matching functions should be preferred
-// * trait functions can not be defined outside of trait
 // * fix bug where trait can't be defined here in stdlib
+// * pattern match on nth argument
 
-
-// MAYBE
 data Maybe = Some a | None;
+data Result = Ok a | Err b;
+
+trait Functor f: | fmap # (a: b), f a: f b;
+implement Functor for Maybe: | fmap _ None = None | fmap f (Some x) = Some (f x);
+implement Functor for Result: | fmap _ (Err b) = Err b | fmap f (Ok a) = (Ok (f a));
+
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 
-// trait Functor f: | fmap # (a: b), f a: f b
 // trait Functor f: | fmap # (a: b), f a: f b
 
       // class Functor f where
       //   fmap        :: (a -> b) -> f a -> f b
 
-// implement Functor for Maybe:
-//  | fmap _ None = None
-//  | fmap f (Some x) = Some (f x)
 
       // instance  Functor Maybe  where
       //     fmap _ Nothing       = Nothing
       //     fmap f (Just a)      = Just (f a)
+
+      // instance Functor (Either a) where
+      // fmap g (Right x) = Right (g x)
+      // fmap g (Left x) = Left x
 
 // at # Integer, [a]: Maybe a
 at i xs =

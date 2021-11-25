@@ -1,21 +1,13 @@
 module Lang where
 
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Data
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Typeable
-import Debug.Trace
 import Eval
-import Exceptions
 import Parser
 import Syntax
-import System.IO
-import System.IO.Unsafe
-import TypeCheck
 
-type RawStdLib = String
+evalsInStdLib :: String -> IO Val
+evalsInStdLib rawExprs = do
+  env <- evaledStdLibEnv
+  pure $ fst $ evalsIn env $ parseExprs rawExprs
 
 evaledStdLibEnv :: IO Env
 evaledStdLibEnv = snd . evalsIn emptyEnv . parseExprs <$> rawStdLib

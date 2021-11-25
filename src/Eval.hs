@@ -31,14 +31,14 @@ instance Evaluatable Expr where
           Just [DataConstructorDefinitionVal dtype argVals] ->
             if length exprArgs > length argVals
               then error $ "Too many arguments to value constructor " ++ show name
-              else case List.find (\(_i, ex, val) -> not $ langTypeMatches (toLangType ex) (toLangType val)) (zip3 [1 ..] exprArgs argVals) of
+              else case List.find (\(_i, ex, val) -> not $ typeMatches env (toLangType ex) (toLangType val)) (zip3 [1 ..] exprArgs argVals) of
                 Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType ex) ++ ", got: " ++ show (toLangType val) ++ " in position " ++ show (i + 1)
                 Nothing -> (DataVal dtype name evaledArgs, env)
           Nothing -> error $ "No such constructor found: " ++ show name
   evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
   evalIn env (PCase ts cond cases) =
     let condVal = fst $ evalIn env cond
-        findFun (pred, predDo) = patternMatch condVal (FunctionVal ts env [pred] predDo)
+        findFun (pred, predDo) = patternMatch env condVal (FunctionVal ts env [pred] predDo)
      in case List.find findFun cases of
           Just (_pred, predDo) -> (fst $ evalIn env predDo, env)
   evalIn env (PIf (PBool True) t _) = evalIn env t
@@ -238,20 +238,35 @@ internalFunction env f argsList = case evaledArgsList of
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> case List.find (patternMatch passedArg) definitions of
-      Just (FunctionVal ts _ args e3) -> runFun env' ts args e2 e3
-      Nothing -> error "Pattern match fail"
+    (Pattern definitions, env') -> case List.filter (patternMatch env' passedArg) definitions of
+      [] -> error "Pattern match fail"
+      [FunctionVal ts _ args e3] -> runFun env' ts args e2 e3
+      (f : fs) -> case f of
+        (FunctionVal ts _ args e3) ->
+          if functionFullyApplied args
+            then runFun env' ts args e2 e3
+            else
+              let (appliedFuns, accEnv) = foldl toFunVal ([], env') (f : fs)
+                  toFunVal :: ([Val], Env) -> Val -> ([Val], Env)
+                  toFunVal (accFuns, accEnv) fun =
+                    case fun of
+                      (FunctionVal ts _ args e3) ->
+                        let (val, env'') = runFun accEnv ts args e2 e3
+                         in (accFuns ++ [val], env'')
+                      _ -> error "Non-function application"
+               in (Pattern appliedFuns, accEnv)
     (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
     (passedArg, _) = evalIn env e2
+    functionFullyApplied args = length args == 1
 
-patternMatch :: Val -> Val -> Bool
-patternMatch passedArg definition = case definition of
+patternMatch :: Env -> Val -> Val -> Bool
+patternMatch env passedArg definition = case definition of
   FunctionVal _ _ (expectedArgExp : _) _ ->
     let passedArgType = toLangType passedArg
         expectedType = toLangType expectedArgExp
-     in langTypeMatches expectedType passedArgType && patternMatches expectedArgExp passedArg
+     in typeMatches env expectedType passedArgType && patternMatches expectedArgExp passedArg
 
 patternMatches :: Expr -> Val -> Bool
 patternMatches (PList _ []) (ListVal []) = True

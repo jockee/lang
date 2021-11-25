@@ -10,6 +10,7 @@ module Syntax where
 import Data.Data
 import Data.List as List
 import Data.Map qualified as Map
+import Data.Typeable
 
 -- ENV
 
@@ -161,7 +162,7 @@ instance Show Val where
   -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
-  show (DataVal dtype n args) = "Data " ++ show dtype ++ " " ++ show n ++ " " ++ show args
+  show (DataVal dtype n args) = n ++ " " ++ joinCommaSep args
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (TupleVal ns) = "(" ++ List.intercalate ", " (map show ns) ++ ")"
@@ -186,6 +187,7 @@ instance Num Val where
   (IntVal i1) * (IntVal i2) = IntVal (i1 * i2)
   (FloatVal i1) - (FloatVal i2) = FloatVal (i1 - i2)
   (IntVal i1) - (IntVal i2) = IntVal (i1 - i2)
+  fromInteger i = IntVal i
 
 instance Ord Val where
   compare (DictKey i1) (DictKey i2) = compare i1 i2
@@ -238,12 +240,15 @@ data LangType
   | DictionaryType
   | DictKeyType
   | FunctionType [LangType] LangType
-  | DataConstructorType
+  | DataConstructorType String
   | TypeConstructorType Name LangType
   | UndefinedType
   | AtomType
   | AnyType
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data, Typeable)
+
+prettyLangType (DataConstructorType name) = name
+prettyLangType x = show $ toConstr x
 
 class LangTypeable a where
   toLangType :: a -> LangType
@@ -280,7 +285,7 @@ instance LangTypeable Expr where
     PTypeSig {} -> UndefinedType
     PNoop {} -> UndefinedType
     ConsList {} -> UndefinedType
-    PDataConstructor {} -> DataConstructorType
+    PDataConstructor name _ -> DataConstructorType name
     PTrait {} -> UndefinedType
     s -> error (show s)
 
@@ -296,7 +301,7 @@ instance LangTypeable Val where
     Undefined {} -> UndefinedType
     TupleVal {} -> ListType AnyType
     ListVal {} -> ListType AnyType
-    DataVal {} -> DataConstructorType
+    DataVal cons name _ -> TypeConstructorType cons (toLangType name)
 
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 

@@ -23,8 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - parser-combinators
 - parsec
-- split
 - indents
+- string-interpolate
 - megaparsec
 - protolude
 - text

@@ -1,9 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module EvalSpec where
 
 import Control.Exception
 import Data.Map qualified as Map
+import Data.String.Interpolate -- (i)
 import Debug.Trace
 import Eval
 import Exceptions
@@ -405,8 +407,8 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
         it "can fall through" $ \stdLibEnv -> do
           evals (parseExprs "a [] = 1; a b = [2]; a 3") `shouldBe` ListVal [IntVal 2]
 
-        xit "can fall through on second argument" $ \stdLibEnv -> do
-          evals (parseExprs "a b [] = 1; a b c = c; a 1 3") `shouldBe` ListVal [IntVal 3]
+        it "can fall through on second argument" $ \stdLibEnv -> do
+          evals (parseExprs "a b [] = 1; a b c = c; a 1 3") `shouldBe` IntVal 3
 
         it "empty list should only match empty list" $ \stdLibEnv -> do
           evals (parseExprs "a [] = [0]; a b = [2]; a [1]") `shouldBe` ListVal [IntVal 2]
@@ -426,7 +428,27 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
           val `shouldBe` IntVal 2
 
         it "value constructor non-first" $ \stdLibEnv -> do
-          let (val, env) = evalsIn stdLibEnv $ parseExprs "maybe default f None = default; maybe 1 1 None"
+          let (val, env) = evalsIn stdLibEnv $ parseExprs "maybe2 default f None = default; maybe2 1 1 None"
+          val `shouldBe` IntVal 1
+
+        it "value constructor non-first, multiple definitions" $ \stdLibEnv -> do
+          let expr =
+                [iii|
+                  maybe2 default f None = default;
+                  maybe2 default f (Some x) = x;
+                  maybe2 1 1 (Some 2)
+                |]
+          let (val, env) = evalsIn stdLibEnv $ parseExprs expr
+          val `shouldBe` IntVal 2
+
+        it "value constructor non-first, multiple definitions" $ \stdLibEnv -> do
+          let expr =
+                [iii|
+                  maybe2 default f None = default;
+                  maybe2 default f (Some x) = x;
+                  maybe2 1 1 None
+                |]
+          let (val, env) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` IntVal 1
 
       describe "Modules" $ do
@@ -490,7 +512,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
         it "two boolean cases" $ \stdLibEnv -> do
           evals (parseExprs "case true: | true: 1 | false: 0") `shouldBe` IntVal 1
 
-        it "handles more difficult expressions" $ \stdLibEnv -> do
+        xit "handles more difficult expressions" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv (parseExprs "case (Some 1): | (Some x): x | None: 0")
           val `shouldBe` IntVal 1
 
@@ -513,27 +535,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
           length (sequenceA $ Map.lookup "global:xmap" (envValues env)) `shouldBe` 2
 
         xit "Needs to implement the right function" $ \stdLibEnv -> do
-          evaluate
-            ( evals
-                ( parseExprs
-                    "trait Mappable: | xmap # (a: b), a: b; \
-                    \ implement Mappable for Maybe: \
-                    \ | ymap _ None = None"
-                )
-            )
-            `shouldThrow` anyException
-
-        xit "Can't overload trait function with regular function" $ \stdLibEnv -> do
-          evaluate
-            ( evals
-                ( parseExprs
-                    "trait Mappable: | xmap # (a: b), a: b; \
-                    \ implement Mappable for Maybe: \
-                    \ | xmap _ None = None \
-                    \ xmap a b = 1"
-                )
-            )
-            `shouldThrow` anyException
-
-        xit "uses the right definition" $ \stdLibEnv -> do
-          pending
+          let expr =
+                [iii|
+                    trait Mappable: | xmap \# (a: b), a: b;
+                    implement Mappable for Maybe:
+                    | ymap _ None = None
+                |]
+          evaluate (evals (parseExprs expr)) `shouldThrow` anyException

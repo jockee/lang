@@ -285,6 +285,7 @@ typeDef typeConstructors = do
   string "#" *> space
   bindings <- typeBinding typeConstructors
   let (args, rtrn) = (init bindings, last bindings)
+  hspace
   return $ PTypeSig TypeSig {typeSigName = Just name, typeSigIn = args, typeSigReturn = rtrn}
 
 typeBinding :: [(String, String)] -> Parser [LangType]
@@ -374,7 +375,8 @@ traitDefinition = do
   let typeConstructors = [(head vars, name) | not (null vars)]
   space *> string ":" <* space
   space *> string "|" <* space
-  defs <- typeDef typeConstructors `sepBy1` many (spaceChar <|> char '|') <* hspace
+  defs <- typeDef typeConstructors `sepBy1` many (spaceChar <|> char '|')
+  hspace
   return $ PTrait name defs
 
 implementationDefinition :: Parser Expr
@@ -386,6 +388,7 @@ implementationDefinition = do
   space *> string ":" <* space
   string "|" *> space
   functions <- function `sepBy1` many (spaceChar <|> char '|')
+  hspace
   return $ PImplementation trait dtype functions
 
 dataConstructor :: Parser Expr

@@ -31,14 +31,17 @@ typeCheck env IntType (PInteger n) = (Right env)
 typeCheck env AnyType (PInteger n) = (Right env)
 typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " ++ show got)
 
--- typeCheck env expects got = Left ("Expected " ++ show expects ++ ", but got " ++ show got)
-
-langTypeMatches :: LangType -> LangType -> Bool
-langTypeMatches AnyType _ = True
-langTypeMatches AtomType _ = True
-langTypeMatches _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
-langTypeMatches a b = a == b
-langTypeMatches _ _ = False
+-- XXX: shouldn't be using env, as this can't statically typecheck? maybe typechecking creates its
+-- XXX: own env which has the same information for types
+typeMatches :: Env -> LangType -> LangType -> Bool
+typeMatches env (DataConstructorType dcons) (TypeConstructorType tcons _) = case inScope env dcons of
+  Just [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
+  _ -> error $ "Got more than one definition for " ++ show dcons
+typeMatches _ AnyType _ = True
+typeMatches _ AtomType _ = True
+typeMatches _ _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
+typeMatches _ a b = a == b
+typeMatches _ _ _ = False
 
 expectedType :: Env -> TypeSig -> Int -> LangType
 expectedType env ts argsRemaining =

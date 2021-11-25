@@ -2,14 +2,12 @@ module Repl (repl) where
 
 import Control.Exception
 import Control.Monad.IO.Class
-import Data.List qualified as List
-import Data.List.Split
 import Eval
 import Lang
 import Parser
 import Syntax
 import System.Console.Haskeline
-import Text.Megaparsec.Error
+import Text.Megaparsec.Error (errorBundlePretty)
 
 haskelineSettings :: Settings IO
 haskelineSettings =
@@ -30,7 +28,7 @@ replWithEnv env = runInputT haskelineSettings $ do
     Just finput -> do
       case parseExprs' finput of
         Left e -> do
-          outputStrLn $ "*** " ++ (errorBundlePretty e)
+          outputStrLn $ "*** " ++ errorBundlePretty e
           liftIO $ replWithEnv env
         Right exprs -> do
           env <- liftIO evaledStdLibEnv
@@ -40,5 +38,5 @@ replWithEnv env = runInputT haskelineSettings $ do
               outputStrLn $ "*** " ++ show e
               liftIO $ replWithEnv env
             Right (val, newEnv) -> do
-              outputStrLn $ show val ++ " : " ++ show (toLangType val)
+              outputStrLn $ show val ++ " : " ++ prettyLangType (toLangType val)
               liftIO $ replWithEnv newEnv
