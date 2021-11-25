@@ -22,7 +22,7 @@ instance Evaluatable Val where
 instance Evaluatable Expr where
   toExpr expr = expr
   evalIn env (PTrait name defs) = (Undefined, extendWithTrait env name defs)
-  evalIn env (PImplementation _trait for defs) = (Undefined, extendWithImplementation env for defs)
+  evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
   evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
   evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
   evalIn env (PDataConstructor name exprArgs) =
@@ -140,11 +140,18 @@ extendWithTuple env bindings vs =
 extendWithTrait :: Env -> String -> [Expr] -> Env
 extendWithTrait env name defs = extend env name AnyType $ TraitVal name defs
 
-extendWithImplementation :: Env -> TypeConstructor -> [Expr] -> Env
-extendWithImplementation env for = foldl foldFun env
+extendWithImplementation :: Env -> Trait -> TypeConstructor -> [Expr] -> Env
+extendWithImplementation env trait for = foldl foldFun env
   where
     foldFun accEnv def = case def of
-      (Binop Assign (Atom _ts a) v) -> extend accEnv a AnyType v
+      (Binop Assign (Atom _ts funName) (Lambda ts args e)) -> extend accEnv funName AnyType (Lambda (updateTS ts funName) args e)
+    updateTS oldTS funName = (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS}
+    tsFromTraitDef funName = case inScope env trait of
+      Just [TraitVal _ defs] -> case List.find (findDef funName) defs of
+        Just (PTypeSig ts) -> ts
+        _ -> error $ "Couldn't find function " ++ show funName ++ " definition in trait " ++ show trait
+      _ -> error $ "Got more than one trait definition for " ++ show trait
+    findDef funName (PTypeSig ts) = typeSigName ts == Just funName
 
 -- let {a: b} = {a: 1} in
 -- let {a: 1, b: c} = {a: 1, b: 2} in

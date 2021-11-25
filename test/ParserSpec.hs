@@ -1,5 +1,8 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module ParserSpec where
 
+import Data.String.Interpolate (i, iii)
 import Parser
 import Syntax
 import Test.Hspec

@@ -16,23 +16,28 @@ implement Functor for Maybe:
 | fmap f (Some x) = Some (f x);
 
 implement Applicative for Maybe:
-| ap (Some f) (Some a) = (Some (f a))
+| ap (Some f) m  = fmap f m
 | ap _ _ = None
 | pure a = Some a;
 
 implement Monad for Maybe:
-| bind (Some a) (Some a) = (Some (f a))
-| bind _ None = None;
+| bind (Some a) k = k a
+| bind None _ = None;
+
+// instance  Monad Maybe  where
+//     (Just x) >>= k      = k x
+//     Nothing  >>= _      = Nothing
+
 
 implement Functor for Result:
 | fmap f (Ok a) = Ok (f a)
 | fmap _ (Err b) = Err b;
 
 implement Applicative for Result:
-| ap (Ok f) (Ok a) = (Ok (f a))
+| ap (Ok f) a = fmap f a
 | ap _ (Err b) = Err b
 | pure a = Ok a;
 
 implement Monad for Result:
-| bind (Ok f) (Ok a) = (Ok (f a))
+| bind (Ok a) k = k a
 | bind _ (Err b) = Err b;
