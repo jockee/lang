@@ -1,5 +1,6 @@
 module Main where
 
+import Repl
 import Spec qualified
 import Test.Hspec.Formatters
 import Test.Hspec.Runner

@@ -140,7 +140,7 @@ extendWithTuple env bindings vs =
 extendWithTrait :: Env -> String -> [Expr] -> Env
 extendWithTrait env name defs = extend env name AnyType $ TraitVal name defs
 
--- FIXME: slime
+-- FIXME: slime, not using trait or for
 extendWithImplementation :: Env -> String -> String -> [Expr] -> Env
 extendWithImplementation env trait for defs = foldl foldFun env defs
   where

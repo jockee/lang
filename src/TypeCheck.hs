@@ -78,11 +78,5 @@ withScope env = newEnv
     newScope = show $ hash newEnv
     newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
 
-emptyEnv :: Env
-emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty}
-
-defaultEnvScopes :: [String]
-defaultEnvScopes = ["global"]
-
 resetScope :: Env -> Env
 resetScope env = env {envScopes = defaultEnvScopes}

@@ -54,6 +54,7 @@ library
     , parser-combinators
     , pretty
     , protolude
+    , split
     , text
     , transformers
   default-language: Haskell2010
@@ -81,6 +82,7 @@ executable lang-exe
     , parser-combinators
     , pretty
     , protolude
+    , split
     , text
     , transformers
   default-language: Haskell2010
@@ -111,6 +113,7 @@ test-suite lang-test
     , parser-combinators
     , pretty
     , protolude
+    , split
     , text
     , transformers
   default-language: Haskell2010

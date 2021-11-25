@@ -5,7 +5,6 @@ module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
-import Data.Functor ((<&>))
 import Data.List qualified as List (find)
 import Data.Void
 import Debug.Trace

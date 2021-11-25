@@ -28,6 +28,12 @@ instance Show Env where
 instance Eq Env where
   Env {typeSigs = t1, envValues = v1, envScopes = s1} == Env {typeSigs = t2, envValues = v2, envScopes = s2} = t1 == t2 && v1 == v2 && s1 == s2
 
+defaultEnvScopes :: [String]
+defaultEnvScopes = ["global"]
+
+emptyEnv :: Env
+emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty}
+
 -- Evaluatable
 
 class Show e => Evaluatable e where

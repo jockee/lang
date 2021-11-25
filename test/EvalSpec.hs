@@ -523,5 +523,17 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $ do
             )
             `shouldThrow` anyException
 
+        xit "Can't overload trait function with regular function" $ \stdLibEnv -> do
+          evaluate
+            ( evals
+                ( parseExprs
+                    "trait Mappable: | xmap # (a: b), a: b; \
+                    \ implement Mappable for Maybe: \
+                    \ | xmap _ None = None \
+                    \ xmap a b = 1"
+                )
+            )
+            `shouldThrow` anyException
+
         xit "uses the right definition" $ \stdLibEnv -> do
           pending

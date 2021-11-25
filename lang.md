@@ -6,6 +6,8 @@
     * Maybe Functor
     * Num (arithmetic)
 
+  * Either/result type instead of exceptions. Result Ok Err in rust
+
   - TODO: modules/namespacing.
     * nested
 

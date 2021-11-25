@@ -5,7 +5,6 @@ debug debugString outVal = (InternalFunction debug [debugString, outVal])
 fold x init xs = (InternalFunction fold [x, init, xs])
 // map # (Int -> Int) -> [Int] -> [Int]
 // map # (Int, Int), [Int]: [Int]
-// map # (Int, Int): [Int]: [Int]
 map k xs = fold (acc x: (acc ++ [k x])) [] xs
 filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
 reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
@@ -46,8 +45,9 @@ merge d1 d2 = { d1 | d2 }
 
 
 // requirements:
-// * put trait in env
-// * put instance definitions in env
+// * when selecting which definition to use, trait matching functions should be preferred
+// * trait functions can not be defined outside of trait
+// * fix bug where trait can't be defined here in stdlib
 
 
 // MAYBE
