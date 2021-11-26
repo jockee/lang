@@ -2,15 +2,11 @@
 
   - TODO: repl history
 
-  - TODO: monad
-
   - TODO: sockets
 
   - TODO: Type classes/traits:
     * Add Num constraint to function doing addition
     * Num (arithmetic)
-
-  * Either/result type instead of exceptions. Result Ok Err in rust
 
   - TODO: modules/namespacing.
     * nested

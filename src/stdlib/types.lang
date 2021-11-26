@@ -24,11 +24,6 @@ implement Monad for Maybe:
 | bind (Some a) k = k a
 | bind None _ = None;
 
-// instance  Monad Maybe  where
-//     (Just x) >>= k      = k x
-//     Nothing  >>= _      = Nothing
-
-
 implement Functor for Result:
 | fmap f (Ok a) = Ok (f a)
 | fmap _ (Err b) = Err b;
@@ -41,3 +36,9 @@ implement Applicative for Result:
 implement Monad for Result:
 | bind (Ok a) k = k a
 | bind _ (Err b) = Err b;
+
+trait Num n:
+| odd? # a, a: a;
+
+// implement Num for Integer:
+// | odd? a b = (InternalFunction mod [a, b]) == 0

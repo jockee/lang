@@ -7,6 +7,7 @@ import Lang
 import Parser
 import Syntax
 import System.Console.Haskeline
+import System.Console.Haskeline.History
 import Text.Megaparsec.Error (errorBundlePretty)
 
 haskelineSettings :: Settings IO
@@ -21,6 +22,8 @@ repl = replWithEnv emptyEnv
 
 replWithEnv :: Env -> IO ()
 replWithEnv env = runInputT haskelineSettings $ do
+  h <- getHistory
+  outputStrLn $ head $ (historyLines h)
   input <- getInputLine "lang > "
   case input of
     Nothing -> outputStrLn "Noop"
@@ -38,5 +41,5 @@ replWithEnv env = runInputT haskelineSettings $ do
               outputStrLn $ "*** " ++ show e
               liftIO $ replWithEnv env
             Right (val, newEnv) -> do
-              outputStrLn $ show val ++ " : " ++ prettyLangType (toLangType val)
+              outputStrLn $ show val ++ " : " ++ show (toLangType val)
               liftIO $ replWithEnv newEnv

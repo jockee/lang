@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -144,7 +145,9 @@ extendWithImplementation :: Env -> Trait -> TypeConstructor -> [Expr] -> Env
 extendWithImplementation env trait for = foldl foldFun env
   where
     foldFun accEnv def = case def of
-      (Binop Assign (Atom _ts funName) (Lambda ts args e)) -> extend accEnv funName AnyType (Lambda (updateTS ts funName) args e)
+      (Binop Assign (Atom _ts funName) (Lambda ts args e)) ->
+        let !newTS = updateTS ts funName
+         in extend accEnv funName AnyType (Lambda newTS args e)
     updateTS oldTS funName = (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
       Just [TraitVal _ defs] -> case List.find (findDef funName) defs of
