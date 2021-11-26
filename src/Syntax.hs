@@ -1,16 +1,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Syntax where
 
+import Data.Bifunctor
 import Data.Data
 import Data.List as List
 import Data.Map qualified as Map
 import Data.Typeable
+import GHC.Real
 
 -- ENV
 
@@ -59,15 +59,15 @@ data Expr where
   PDictKey :: String -> Expr
   ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
-  PFloat :: Float -> Expr
+  PFloat :: Double -> Expr
   PString :: [Expr] -> Expr
   PChar :: String -> Expr
   PBool :: Bool -> Expr
-  PIf :: Expr -> Expr -> Expr -> Expr
   InternalFunction :: Id -> Expr -> Expr
   Lambda :: (Show e, Evaluatable e) => TypeSig -> ArgsList -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
+  Unaryop :: UnOp -> Expr -> Expr
   Cmp :: String -> Expr -> Expr -> Expr
   PTypeSig :: TypeSig -> Expr
   PRange :: TypeSig -> Expr -> Expr -> Expr
@@ -78,7 +78,10 @@ type Id = String
 
 type Case = (Expr, Expr)
 
-data Op = Add | Sub | Mul | Eql | NotEql | And | Or | Pipe | Assign | Concat | Cons
+data Op = Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | Assign | Concat | Cons | Pow
+  deriving (Show, Data)
+
+data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs
   deriving (Show, Data)
 
 instance Show Expr where
@@ -108,9 +111,9 @@ showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict 
 showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ intercalate "," (map show cs) ++ "])"
 showWithTypes (PCase ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
-showWithTypes (PIf cond e1 e2) = "(PIf " ++ showWithTypes cond ++ " " ++ showWithTypes e1 ++ " " ++ showWithTypes e2 ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
+showWithTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes _ = "UNKNOWN"
 
@@ -122,9 +125,9 @@ showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep 
 showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
-showWithoutTypes (PIf cond e1 e2) = "(PIf " ++ showWithoutTypes cond ++ " " ++ showWithoutTypes e1 ++ " " ++ showWithoutTypes e2 ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
+showWithoutTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes s = showWithTypes s
 
@@ -140,7 +143,7 @@ data Val where
   StringVal :: String -> Val
   IntVal :: Integer -> Val
   DictVal :: Map.Map Val Val -> Val
-  FloatVal :: Float -> Val
+  FloatVal :: Double -> Val
   DictKey :: String -> Val
   Undefined :: Val
   TupleVal :: [Val] -> Val
@@ -183,6 +186,7 @@ instance Show Val where
 class Num a => Arith a where
   cmpOp :: String -> (a -> a -> Val)
   evalOp :: Op -> (a -> a -> Val)
+  evalUnOp :: UnOp -> (a -> Val)
 
 instance Num Val where
   (FloatVal i1) + (FloatVal i2) = FloatVal (i1 + i2)
@@ -191,13 +195,20 @@ instance Num Val where
   (IntVal i1) * (IntVal i2) = IntVal (i1 * i2)
   (FloatVal i1) - (FloatVal i2) = FloatVal (i1 - i2)
   (IntVal i1) - (IntVal i2) = IntVal (i1 - i2)
+  signum x = case x of
+    (FloatVal i1) -> if i1 >= 0 then 1 else -1
+    (IntVal i1) -> if i1 >= 0 then 1 else -1
+  abs (FloatVal i1) = FloatVal $ abs i1
+  abs (IntVal i1) = IntVal $ abs i1
   fromInteger i = IntVal i
 
 instance Ord Val where
   compare (DictKey i1) (DictKey i2) = compare i1 i2
   compare (FloatVal i1) (FloatVal i2) = compare i1 i2
+  compare (FloatVal i1) (IntVal i2) = compare i1 (fromIntegral i2)
+  compare (IntVal i1) (FloatVal i2) = compare (fromIntegral i1) i2
   compare (IntVal i1) (IntVal i2) = compare i1 i2
-  compare a b = error ("not implemented" ++ show a)
+  compare a b = error ("not implemented" ++ show a ++ " " ++ show b)
 
 instance Eq Val where
   (TupleVal a) == (TupleVal b) = a == b
@@ -214,13 +225,48 @@ instance Eq Val where
     ts1 == ts2 && envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
+instance Real Val where
+  toRational (IntVal x) = x :% 1
+
+instance RealFrac Val where
+  properFraction (FloatVal x) = FloatVal <$> properFraction x
+  properFraction (IntVal x) = FloatVal <$> properFraction (fromIntegral x)
+
+instance Enum Val where
+  fromEnum (FloatVal x) = fromIntegral $ round x :: Int
+  toEnum x = FloatVal (fromIntegral x :: Double)
+
+instance Integral Val where
+  toInteger (IntVal i1) = i1
+  toInteger (FloatVal i1) = round i1
+  quotRem (IntVal i1) (IntVal i2) = bimap IntVal IntVal $ quotRem i1 i2
+
+instance Fractional Val where
+  (/) (FloatVal i1) (FloatVal i2) = FloatVal $ i1 / i2
+  (/) (IntVal i1) (IntVal i2) = FloatVal $ fromIntegral i1 / fromIntegral i2
+  (/) (IntVal i1) (FloatVal i2) = FloatVal $ fromIntegral i1 / i2
+  (/) (FloatVal i1) (IntVal i2) = FloatVal $ i1 / fromIntegral i2
+  fromRational x = FloatVal $ fromRational x
+
 instance Arith Val where
   cmpOp ">" = \a b -> BoolVal $ a > b
   cmpOp "<" = \a b -> BoolVal $ a < b
   cmpOp ">=" = \a b -> BoolVal $ a >= b
   cmpOp "<=" = \a b -> BoolVal $ a <= b
+  evalUnOp ToFloat = \x -> FloatVal (fromIntegral x :: Double)
+  evalUnOp ToInteger = IntVal . round
+  evalUnOp Sqrt = FloatVal . sqrt . fromIntegral
+  evalUnOp Round = IntVal . round
+  evalUnOp Floor = IntVal . floor
+  evalUnOp Ceiling = IntVal . ceiling
+  evalUnOp Abs = \case
+    IntVal i -> IntVal $ abs i
+    FloatVal f -> FloatVal $ abs f
   evalOp Add = (+)
+  evalOp Pow = (^^)
   evalOp Sub = (-)
+  evalOp Mod = mod
+  evalOp Div = (/)
   evalOp Mul = (*)
   evalOp Eql = \a b -> BoolVal $ a == b
   evalOp NotEql = \a b -> BoolVal $ a /= b
@@ -288,10 +334,10 @@ instance LangTypeable Expr where
     DictAccess {} -> UndefinedType
     PDictKey {} -> UndefinedType
     PCase {} -> UndefinedType
-    PIf {} -> UndefinedType
     InternalFunction {} -> UndefinedType
     Lambda {} -> UndefinedType
     App {} -> UndefinedType
+    Unaryop {} -> UndefinedType
     Binop {} -> UndefinedType
     Cmp {} -> UndefinedType
     PTypeSig {} -> UndefinedType

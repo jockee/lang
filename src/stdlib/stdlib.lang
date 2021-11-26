@@ -1,6 +1,8 @@
 print a = (InternalFunction print [a])
 debug debugString outVal = (InternalFunction debug [debugString, outVal])
 
+not b = !b
+
 // LIST
 fold x init xs = (InternalFunction fold [x, init, xs])
 // map # (Int -> Int) -> [Int] -> [Int]
@@ -46,25 +48,16 @@ merge d1 d2 = { d1 | d2 }
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 
-// trait Functor f: | fmap # (a: b), f a: f b
+either ef of e = case e: | (Err x): Err (ef x) | (Ok x): Ok (of x);
 
-      // class Functor f where
-      //   fmap        :: (a -> b) -> f a -> f b
-
-
-      // instance  Functor Maybe  where
-      //     fmap _ Nothing       = Nothing
-      //     fmap f (Just a)      = Just (f a)
-
-      // instance Functor (Either a) where
-      // fmap g (Right x) = Right (g x)
-      // fmap g (Left x) = Left x
-
-// at # Integer, [a]: Maybe a
+at # Integer, [a]: Maybe a
 at i xs =
   zip xs (0 .. (length xs))
   |> find ((a, b): b == i)
 at i [] = None
+
+even? n = n % 2 == 0
+odd? n = !(odd? n)
 
 // module List {
 //   at x [] = Nothing

@@ -1,12 +1,16 @@
 # KEY
 
-  - TODO: repl history
+  - TODO: remove the need for semicolons
+    * fix `either`
 
+  - TODO: from/to json
+  - TODO: read from file, write to file
+  - TODO: read cli args
   - TODO: sockets
 
   - TODO: Type classes/traits:
-    * Add Num constraint to function doing addition
-    * Num (arithmetic)
+    * Num? (arithmetic)
+      * Add Num constraint to function doing addition
 
   - TODO: modules/namespacing.
     * nested
@@ -27,16 +31,7 @@
       * each Val should perhaps carry a struct/record specifying its type, along with other things of value
       * https://rosettacode.org/wiki/Type_detection#Kotlin
 
-  - TODO: case expression (specifically on maybe initially). reqcleverexpsplit, reqtypesystem
-
 # MID
-
-  - tofloat
-  - tointeger
-  - division
-  - mod
-
-  - TODO: implement `odd?` and `even?` for Num trait
 
 # BACKLOG
 
@@ -47,8 +42,6 @@
     | x > 1 = true
   - TODO: `filter` if-then-else without parens around predicate
   - TODO: replace string with T.Text?
-  - TODO: negate atom (a=1; fib 1 = 1-a)
-  - TODO: implement PIf as PCase
 
 # NOTES
 

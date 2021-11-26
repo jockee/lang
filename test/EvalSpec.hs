@@ -97,6 +97,21 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           eval (parseExpr "let x = 5, y = (x + 2): x + y") `shouldBe` IntVal 12
 
     describe "Arithmetic" $ do
+      it "modulo" $ \stdLibEnv ->
+        eval (parseExpr "3%2") `shouldBe` IntVal 1
+
+      it "toFloat on integer" $ \stdLibEnv ->
+        eval (parseExpr "toFloat 3") `shouldBe` FloatVal 3
+
+      it "toFloat on float" $ \stdLibEnv ->
+        eval (parseExpr "toFloat 3.0") `shouldBe` FloatVal 3
+
+      it "toInteger on float " $ \stdLibEnv ->
+        eval (parseExpr "toInteger 3.0") `shouldBe` IntVal 3
+
+      it "toInteger on integer" $ \stdLibEnv ->
+        eval (parseExpr "toInteger 3") `shouldBe` IntVal 3
+
       it "subtraction" $ \stdLibEnv ->
         eval (parseExpr "1-1") `shouldBe` IntVal 0
 
@@ -512,7 +527,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         it "two boolean cases" $ \stdLibEnv ->
           evals (parseExprs "case true: | true: 1 | false: 0") `shouldBe` IntVal 1
 
-        xit "handles more difficult expressions" $ \stdLibEnv -> do
+        it "handles more difficult expressions" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv (parseExprs "case (Some 1): | (Some x): x | None: 0")
           val `shouldBe` IntVal 1
 

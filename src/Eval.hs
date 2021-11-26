@@ -41,12 +41,9 @@ instance Evaluatable Expr where
     let condVal = fst $ evalIn env cond
         findFun (pred, predDo) = patternMatch env condVal (FunctionVal ts env [pred] predDo)
      in case List.find findFun cases of
-          Just (_pred, predDo) -> (fst $ evalIn env predDo, env)
-  evalIn env (PIf (PBool True) t _) = evalIn env t
-  evalIn env (PIf (PBool False) _ f) = evalIn env f
-  evalIn env (PIf condition ifTrue ifFalse) =
-    let (val, env') = evalIn env condition
-     in if val == BoolVal True then evalIn env' ifTrue else evalIn env' ifFalse
+          Just (pred, predDo) -> case pred of
+            (Atom _ts atomId) -> let env' = extend env atomId AnyType cond in evalIn env' predDo
+            argExpr -> let env' = extendNonAtom env argExpr cond in evalIn env' predDo
   evalIn env (Lambda ts args e) =
     (FunctionVal ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
@@ -112,6 +109,12 @@ instance Evaluatable Expr where
     let env'' = extend env' a AnyType v
         (value, env') = evalIn env v
      in (value, env'')
+  evalIn env (Unaryop Not e) =
+    case fst $ evalIn env e of
+      (BoolVal b) -> (BoolVal $ not b, env)
+  evalIn env (Unaryop op e) =
+    let (v, _) = evalIn env e
+     in (evalUnOp op v, env)
   evalIn env (Binop op e1 e2) =
     let (v1, _) = evalIn env e1
         (v2, _) = evalIn env e2
@@ -290,6 +293,7 @@ patternMatches :: Expr -> Val -> Bool
 patternMatches (PList _ []) (ListVal []) = True
 patternMatches (PList _ _) _ = False
 patternMatches (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
+patternMatches (PBool a) (BoolVal b) = a == b
 patternMatches (PInteger e) (IntVal v) = e == v
 patternMatches (PFloat e) (FloatVal v) = e == v
 patternMatches _ _ = True

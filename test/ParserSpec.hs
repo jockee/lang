@@ -1,5 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
-
 module ParserSpec where
 
 import Data.String.Interpolate (i, iii)
@@ -51,10 +49,10 @@ spec = describe "Parser" $ do
     s (parseExpr "\"test\"") `shouldBe` s (PString [PChar "t", PChar "e", PChar "s", PChar "t"])
 
   it "ternary" $
-    s (parseExpr "true ? 1 : 2") `shouldBe` s (PIf (PBool True) (PInteger 1) (PInteger 2))
+    s (parseExpr "true ? 1 : 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "if-then-else" $
-    s (parseExpr "if true then 1 else 2") `shouldBe` s (PIf (PBool True) (PInteger 1) (PInteger 2))
+    s (parseExpr "if true then 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "let-in" $
     s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
@@ -269,7 +267,7 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType}))])
+      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType})])
 
   describe "Implementation" $ do
     it "can create implementation" $

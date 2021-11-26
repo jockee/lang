@@ -15,7 +15,7 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
 
 doesntLineBreak :: String
-doesntLineBreak = ['!', ',', '+', '-', '{', '[', '(', '|', '=', ':', '?']
+doesntLineBreak = ['!', ',', '+', '-', '{', '[', '/', '(', '|', '=', ':', '?']
 
 -- doesntLineBreak :: [String]
 -- oesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
@@ -54,36 +54,48 @@ formula :: Parser Expr
 formula = makeExprParser juxta table <?> "formula"
   where
     table =
-      [ [prefix "-" neg, prefix "!" not'],
-        [mulOp],
+      [ [prefix "-" neg, not'],
+        [pow],
+        [mulOp, divOp, modOp],
         [addOp, subOp],
+        [gteOp, lteOp, gtOp, ltOp],
         [eqOp, notEqOp],
         [andOp],
         [orOp],
-        [gteOp, lteOp, gtOp, ltOp],
         [concatOp],
-        [pipeOp],
-        [consOp]
+        [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
+        [consOp],
+        [pipeOp]
       ]
     prefix name fun = Prefix (do string name; return fun)
     neg n = case n of
       PInteger x -> PInteger $ negate x
       PFloat x -> PFloat $ negate x
-    not' (PBool b) = PBool $ not b
-    notEqOp = InfixL (try $ space *> string "!=" <* optional space >> return (Binop NotEql))
-    eqOp = InfixR (try $ space *> string "==" <* optional space >> return (Binop Eql))
-    subOp = InfixL (try $ space *> string "-" <* optional space >> return (Binop Sub))
-    addOp = InfixL (try $ (space >> string "+") <* notFollowedBy (char '+') <* optional space >> return (Binop Add))
-    mulOp = InfixL (try $ space *> string "*" <* optional space >> return (Binop Mul))
-    andOp = InfixL (try $ space *> string "&&" <* optional space >> return (Binop And))
-    gtOp = InfixL (try $ space *> string ">" <* optional space >> return (Cmp ">"))
-    ltOp = InfixL (try $ space *> string "<" <* optional space >> return (Cmp "<"))
-    gteOp = InfixL (try $ space *> string ">=" <* optional space >> return (Cmp ">="))
-    lteOp = InfixL (try $ space *> string "<=" <* optional space >> return (Cmp "<="))
-    orOp = InfixL (try $ space *> string "||" <* optional space >> return (Binop Or))
-    concatOp = InfixL (try $ space *> string "++" <* optional space >> return (Binop Concat))
-    consOp = InfixL (try $ space *> string "::" <* optional space >> return (Binop Cons))
-    pipeOp = InfixL (try $ space *> string "|>" <* optional space >> return (Binop Pipe))
+    not' = Prefix (try $ space *> string "!" <* space >> return (Unaryop Not))
+    toInteger = Prefix (try $ space *> string "toInteger" <* some spaceChar >> return (Unaryop ToInteger))
+    abs = Prefix (try $ space *> string "abs" <* some spaceChar >> return (Unaryop Abs))
+    toFloat = Prefix (try $ space *> string "toFloat" <* some spaceChar >> return (Unaryop ToFloat))
+    floor = Prefix (try $ space *> string "floor" <* some spaceChar >> return (Unaryop Floor))
+    round = Prefix (try $ space *> string "round" <* some spaceChar >> return (Unaryop Round))
+    ceiling = Prefix (try $ space *> string "ceiling" <* some spaceChar >> return (Unaryop Ceiling))
+    sqrt = Prefix (try $ space *> string "sqrt" <* some spaceChar >> return (Unaryop Sqrt))
+    pow = InfixL (try $ space *> string "^" <* space >> return (Binop Pow))
+    notEqOp = InfixL (try $ space *> string "!=" <* space >> return (Binop NotEql))
+    eqOp = InfixR (try $ space *> string "==" <* space >> return (Binop Eql))
+    subOp = InfixL (try $ space *> string "-" <* space >> return (Binop Sub))
+    addOp = InfixL (try $ (space >> string "+") <* notFollowedBy (char '+') <* space >> return (Binop Add))
+    divOp = InfixL (try $ space *> string "/" <* notFollowedBy (char '/') <* space >> return (Binop Div))
+    modOp = InfixL (try $ space *> string "%" <* space >> return (Binop Mod))
+    mulOp = InfixL (try $ space *> string "*" <* space >> return (Binop Mul))
+    andOp = InfixL (try $ space *> string "&&" <* space >> return (Binop And))
+    gtOp = InfixL (try $ space *> string ">" <* space >> return (Cmp ">"))
+    ltOp = InfixL (try $ space *> string "<" <* space >> return (Cmp "<"))
+    gteOp = InfixL (try $ space *> string ">=" <* space >> return (Cmp ">="))
+    lteOp = InfixL (try $ space *> string "<=" <* space >> return (Cmp "<="))
+    orOp = InfixL (try $ space *> string "||" <* space >> return (Binop Or))
+    concatOp = InfixL (try $ space *> string "++" <* space >> return (Binop Concat))
+    consOp = InfixL (try $ space *> string "::" <* space >> return (Binop Cons))
+    pipeOp = InfixL (try $ space *> string "|>" <* space >> return (Binop Pipe))
 
 lexeme = L.lexeme hspace
 
@@ -241,12 +253,12 @@ parseCase = do
   string "case" <* space
   predicate <- expr
   space *> string ":" <* space
-  string "|" <* space
-  cases <- singleCase `sepBy1` many (spaceChar <|> char '|')
+  space *> string "|" <* space
+  cases <- singleCase `sepBy1` (space *> char '|' <* hspace)
   return $ PCase (sig [AnyType] AnyType) predicate cases
   where
     singleCase = do
-      casePred <- space *> try (term <* string ":") <* space
+      casePred <- try (term <* string ":") <* space
       caseDo <- term <|> formula
       return (casePred, caseDo)
 
@@ -351,7 +363,8 @@ ifthen = do
   space *> string "then" <* space
   tr <- term
   space *> string "else" <* space
-  PIf cond tr <$> term
+  tr2 <- term
+  return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 parseDataDefinition :: Parser Expr
 parseDataDefinition = do
@@ -400,7 +413,8 @@ ternary = do
   cond <- term <* string "?" <* space
   tr <- term
   string ":" <* space
-  PIf cond tr <$> term
+  tr2 <- term
+  return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 parseFloat :: Parser Expr
 parseFloat = do
