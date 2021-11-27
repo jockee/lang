@@ -33,12 +33,13 @@ replWithEnv env = runInputT haskelineSettings $ loop env
       input <- getInputLine "lang > "
       case input of
         Nothing -> outputStrLn "Noop"
+        Just "" -> loop env
         Just "quit" -> return ()
         Just "env" -> do
           pPrint env
           loop env
         Just finput -> do
-          case parseExprs' finput of
+          case parseExprs' "REPL" finput of
             Left e -> do
               pPrint $ errorBundlePretty e
               loop env

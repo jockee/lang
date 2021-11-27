@@ -13,6 +13,7 @@ import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Syntax
+import System.Environment
 import System.IO
 import System.IO.Extra
 import System.IO.Unsafe
@@ -233,7 +234,7 @@ internalFunction env f argsList = case evaledArgsList of
     evaledArgsList = fst $ evalIn env argsList
     fun "fold" (fun : init : ListVal xs : _) =
       let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
-       in foldl foldFun init xs
+       in List.foldl' foldFun init xs
     fun "zipWith" (fun : ListVal xs : ListVal ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
           zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
@@ -243,9 +244,10 @@ internalFunction env f argsList = case evaledArgsList of
       (x : _) -> DataVal "Maybe" "Some" [x]
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> TupleVal [k, v]) (Map.toList d)
-    fun "readFile" (StringVal path : _) = let !file = unsafePerformIO $ readFile' path in StringVal file
-    fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in BoolVal True
+    fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' path
+    fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
+    fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
     fun "print" (a : _) = unsafePerformIO (print a >> pure a)
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "sort" xs = ListVal . List.sort $ xs
@@ -317,9 +319,9 @@ eval :: Evaluatable e => e -> Val
 eval = fst . evalIn emptyEnv
 
 evalsIn :: Evaluatable e => Env -> [e] -> (Val, Env)
-evalsIn env = foldl fl (Undefined, env)
+evalsIn env = List.foldl' fl (Undefined, env)
   where
-    fl (_val, env) ex = evalIn (resetScope env) ex
+    fl (!_val, env) ex = evalIn (resetScope env) ex
 
 evals :: Evaluatable e => [e] -> Val
 evals exprs = fst $ evalsIn emptyEnv exprs

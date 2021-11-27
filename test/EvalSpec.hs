@@ -221,6 +221,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "take 3 [1,2,3,4,5]")
         val `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
+      it "drop" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "drop 2 [1,2,3,4,5]")
+        val `shouldBe` ListVal [IntVal 3, IntVal 4, IntVal 5]
+
       it "toList" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "toList {a: 1, b: 2}")
         val `shouldBe` ListVal [TupleVal [DictKey "a", IntVal 1], TupleVal [DictKey "b", IntVal 2]]

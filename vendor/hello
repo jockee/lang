@@ -1,0 +1,8 @@
+#!/usr/bin/env langc
+passedArgs = drop 1 getArgs
+
+case (head passedArgs):
+| Some x: (print "hello #{x}")
+| None: (print "nope");
+
+1

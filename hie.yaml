@@ -4,10 +4,10 @@ cradle:
       component: "lang:lib"
 
     - path: "./app/Main.hs"
-      component: "lang:exe:lang-exe"
+      component: "lang:exe:langc"
 
     - path: "./app/Paths_lang.hs"
-      component: "lang:exe:lang-exe"
+      component: "lang:exe:langc"
 
     - path: "./test"
       component: "lang:test:lang-test"

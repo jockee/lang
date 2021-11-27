@@ -212,6 +212,9 @@ spec = describe "Parser" $ do
       show (parseExpr "module A { 1 }") `shouldBe` show (Module "A" [PInteger 1])
 
   describe "Comment" $ do
+    it "shebang" $
+      show (parseExpr "#!/usr/bin/env langc") `shouldBe` show PNoop
+
     it "inline" $
       show (parseExpr "1 // comment") `shouldBe` show (PInteger 1)
 

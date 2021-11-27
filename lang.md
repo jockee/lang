@@ -1,19 +1,21 @@
 # KEY
 
+  - TODO: Lib location when shebang calling. how to keep track?
+  - TODO: too much needs to be wrapped in parens
+    * `| Some x: (print "hello #{x}") ` can't be `| Some x: print "hello #{x}"`
+  - TODO: parse file doesn't handle end of file well. can't currently end on semicolon
   - TODO: handle haskell error (readfile)
-  - TODO: read file - can't bind?
-    * its binding is scoped in the env. shouldn't be
-    * it's being scoped within InternalFunction
   - TODO: remove the need for semicolons
     * fix `either`
 
   - TODO: from/to json
   - TODO: read from file, write to file
   - TODO: read cli args
+    * run file in interpreter
   - TODO: sockets
 
   - TODO: Type classes/traits:
-    * `length` for strings, dict, tuple, list
+    * `length` for strings, dict, tuple, list (Foldable)
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
 

@@ -33,7 +33,7 @@ sc = L.space hspace1 lineComment blockComment
 
 expr :: Parser Expr
 expr =
-  comment <|> sc
+  shebang <|> comment <|> sc
     *> ( comment
            <|> ifthen
            <|> try (typeDef [])
@@ -439,6 +439,12 @@ comment = do
   many $ anySingleBut '\n'
   return PNoop
 
+shebang :: Parser Expr
+shebang = do
+  string "#!"
+  many $ anySingleBut '\n'
+  return PNoop
+
 allOf :: Parser a -> Parser a
 allOf p =
   do
@@ -451,7 +457,7 @@ parseExpr :: String -> Expr
 parseExpr e = head $ parseExprs e
 
 parseExprs :: String -> [Expr]
-parseExprs s = case parseExprs' s of
+parseExprs s = case parseExprs' "unknown" s of
   Left err -> error $ show err
   Right exprs -> exprs
 
@@ -461,8 +467,8 @@ manyExpressions = (parseModule <|> expr) `sepBy` many (notPrecededByInfix <|> no
     notPrecededByInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
     notFollowedByInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
-parseExprs' :: String -> Either (ParseErrorBundle String Void) [Expr]
-parseExprs' = parse (allOf manyExpressions) "stdin"
+parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
+parseExprs' source = parse (allOf manyExpressions) source
 
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do

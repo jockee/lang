@@ -177,7 +177,7 @@ instance Show Val where
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = n
   show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ List.intercalate ", " (map show defs)
-  show (StringVal n) = show n
+  show (StringVal n) = n
   show (BoolVal n)
     | n = "true"
     | otherwise = "false"

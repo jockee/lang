@@ -1,4 +1,5 @@
 print a = (InternalFunction print [a])
+getArgs = (InternalFunction getArgs [])
 debug debugString outVal = (InternalFunction debug [debugString, outVal])
 
 not b = !b
@@ -11,9 +12,10 @@ map k xs = fold (acc x: (acc ++ [k x])) [] xs
 filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
 reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
 length xs = fold (acc x: acc + 1) 0 xs
-take n xs = fold (acc x: (n >= x) ? (acc ++ [x]) : acc) [] xs
 empty? [] = true
 empty? s = false
+sum xs = fold (acc n: n + acc) 0 xs
+product xs = fold (acc n: n * acc) 1 xs
 includes? x xs = fold (acc p: (p == x) ? true : false) false xs
 unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
 head xs = (InternalFunction head xs)
@@ -33,6 +35,8 @@ zip xs ys = zipWith (x y: (x, y)) xs ys
 toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 all? f xs = length (filter f xs) == length xs
 fun any? f xs = length (filter f xs) > 0
+take n xs = fold (acc (x, i): (i < n) ? (acc ++ [x]) : acc) [] (zip xs (0 .. (length xs)))
+drop n xs = reverse xs |> take ((length xs) - n) |> reverse
 
 sortt [] = []
 sortt (x::xs) = let smaller = (filter (a: a <= x) xs),
