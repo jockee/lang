@@ -5,11 +5,17 @@
 
 module Syntax where
 
+import Data.Aeson
+import Data.Aeson.Types qualified as AT
 import Data.Bifunctor
 import Data.Data
+import Data.HashMap.Internal.Strict qualified as HM
 import Data.List as List
 import Data.Map qualified as Map
+import Data.Scientific qualified as S
+import Data.Text qualified as T
 import Data.Typeable
+import Data.Vector qualified as V
 import GHC.Real
 
 -- ENV
@@ -151,6 +157,30 @@ data Val where
   TraitVal :: Name -> [Expr] -> Val -- change from Expr? Just sliming tests
   deriving (Typeable)
 
+-- jsonToVal :: ByteString -> Val
+jsonToVal json = toVal (decode json :: Maybe Value)
+  where
+    toVal (Just (AT.String s)) = (StringVal $ T.unpack s)
+    toVal (Just AT.Null) = (DataVal "Maybe" "None" [])
+    toVal (Just (AT.Object xs)) = DictVal $ Map.fromList $ map (\(k, v) -> (DictKey $ T.unpack k, (toVal . Just) v)) (HM.toList xs)
+    toVal (Just (AT.Array xs)) = ListVal $ map (toVal . Just) $ V.toList xs
+    toVal (Just (AT.Number s)) = case S.floatingOrInteger s of
+      Left f -> FloatVal f
+      Right i -> IntVal i
+    toVal Nothing = (DataVal "Maybe" "None" [])
+
+instance ToJSON Val where
+  toJSON (BoolVal b) = AT.Bool b
+  toJSON (StringVal s) = AT.String $ T.pack s
+  toJSON (IntVal s) = AT.Number $ S.scientific s 0
+  toJSON (FloatVal s) = AT.Number $ S.fromFloatDigits s
+  toJSON (ListVal xs) = AT.Array $ V.fromList $ map toJSON xs
+  toJSON (DataVal "Maybe" "Some" [x]) = toJSON x
+  toJSON (DataVal "Maybe" "None" _) = AT.Null
+  toJSON (TupleVal xs) = AT.Array $ V.fromList $ map toJSON xs
+  toJSON (Undefined) = AT.Null
+  toJSON (DictVal d) = object $ map (\((DictKey s), v) -> (T.pack s, toJSON v)) $ Map.toList d
+
 type ArgsList = [Expr]
 
 type DataConstructor = String
@@ -169,7 +199,7 @@ instance Show Val where
   -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
-  show (DataVal dtype n args) = n ++ " " ++ joinCommaSep args
+  show (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (TupleVal ns) = "(" ++ List.intercalate ", " (map show ns) ++ ")"

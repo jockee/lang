@@ -8,10 +8,6 @@
   - TODO: remove the need for semicolons
     * fix `either`
 
-  - TODO: from/to json
-  - TODO: read from file, write to file
-  - TODO: read cli args
-    * run file in interpreter
   - TODO: sockets
 
   - TODO: Type classes/traits:

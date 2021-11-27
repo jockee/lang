@@ -7,6 +7,8 @@ module Eval where
 
 import Control.Concurrent
 import Control.Exception
+import Data.Aeson
+import Data.ByteString.Lazy.Char8 qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
@@ -249,6 +251,8 @@ internalFunction env f argsList = case evaledArgsList of
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
     fun "print" (a : _) = unsafePerformIO (print a >> pure a)
+    fun "parseJSON" ((StringVal s) : _) = jsonToVal $ BS.pack s
+    fun "toJSON" (a : _) = StringVal $ BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "sort" xs = ListVal . List.sort $ xs
     fun x r = error ("No such function " ++ show x ++ show r)

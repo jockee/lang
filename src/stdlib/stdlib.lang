@@ -1,3 +1,5 @@
+parseJSON json = (InternalFunction parseJSON [json])
+toJSON a = (InternalFunction toJSON [a])
 print a = (InternalFunction print [a])
 getArgs = (InternalFunction getArgs [])
 debug debugString outVal = (InternalFunction debug [debugString, outVal])

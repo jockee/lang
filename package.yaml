@@ -36,6 +36,11 @@ dependencies:
 - hspec
 - containers
 - hspec-discover
+- aeson
+- vector
+- scientific
+- unordered-containers
+- bytestring
 - haskeline
 - exceptions
 - hashable

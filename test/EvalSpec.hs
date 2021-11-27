@@ -590,6 +590,17 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             Just [FunctionVal ts _ _ _] -> ts `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigTraitBinding = Just "Maybe", typeSigIn = [], typeSigReturn = TypeConstructorType "Applicative2" (FunctionType [AnyType] AnyType)})
             _ -> expectationFailure "No"
 
-        it "reads file and can store result" $ \stdLibEnv -> do
-          let (val, env) = evalsIn stdLibEnv $ parseExprs "c = readFile \"test/vendor/readfiletestfile\"; c"
-          val `shouldBe` StringVal "content\n"
+      describe "JSON" $ do
+        it "parseJSON" $ \stdLibEnv -> do
+          let expr =
+                [i| parseJSON "[1, null, 2.3]" |]
+          let (val, _) = evalsIn stdLibEnv $ parseExprs expr
+          val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
+
+        it "toJSON" $ \stdLibEnv -> do
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "toJSON {a: 1, b: 2, c: None}"
+          val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
+
+        it "idempotent" $ \stdLibEnv -> do
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "parseJSON (toJSON {a: 1, b: 2, c: None})"
+          val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])
