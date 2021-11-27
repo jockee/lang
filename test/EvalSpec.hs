@@ -585,3 +585,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           case Map.lookup "global:ap2" (envValues env) of
             Just [FunctionVal ts _ _ _] -> ts `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigTraitBinding = Just "Maybe", typeSigIn = [], typeSigReturn = TypeConstructorType "Applicative2" (FunctionType [AnyType] AnyType)})
             _ -> expectationFailure "No"
+
+        it "reads file and can store result" $ \stdLibEnv -> do
+          let (val, env) = evalsIn stdLibEnv $ parseExprs "c = readFile \"test/vendor/readfiletestfile\"; c"
+          val `shouldBe` StringVal "content\n"

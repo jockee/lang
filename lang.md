@@ -1,5 +1,9 @@
 # KEY
 
+  - TODO: handle haskell error (readfile)
+  - TODO: read file - can't bind?
+    * its binding is scoped in the env. shouldn't be
+    * it's being scoped within InternalFunction
   - TODO: remove the need for semicolons
     * fix `either`
 
@@ -9,6 +13,7 @@
   - TODO: sockets
 
   - TODO: Type classes/traits:
+    * `length` for strings, dict, tuple, list
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
 

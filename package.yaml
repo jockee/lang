@@ -1,10 +1,10 @@
 name:                lang
 version:             0.1.0.0
-github:              "githubuser/lang"
+github:              "jockee/lang"
 license:             BSD3
-author:              "Author name here"
+author:              "jockee"
 maintainer:          "example@example.com"
-copyright:           "2021 Author name here"
+copyright:           "2021 jockee"
 
 extra-source-files:
 - README.md
@@ -20,7 +20,8 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/lang#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+- base >= 4.14 && < 5
+- extra
 - parser-combinators
 - parsec
 - indents
@@ -31,7 +32,7 @@ dependencies:
 - haskeline
 - transformers
 - mtl
-- pretty
+- pretty-simple
 - hspec
 - containers
 - hspec-discover

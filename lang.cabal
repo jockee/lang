@@ -7,11 +7,11 @@ cabal-version: 1.12
 name:           lang
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/lang#readme>
-homepage:       https://github.com/githubuser/lang#readme
-bug-reports:    https://github.com/githubuser/lang/issues
-author:         Author name here
+homepage:       https://github.com/jockee/lang#readme
+bug-reports:    https://github.com/jockee/lang/issues
+author:         jockee
 maintainer:     example@example.com
-copyright:      2021 Author name here
+copyright:      2021 jockee
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/lang
+  location: https://github.com/jockee/lang
 
 library
   exposed-modules:
@@ -40,9 +40,10 @@ library
       LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
   ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns
   build-depends:
-      base >=4.7 && <5
+      base >=4.14 && <5
     , containers
     , exceptions
+    , extra
     , hashable
     , haskeline
     , hspec
@@ -52,7 +53,7 @@ library
     , mtl
     , parsec
     , parser-combinators
-    , pretty
+    , pretty-simple
     , protolude
     , string-interpolate
     , text
@@ -67,9 +68,10 @@ executable lang-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base >=4.14 && <5
     , containers
     , exceptions
+    , extra
     , hashable
     , haskeline
     , hspec
@@ -80,7 +82,7 @@ executable lang-exe
     , mtl
     , parsec
     , parser-combinators
-    , pretty
+    , pretty-simple
     , protolude
     , string-interpolate
     , text
@@ -98,9 +100,10 @@ test-suite lang-test
       LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base >=4.14 && <5
     , containers
     , exceptions
+    , extra
     , hashable
     , haskeline
     , hspec
@@ -111,7 +114,7 @@ test-suite lang-test
     , mtl
     , parsec
     , parser-combinators
-    , pretty
+    , pretty-simple
     , protolude
     , string-interpolate
     , text

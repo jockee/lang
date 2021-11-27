@@ -59,6 +59,9 @@ at i [] = None
 even? n = n % 2 == 0
 odd? n = !(odd? n)
 
+readFile p = (InternalFunction readFile [p])
+writeFile path body = (InternalFunction writeFile [path, body])
+
 // module List {
 //   at x [] = Nothing
 //   at x xs = zip xs [0 .. (length xs)] |> find ({a, i}: (i == x))

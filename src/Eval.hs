@@ -13,6 +13,8 @@ import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Syntax
+import System.IO
+import System.IO.Extra
 import System.IO.Unsafe
 import TypeCheck
 
@@ -47,7 +49,7 @@ instance Evaluatable Expr where
   evalIn env (Lambda ts args e) =
     (FunctionVal ts env args e, env)
   evalIn env (InternalFunction f args) = internalFunction env f args
-  evalIn env (App e1 e2) = apply (withScope env) e1 e2
+  evalIn env (App e1 e2) = apply (setScope env) e1 e2
   evalIn env (Atom _ts atomId) = case inScope env atomId of
     Just [definition] -> (definition, env)
     Just definitions -> case last definitions of
@@ -100,15 +102,15 @@ instance Evaluatable Expr where
         (ListVal ys, _) = evalIn env e2
         _ = error "Invalid"
      in (ListVal $ xs ++ ys, env)
-  evalIn env (Binop Pipe e1 e2) = apply (withScope env) e2 e1
+  evalIn env (Binop Pipe e1 e2) = apply (setScope env) e2 e1
   evalIn env (Binop Cons e1 e2) =
     let (v1, _) = evalIn env e1
      in case fst $ evalIn env e2 of
           ListVal xs -> (ListVal (v1 : xs), env)
   evalIn env (Binop Assign (Atom _ts a) v) =
-    let env'' = extend env' a AnyType v
-        (value, env') = evalIn env v
-     in (value, env'')
+    let env' = extend env a AnyType v
+        (value, _) = evalIn env v
+     in (value, env')
   evalIn env (Unaryop Not e) =
     case fst $ evalIn env e of
       (BoolVal b) -> (BoolVal $ not b, env)
@@ -215,11 +217,11 @@ extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
 extend env id expectedType ex =
   if expectedType == AnyType || gotType == expectedType
-    then env {envValues = Map.insertWith (flip (++)) key [val] (envValues env)}
+    then env {envValues = Map.insertWith insertFun key [val] (envValues env)}
     else throw . RuntimeException $ "Expected type " ++ show expectedType ++ ", got " ++ show gotType
   where
+    insertFun = if id == "@" then const else flip (++)
     gotType = toLangType val
-    newEnv = env {envValues = Map.insertWith (flip (++)) key [val] (envValues env)}
     val = fst $ evalIn env ex
     key = last (envScopes env) ++ ":" ++ id
 
@@ -241,6 +243,8 @@ internalFunction env f argsList = case evaledArgsList of
       (x : _) -> DataVal "Maybe" "Some" [x]
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> TupleVal [k, v]) (Map.toList d)
+    fun "readFile" (StringVal path : _) = let !file = unsafePerformIO $ readFile' path in StringVal file
+    fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in BoolVal True
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "print" (a : _) = unsafePerformIO (print a >> pure a)
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)

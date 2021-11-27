@@ -360,6 +360,7 @@ instance LangTypeable Val where
     TupleVal {} -> ListType AnyType
     ListVal {} -> ListType AnyType
     DataVal cons name _ -> TypeConstructorType cons (toLangType name)
+    s -> error $ "Not implemented" ++ show s
 
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 

@@ -111,7 +111,7 @@ rws = ["module", "case", "let"]
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p = (:) <$> (letterChar <|> char '_') <*> many (alphaNumChar <|> char '?' <|> char '\'')
+    p = (:) <$> (letterChar <|> char '_' <|> char '@') <*> many (alphaNumChar <|> char '?' <|> char '\'')
     check x =
       if x `elem` rws
         then fail $ "keyword " ++ show x ++ " cannot be an identifier"

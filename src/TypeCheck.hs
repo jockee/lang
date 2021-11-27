@@ -75,8 +75,8 @@ inScope env lookupKey =
   where
     scopeKeys = reverse $ map (\k -> k ++ ":" ++ lookupKey) $ envScopes env
 
-withScope :: Env -> Env
-withScope env = newEnv
+setScope :: Env -> Env
+setScope env = newEnv
   where
     newScope = show $ hash newEnv
     newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
