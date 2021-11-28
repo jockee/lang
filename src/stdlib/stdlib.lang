@@ -7,13 +7,11 @@ debug debugString outVal = (InternalFunction debug [debugString, outVal])
 not b = !b
 
 // LIST
-fold x init xs = (InternalFunction fold [x, init, xs])
 // map # (Int -> Int) -> [Int] -> [Int]
 // map # (Int, Int), [Int]: [Int]
 map k xs = fold (acc x: (acc ++ [k x])) [] xs
 filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
 reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
-length xs = fold (acc x: acc + 1) 0 xs
 empty? [] = true
 empty? s = false
 sum xs = fold (acc n: n + acc) 0 xs

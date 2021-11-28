@@ -1,14 +1,20 @@
 # KEY
 
+  - TODO: if not in Foldable, it can't use Foldables functions
+  - WIP: use the correct definition of fold for foldables
+  - TODO: ListVal is `Foldable for _List_`
+  - TODO: handle haskell error (readfile)
+
+  ## USABILITY
   - TODO: Lib location when shebang calling. how to keep track?
+  - TODO: sockets
+
+  ## PARSING
   - TODO: too much needs to be wrapped in parens
     * `| Some x: (print "hello #{x}") ` can't be `| Some x: print "hello #{x}"`
   - TODO: parse file doesn't handle end of file well. can't currently end on semicolon
-  - TODO: handle haskell error (readfile)
   - TODO: remove the need for semicolons
     * fix `either`
-
-  - TODO: sockets
 
   - TODO: Type classes/traits:
     * `length` for strings, dict, tuple, list (Foldable)

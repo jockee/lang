@@ -5,7 +5,7 @@ module Parser where
 
 import Control.Monad
 import Control.Monad.Combinators.Expr
-import Data.List qualified as List (find)
+import Data.List qualified as List
 import Data.Void
 import Debug.Trace
 import Eval ()
@@ -35,7 +35,7 @@ expr :: Parser Expr
 expr =
   shebang <|> comment <|> sc
     *> ( comment
-           <|> ifthen
+           <|> ifelse
            <|> try (typeDef [])
            <|> letBinding
            <|> parseCase
@@ -356,11 +356,11 @@ lambda = do
   string ":" <* notFollowedBy (string ":")
   Lambda (sig [AnyType] AnyType) identifiers <$> expr
 
-ifthen :: Parser Expr
-ifthen = do
+ifelse :: Parser Expr
+ifelse = do
   string "if" <* space
   cond <- term
-  space *> string "then" <* space
+  space *> string ":" <* space
   tr <- term
   space *> string "else" <* space
   tr2 <- term
@@ -387,8 +387,15 @@ traitDefinition = do
   let typeConstructors = [(head vars, name) | not (null vars)]
   space *> string ":" <* space
   space *> string "|" <* hspace
-  defs <- typeDef typeConstructors `sepBy1` (space *> char '|' <* hspace)
-  return $ PTrait name defs
+  bindings <- (try (typeDef typeConstructors) <|> function (Just name)) `sepBy1` (space *> char '|' <* hspace)
+  let (types, funs) =
+        List.partition
+          ( \case
+              ts@(PTypeSig _) -> True
+              _ -> False
+          )
+          bindings
+  return $ PTrait name types funs
 
 implementationDefinition :: Parser Expr
 implementationDefinition = do
@@ -473,7 +480,7 @@ parseExprs' source = parse (allOf manyExpressions) source
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do
   string "\""
-  parts <- some $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
+  parts <- many $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
   string "\""
   return $ PString parts
 

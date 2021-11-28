@@ -42,3 +42,13 @@ trait Num n:
 
 // implement Num for Integer:
 // | odd? a b = (InternalFunction mod [a, b]) == 0
+
+trait Foldable f:
+| fold # (a, b: a), a, f b: a
+| length xs = fold (acc x: acc + 1) 0 xs;
+
+implement Foldable for List:
+| fold x init xs = (InternalFunction fold [x, init, xs]);
+
+implement Foldable for String:
+| fold x init s = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);

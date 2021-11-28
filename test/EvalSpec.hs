@@ -553,29 +553,70 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable: | xmap # (a: b), a: b; implement Mappable for Maybe: | xmap _ None = None | xmap f (Some x) = f x")
           length (sequenceA $ Map.lookup "global:xmap" (envValues env)) `shouldBe` 2
 
-        it "Needs to implement the right function" $ \stdLibEnv -> do
-          let expr =
-                [iii|
-                    trait Mappable: | xmap \# (a: b), a: b;
-                    implement Mappable for Maybe:
-                    | ymap _ None = None
-                |]
-          let (val, env) = (evalsIn emptyEnv (parseExprs expr))
-          evaluate env `shouldThrow` anyException
+        -- XXX: don't think this tests more than pattern match
+        -- it "Uses the right function" $ \stdLibEnv -> do
+        --   let expr =
+        --         [iii|
+        --           trait Applicative2 f:
+        --           | ap2 \# f (a: b), f a: f b;
+        --           implement Applicative2 for Maybe:
+        --           | ap2 _ _ = None;
+        --           implement Applicative2 for Result:
+        --           | ap2 _ (Err a) = Err a;
+        --           ap (Ok (x: x*2)) (Err 1)
+        --         |]
+        --   let (val, env) = evalsIn stdLibEnv $ parseExprs expr
+        --   val `shouldBe` DataVal "Result" "Err" [IntVal 1]
 
-        it "Uses the right function" $ \stdLibEnv -> do
+        it "Uses the right function - last argument" $ \stdLibEnv -> do
+          let baseExpr =
+                [iii|
+                  trait Foldable2 f:
+                  | fold2 \# (a, b: a), a, f b: a
+                  | length2 xs = fold2 (acc x: acc + 1) 0 xs;
+
+                  implement Foldable2 for List:
+                  | fold2 x init xs = (InternalFunction fold [x, init, xs]);
+
+                  implement Foldable2 for String:
+                  | fold2 x init s = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);
+                |]
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
+          val `shouldBe` IntVal 3
+
+        it "Uses the right function - non-last argument" $ \stdLibEnv -> do
+          let baseExpr =
+                [iii|
+                  trait Foldable2 f:
+                  | fold2 \# (a, b: a), f b, a: a
+                  | length2 xs = fold2 (acc x: acc + 1) 0 xs;
+
+                  implement Foldable2 for List:
+                  | fold2 x xs init = (InternalFunction fold [x, init, xs]);
+
+                  implement Foldable2 for String:
+                  | fold2 x s init = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);
+                |]
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
+          val `shouldBe` IntVal 3
+
+        it "uses trait functions if implements" $ \stdLibEnv -> do
           let expr =
                 [iii|
                   trait Applicative2 f:
-                  | ap2 \# f (a: b), f a: f b;
+                  | ap2 \# f (a: b), f a: f b
+                  | ap3 \# f (a: b), f a: f b
+                  | ap3 _ _ = 1;
                   implement Applicative2 for Maybe:
                   | ap2 _ _ = None;
-                  implement Applicative2 for Result:
-                  | ap2 _ (Err a) = Err a;
-                  ap (Ok (x: x*2)) (Err 1)
+                  ap3 1 2
                 |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs expr
-          val `shouldBe` DataVal "Result" "Err" [IntVal 1]
+          val `shouldBe` IntVal 1
 
         it "passes trait function type definition" $ \stdLibEnv -> do
           let expr =
@@ -592,8 +633,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       describe "JSON" $ do
         it "parseJSON" $ \stdLibEnv -> do
-          let expr =
-                [i| parseJSON "[1, null, 2.3]" |]
+          let expr = "parseJSON \"[1, null, 2.3]\""
           let (val, _) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 

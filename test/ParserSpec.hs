@@ -7,9 +7,6 @@ import Test.Hspec
 
 s = showWithoutTypes
 
--- NOTE: the contents of this doesn't matter at all. `s` hides types
-anyTypeSig = TypeSig {typeSigIn = [], typeSigReturn = AnyType}
-
 spec :: Spec
 spec = describe "Parser" $ do
   it "true" $
@@ -52,7 +49,7 @@ spec = describe "Parser" $ do
     s (parseExpr "true ? 1 : 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "if-then-else" $
-    s (parseExpr "if true then 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
+    s (parseExpr "if true: 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "let-in" $
     s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
@@ -166,9 +163,13 @@ spec = describe "Parser" $ do
     it "Function definition" $
       show (parseExpr "a # Integer: Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
 
-  it "Function definition contains function" $
+  it "Type definition contains function" $
     s (parseExpr "a # (Integer: Integer): Integer")
       `shouldBe` s (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [IntType] IntType], typeSigReturn = IntType})
+
+  it "Type definition contains multi-param function" $
+    s (parseExpr "a # (b, c: b): b") -- HACK: to have to comma-separate function arguments here is a hack?
+      `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [AnyType, AnyType] AnyType], typeSigReturn = AnyType}))
 
   it "Containing type variables" $
     s (parseExpr "at # a: Boolean") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [AnyType], typeSigReturn = BooleanType}))
@@ -267,10 +268,13 @@ spec = describe "Parser" $ do
 
   describe "Trait" $ do
     it "can create trait" $
-      s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})])
+      s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})] [])
+
+    it "function definition in trait" $
+      s (parseExpr "trait Mappable: | bap # (a: b): a: b | bap f xs = 1") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType})])
+      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType], typeSigReturn = TypeConstructorType "Functor" AnyType})] [])
 
   describe "Implementation" $ do
     it "can create implementation" $

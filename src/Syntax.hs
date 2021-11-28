@@ -8,6 +8,7 @@ module Syntax where
 import Data.Aeson
 import Data.Aeson.Types qualified as AT
 import Data.Bifunctor
+import Data.ByteString.Lazy.Internal (ByteString)
 import Data.Data
 import Data.HashMap.Internal.Strict qualified as HM
 import Data.List as List
@@ -57,7 +58,7 @@ data Expr where
   PDict :: TypeSig -> [(Expr, Expr)] -> Expr
   PDataDefinition :: DataConstructor -> [ConstructorWithArgs] -> Expr
   PDataConstructor :: Name -> [Expr] -> Expr
-  PTrait :: Name -> [Expr] -> Expr
+  PTrait :: Name -> [Expr] -> [Expr] -> Expr
   PImplementation :: Name -> DataConstructor -> [Expr] -> Expr
   PDictUpdate :: Expr -> Expr -> Expr
   DictAccess :: Expr -> Expr -> Expr
@@ -96,7 +97,7 @@ instance Show Expr where
 showWithTypes :: Expr -> String
 showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
-showWithTypes (PTrait name defs) = "(PTrait " ++ show name ++ " [" ++ intercalate ", " (map show defs) ++ "])"
+showWithTypes (PTrait name types funs) = "(PTrait " ++ show name ++ " [" ++ intercalate ", " (map show types) ++ "] [" ++ intercalate ", " (map show funs) ++ "])"
 showWithTypes (PImplementation trait dtype defs) = "(PImplementation " ++ show trait ++ " " ++ show dtype ++ " [" ++ intercalate ", " (map show defs) ++ "])"
 showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
 showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
@@ -154,10 +155,10 @@ data Val where
   Undefined :: Val
   TupleVal :: [Val] -> Val
   ListVal :: [Val] -> Val
-  TraitVal :: Name -> [Expr] -> Val -- change from Expr? Just sliming tests
+  TraitVal :: Name -> [Expr] -> Val
   deriving (Typeable)
 
--- jsonToVal :: ByteString -> Val
+jsonToVal :: ByteString -> Val
 jsonToVal json = toVal (decode json :: Maybe Value)
   where
     toVal (Just (AT.String s)) = (StringVal $ T.unpack s)
@@ -207,7 +208,7 @@ instance Show Val where
   show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = n
   show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ List.intercalate ", " (map show defs)
-  show (StringVal n) = n
+  show (StringVal n) = show n
   show (BoolVal n)
     | n = "true"
     | otherwise = "false"
@@ -318,6 +319,8 @@ data TypeSig = TypeSig
   }
   deriving (Show, Eq)
 
+anyTypeSig = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
+
 data LangType
   = ListType LangType
   | IntType
@@ -336,6 +339,17 @@ data LangType
 
 prettyLangType (TypeConstructorType name _) = name
 prettyLangType (DataConstructorType dtype) = dtype
+prettyLangType FloatType = "Float"
+prettyLangType (ListType t) = "List<" ++ prettyLangType t ++ ">"
+prettyLangType IntType = "Integer"
+prettyLangType StringType = "String"
+prettyLangType BooleanType = "Boolean"
+prettyLangType DictionaryType = "Dictionary"
+prettyLangType DictKeyType = "DictKey"
+prettyLangType (FunctionType lts lt) = "(" ++ intercalate "," (map prettyLangType lts) ++ ": " ++ prettyLangType lt ++ ")"
+prettyLangType UndefinedType = "Undefined"
+prettyLangType AtomType = "Atom"
+prettyLangType AnyType = "Any"
 prettyLangType x = show $ toConstr x
 
 class LangTypeable a where

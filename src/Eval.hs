@@ -16,8 +16,7 @@ import Debug.Trace
 import Exceptions
 import Syntax
 import System.Environment
-import System.IO
-import System.IO.Extra
+import System.IO.Extra (readFile')
 import System.IO.Unsafe
 import TypeCheck
 
@@ -27,7 +26,10 @@ instance Evaluatable Val where
 
 instance Evaluatable Expr where
   toExpr expr = expr
-  evalIn env (PTrait name defs) = (Undefined, extendWithTrait env name defs)
+  evalIn env (PTrait name types funs) =
+    let env' = extendWithTrait env name types
+        !env'' = snd $ evalsIn env' funs
+     in (Undefined, env'')
   evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
   evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
   evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
@@ -160,7 +162,7 @@ extendWithImplementation env trait for = foldl foldFun env
     tsFromTraitDef funName = case inScope env trait of
       Just [TraitVal _ defs] -> case List.find (findDef funName) defs of
         Just (PTypeSig ts) -> ts
-        _ -> error $ "Couldn't find function " ++ show funName ++ " definition in trait " ++ show trait
+        _ -> anyTypeSig
       _ -> error $ "Got more than one trait definition for " ++ show trait
     findDef funName (PTypeSig ts) = typeSigName ts == Just funName
 
@@ -244,6 +246,7 @@ internalFunction env f argsList = case evaledArgsList of
     fun "head" xs = case xs of
       [] -> DataVal "Maybe" "None" []
       (x : _) -> DataVal "Maybe" "Some" [x]
+    fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . (: [])) s
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> TupleVal [k, v]) (Map.toList d)
     fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' path
@@ -257,6 +260,9 @@ internalFunction env f argsList = case evaledArgsList of
     fun "sort" xs = ListVal . List.sort $ xs
     fun x r = error ("No such function " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
+    funToExpr (Pattern defs) = case head defs of
+      (FunctionVal ts _env args e) -> Lambda ts args e
+    funToExpr r = error $ show r
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
@@ -290,14 +296,23 @@ patternMatch env passedArg definition = case definition of
     let passedArgType = toLangType passedArg
         expectedType = toLangType expectedArgExp
      in typeMatches env expectedType passedArgType
-          && traitBindingMatches passedArg ts
+          && traitBindingMatches passedArg (typeSigTraitBinding ts)
           && patternMatches expectedArgExp passedArg
 
-traitBindingMatches :: Val -> TypeSig -> Bool
-traitBindingMatches (DataVal dConsFromPassed _ _) ts = case typeSigTraitBinding ts of
-  Nothing -> True
-  dConsFromDef -> Just dConsFromPassed == dConsFromDef
-traitBindingMatches _ _ = True
+traitBindingMatches :: Val -> Maybe String -> Bool
+traitBindingMatches _ Nothing = True
+traitBindingMatches (DataVal dConsFromPassed _ _) (Just binding) = dConsFromPassed == binding
+traitBindingMatches (StringVal _) (Just "String") = True
+traitBindingMatches (StringVal _) (Just _) = False
+traitBindingMatches (ListVal _) (Just "List") = True
+traitBindingMatches (ListVal _) (Just _) = False
+traitBindingMatches _ Nothing = True
+traitBindingMatches (DataVal dConsFromPassed _ _) (Just binding) = dConsFromPassed == binding
+-- traitBindingMatches t (Just "Any") = True
+-- traitBindingMatches t (Just b) =
+--   let passedType = prettyLangType (toLangType t)
+--    in trace ("EXPECTING: " ++ show b ++ "GOT: " ++ show (toLangType t)) $ passedType == b
+traitBindingMatches s (Just x) = True
 
 patternMatches :: Expr -> Val -> Bool
 patternMatches (PList _ []) (ListVal []) = True
