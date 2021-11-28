@@ -41,10 +41,7 @@ trait Num n:
 | odd? # a, a: a;
 
 // implement Num for Integer:
-// | odd? a b = (InternalFunction mod [a, b]) == 0
-
-
-data EmptyListT = EmptyList
+// | odd? a b = (HFI mod [a, b]) == 0
 
 trait Foldable f:
 | fold # (a, b: a), a, f b: a
@@ -67,7 +64,7 @@ trait Foldable f:
 | drop n xs = reverse xs |> take ((length xs) - n) |> reverse;
 
 implement Foldable for List:
-| fold x init xs = (InternalFunction fold [x, init, xs]);
+| fold x init xs = (HFI fold [x, init, xs]);
 
 implement Foldable for String:
-| fold x init s = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);
+| fold x init s = (HFI fold [x, init, (HFI toChars [s])])

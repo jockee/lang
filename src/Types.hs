@@ -80,7 +80,7 @@ data Expr where
   PInterpolatedString :: [Expr] -> Expr
   PString :: String -> Expr
   PBool :: Bool -> Expr
-  InternalFunction :: Id -> Expr -> Expr
+  HFI :: Id -> Expr -> Expr
   Lambda :: (Show e, Evaluatable e) => TypeSig -> ArgsList -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
@@ -125,7 +125,7 @@ showWithTypes (PTuple ts contents) = "(PTuple " ++ showTypeSig ts ++ " [" ++ joi
 showWithTypes (PList ts contents) = "(PList " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
 showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
-showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
+showWithTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
 showWithTypes (PCase ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
@@ -141,7 +141,7 @@ showWithoutTypes (PDict _ts pairs) = "(PDict anyTypeSig [" ++ joinCommaSep pairs
 showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
-showWithoutTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
+showWithoutTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
 showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithoutTypes d ++ ")"
@@ -380,6 +380,7 @@ instance LangTypeable Expr where
     PDict {} -> DictionaryType
     PInteger {} -> IntType
     PFloat {} -> FloatType
+    PInterpolatedString {} -> StringType
     PString {} -> StringType
     PBool {} -> BooleanType
     PRange {} -> ListType AnyType
@@ -388,7 +389,7 @@ instance LangTypeable Expr where
     DictAccess {} -> UndefinedType
     PDictKey {} -> UndefinedType
     PCase {} -> UndefinedType
-    InternalFunction {} -> UndefinedType
+    HFI {} -> UndefinedType
     Lambda {} -> UndefinedType
     App {} -> UndefinedType
     Unaryop {} -> UndefinedType

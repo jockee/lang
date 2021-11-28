@@ -142,7 +142,7 @@ spec = describe "Parser" $ do
     s (parseExpr "s x = x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
 
   it "internal function" $
-    s (parseExpr "(InternalFunction head [xs])") `shouldBe` s (InternalFunction "head" (PList anyTypeSig [Atom anyTypeSig "xs"]))
+    s (parseExpr "(HFI head [xs])") `shouldBe` s (HFI "head" (PList anyTypeSig [Atom anyTypeSig "xs"]))
 
   it "range" $
     s (parseExpr "(1..3)") `shouldBe` s (PRange anyTypeSig (PInteger 1) (PInteger 3))
@@ -223,6 +223,9 @@ spec = describe "Parser" $ do
       show (parseExpr "// comment") `shouldBe` show PNoop
 
   describe "Expression separation" $ do
+    it "can end on semicolon" $
+      show (parseExprs "1;") `shouldBe` show [(PInteger 1)]
+
     it "semicolon splits" $
       show (parseExprs "1;a=2") `shouldBe` show [PInteger 1, Binop Assign (Atom anyTypeSig "a") (PInteger 2)]
 

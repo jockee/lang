@@ -1,17 +1,19 @@
-parseJSON json = (InternalFunction parseJSON [json])
-toJSON a = (InternalFunction toJSON [a])
-print a = (InternalFunction print [a])
-getArgs = (InternalFunction getArgs [])
-debug debugString outVal = (InternalFunction debug [debugString, outVal])
+import "src/stdlib/types.lang"
+
+parseJSON json = (HFI parseJSON [json])
+toJSON a = (HFI toJSON [a])
+print a = (HFI print [a])
+getArgs = (HFI getArgs [])
+debug debugString outVal = (HFI debug [debugString, outVal])
 
 not b = !b
 empty? [] = true
-// empty? "" = false
+empty? "" = true
 empty? s = false
 head [] = None
 head (x::_) = Some x
-sort xs = (InternalFunction sort xs) // NOTE: implement without internal?
-zipWith f xs ys = (InternalFunction zipWith [f, xs, ys])
+sort xs = (HFI sort xs) // NOTE: implement without internal?
+zipWith f xs ys = (HFI zipWith [f, xs, ys])
 zip xs ys = zipWith (x y: (x, y)) xs ys
 toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 
@@ -20,7 +22,7 @@ sortt (x::xs) = let smaller = (filter (a: a <= x) xs), larger = (filter (a: a > 
 smaller) ++ [x] ++ (sortt larger)
 
 // DICTIONARIES
-toList xs = (InternalFunction dictToList [xs])
+toList xs = (HFI dictToList [xs])
 keys dict = toList dict |> map ((a, b): a)
 values dict = toList dict |> map ((a, b): b)
 merge d1 d2 = { d1 | d2 }
@@ -40,7 +42,7 @@ even? n = n % 2 == 0
 odd? n = !(odd? n)
 
 // FILES
-readFile p = (InternalFunction readFile [p])
-writeFile path body = (InternalFunction writeFile [path, body])
+readFile p = (HFI readFile [p])
+writeFile path body = (HFI writeFile [path, body])
 
   // required comment :-)

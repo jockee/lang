@@ -8,8 +8,6 @@ import Control.Monad.Combinators.Expr
 import Data.List qualified as List
 import Data.Void
 import Debug.Trace
--- import Eval ()
-
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
@@ -136,8 +134,8 @@ term =
         <|> list
         <|> true
         <|> false
-        <|> parseInterpolatedString
-        -- <|> parseString
+        <|> try parseInterpolatedString
+        <|> parseString
         <|> try consList
         <|> variable
         <|> try tuple
@@ -235,10 +233,10 @@ list = do
 
 parseInternalFunction :: Parser Expr
 parseInternalFunction = do
-  string "InternalFunction" <* space
+  string "HFI" <* space
   f <- identifier
   args <- list <|> variable
-  return (InternalFunction f args)
+  return (HFI f args)
 
 parseModule :: Parser Expr
 parseModule = do
@@ -445,7 +443,7 @@ parseInteger = do
 
 noop :: Parser Expr
 noop = do
-  hspace *> lexeme eol
+  hspace *> eol
   return PNoop
 
 comment :: Parser Expr
@@ -460,14 +458,6 @@ shebang = do
   many $ anySingleBut '\n'
   return PNoop
 
-allOf :: Parser a -> Parser a
-allOf p =
-  do
-    r <- p
-    eof
-    return r
-    <?> "EOF"
-
 parseExpr :: String -> Expr
 parseExpr e = head $ parseExprs e
 
@@ -477,13 +467,13 @@ parseExprs s = case parseExprs' "unknown" s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr) `sepBy` many (notPrecededByInfix <|> notFollowedByInfix <|> char ';')
+manyExpressions = (parseModule <|> expr <|> noop) `endBy` many (notPrecededByInfix <|> notFollowedByInfix <|> char ';')
   where
     notPrecededByInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
     notFollowedByInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
-parseExprs' source = parse (allOf manyExpressions) source
+parseExprs' source = parse (manyExpressions <* eof) source
 
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do
@@ -492,12 +482,12 @@ parseInterpolatedString = do
   string "\""
   return $ PInterpolatedString parts
 
--- parseString :: Parser Expr
--- parseString = do
---   string "\""
---   s <- many $ escapedChars <|> noneOf ['\\', '"']
---   string "\""
---   return $ PString s
+parseString :: Parser Expr
+parseString = do
+  string "\""
+  s <- many $ escapedChars <|> noneOf ['\\', '"']
+  string "\""
+  return $ PString s
 
 parseStringContent :: Parser Expr
 parseStringContent = do

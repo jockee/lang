@@ -31,6 +31,5 @@ rawStdLib :: IO String
 rawStdLib = do
   langPath <- lookupEnv "LANG_PATH"
   let path = maybe "" (\p -> if last p == '/' then p else p ++ "/") langPath
-  types <- readFile $ path ++ "src/stdlib/types.lang"
   stdLib <- readFile $ path ++ "src/stdlib/stdlib.lang"
-  pure . strip $ types ++ stdLib
+  pure . strip $ stdLib

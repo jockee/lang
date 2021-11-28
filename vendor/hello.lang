@@ -1,4 +1,4 @@
-s = (InternalFunction getArgs [])
+s = (HFI getArgs [])
 print s
 // print "hello";
 // print "hello";

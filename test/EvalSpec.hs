@@ -381,10 +381,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       describe "Internal functions" $ do
         it "sort" $ \stdLibEnv ->
-          eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
+          eval (parseExpr "(HFI sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
 
         it "zipWith" $ \stdLibEnv ->
-          eval (parseExpr "(InternalFunction zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` ListVal [ListVal [IntVal 1, IntVal 3], ListVal [IntVal 2, IntVal 2]]
+          eval (parseExpr "(HFI zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` ListVal [ListVal [IntVal 1, IntVal 3], ListVal [IntVal 2, IntVal 2]]
 
       describe "Runtime type system" $ do
         xit "Can't declare Integer as String" $ \stdLibEnv ->
@@ -425,6 +425,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
         it "empty list should only match empty list" $ \stdLibEnv ->
           evals (parseExprs "a [] = [0]; a b = [2]; a [1]") `shouldBe` ListVal [IntVal 2]
+
+        it "matches specific string value" $ \stdLibEnv ->
+          evals (parseExprs "a \"ko\" = 1; a b = 2; a \"ko\"") `shouldBe` IntVal 1
+
+        it "matches empty string" $ \stdLibEnv ->
+          evals (parseExprs "a \"\" = 1; a b = 2; a \"\"") `shouldBe` IntVal 1
 
         it "matches specific integer value" $ \stdLibEnv ->
           evals (parseExprs "f 1 = 2; f s = 3; f 1") `shouldBe` IntVal 2
@@ -573,10 +579,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                   | length2 xs = fold2 (acc x: acc + 1) 0 xs;
 
                   implement Foldable2 for List:
-                  | fold2 x init xs = (InternalFunction fold [x, init, xs]);
+                  | fold2 x init xs = (HFI fold [x, init, xs]);
 
                   implement Foldable2 for String:
-                  | fold2 x init s = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);
+                  | fold2 x init s = (HFI fold [x, init, (HFI toChars [s])]);
                 |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
@@ -591,10 +597,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                   | length2 xs = fold2 (acc x: acc + 1) 0 xs;
 
                   implement Foldable2 for List:
-                  | fold2 x xs init = (InternalFunction fold [x, init, xs]);
+                  | fold2 x xs init = (HFI fold [x, init, xs]);
 
                   implement Foldable2 for String:
-                  | fold2 x s init = (InternalFunction fold [x, init, (InternalFunction toChars [s])]);
+                  | fold2 x s init = (HFI fold [x, init, (HFI toChars [s])]);
                 |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2

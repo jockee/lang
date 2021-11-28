@@ -74,7 +74,7 @@ maybeNum
 
 // type classes
 // '::' as cons opens up ':' for other use
-// no significant whitespace (for indentation, maybe required for calling functions)
+// no significant whitespace (for indentation, maybe required for cAlling functions)
 // no '$' function, but keep '.' for composition?
 // pure?
 // very basic type inference. passing [Integer] to `map`, `map` should know it's getting integers

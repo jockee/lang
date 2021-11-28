@@ -11,7 +11,6 @@ import Data.ByteString.Lazy.Char8 qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
-import Data.Text qualified as T
 import Debug.Trace
 import Exceptions
 import Parser (parseExprs)
@@ -56,7 +55,7 @@ evalIn env (PCase ts cond cases) =
           argExpr -> let env' = extendNonAtom env argExpr cond in evalIn env' predDo
 evalIn env (Lambda ts args e) =
   (FunctionVal ts env args e, env)
-evalIn env (InternalFunction f args) = internalFunction env f args
+evalIn env (HFI f args) = haskellFunction env f args
 evalIn env (App e1 e2) = apply (setScope env) e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
   Just [definition] -> (definition, env)
@@ -233,8 +232,8 @@ extend env id expectedType ex =
     val = fst $ evalIn env $ toExpr ex
     key = last (envScopes env) ++ ":" ++ id
 
-internalFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
-internalFunction env f argsList = case evaledArgsList of
+haskellFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
+haskellFunction env f argsList = case evaledArgsList of
   ListVal evaledArgs -> (fun f evaledArgs, env)
   _ -> error "Got non-list"
   where
@@ -258,7 +257,7 @@ internalFunction env f argsList = case evaledArgsList of
     fun "toJSON" (a : _) = StringVal $ BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "sort" xs = ListVal . List.sort $ xs
-    fun x r = error ("No such InternalFunction " ++ show x ++ show r)
+    fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
     funToExpr (Pattern defs) = case head defs of
       (FunctionVal ts _env args e) -> Lambda ts args e
