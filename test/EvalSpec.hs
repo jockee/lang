@@ -11,9 +11,9 @@ import Eval
 import Exceptions
 import Lang
 import Parser
-import Syntax
 import Test.Hspec
 import TypeCheck
+import Types
 
 type TestEnv = [Expr]
 
@@ -380,12 +380,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           evals (parseExprs "a = 3; (1..a)") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
       describe "Internal functions" $ do
-        it "head" $ \stdLibEnv ->
-          eval (parseExpr "(InternalFunction head [2, 3])") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
-
-        it "head returns Nothing on empty list" $ \stdLibEnv ->
-          eval (parseExpr "(InternalFunction head [])") `shouldBe` DataVal "Maybe" "None" []
-
         it "sort" $ \stdLibEnv ->
           eval (parseExpr "(InternalFunction sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
 
@@ -502,6 +496,9 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
         it "function destructuring doesn't match on empty list" $ \stdLibEnv ->
           evaluate (evals (parseExprs "a (x::xs) = x; a []")) `shouldThrow` anyException
+
+        it "function destructuring falls to cons list" $ \stdLibEnv ->
+          evals (parseExprs "a [] = 1; a (x :: xs) = x; a [2]") `shouldBe` IntVal 2
 
       describe "Recursion" $
         it "recurs" $ \stdLibEnv -> do

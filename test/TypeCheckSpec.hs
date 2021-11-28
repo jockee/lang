@@ -7,9 +7,9 @@ import Debug.Trace
 import Exceptions
 import Lang
 import Parser
-import Syntax
 import Test.Hspec
 import TypeCheck
+import Types
 
 spec :: Spec
 spec = describe "TypeCheck" $ do

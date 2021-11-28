@@ -9,11 +9,11 @@ import Debug.Trace
 import Eval
 import Lang
 import Parser
-import Syntax
 import System.Console.Haskeline
 import Text.Megaparsec.Error (errorBundlePretty)
 import Text.Pretty.Simple
 import TypeCheck
+import Types
 
 haskelineSettings :: Settings IO
 haskelineSettings =
@@ -50,5 +50,5 @@ replWithEnv env = runInputT haskelineSettings $ loop env
                   pPrint e
                   loop env
                 Right (val, newEnv) -> do
-                  outputStrLn $ show val ++ " : " ++ prettyLangType (toLangType val)
+                  outputStrLn $ "=> " ++ show val ++ " : " ++ prettyLangType (toLangType val)
                   loop (extend (resetScope newEnv) "@" AnyType val)

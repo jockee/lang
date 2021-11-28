@@ -30,8 +30,9 @@ library
       Lang
       Parser
       Repl
-      Syntax
       TypeCheck
+      Types
+      Util
   other-modules:
       Paths_lang
   hs-source-dirs:

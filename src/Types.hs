@@ -1,9 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Syntax where
+module Types where
 
 import Data.Aeson
 import Data.Aeson.Types qualified as AT
@@ -11,11 +12,10 @@ import Data.Bifunctor
 import Data.ByteString.Lazy.Internal (ByteString)
 import Data.Data
 import Data.HashMap.Internal.Strict qualified as HM
-import Data.List as List
+import Data.List (intercalate)
 import Data.Map qualified as Map
 import Data.Scientific qualified as S
 import Data.Text qualified as T
-import Data.Typeable
 import Data.Vector qualified as V
 import GHC.Real
 
@@ -45,12 +45,21 @@ emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = 
 -- Evaluatable
 
 class Show e => Evaluatable e where
-  evalIn :: Env -> e -> (Val, Env)
+  toVal :: e -> Val
   toExpr :: e -> Expr
+
+instance Evaluatable Val where
+  toVal val = val
+  toExpr val = Evaluated val
+
+instance Evaluatable Expr where
+  toExpr expr = expr
+  toVal expr = undefined
 
 -- Expr
 
 data Expr where
+  Evaluated :: Val -> Expr
   Module :: String -> [Expr] -> Expr
   Atom :: TypeSig -> String -> Expr
   PTuple :: TypeSig -> [Expr] -> Expr
@@ -67,8 +76,9 @@ data Expr where
   ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Double -> Expr
-  PString :: [Expr] -> Expr
-  PChar :: String -> Expr
+  PImport :: Expr -> Expr
+  PInterpolatedString :: [Expr] -> Expr
+  PString :: String -> Expr
   PBool :: Bool -> Expr
   InternalFunction :: Id -> Expr -> Expr
   Lambda :: (Show e, Evaluatable e) => TypeSig -> ArgsList -> e -> Expr
@@ -95,14 +105,14 @@ instance Show Expr where
   show = showWithoutTypes
 
 showWithTypes :: Expr -> String
-showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ intercalate ", " (map showWithTypes contents) ++ ")"
+showWithTypes (Module name contents) = "(Module " ++ show name ++ " " ++ joinCommaSep contents ++ ")"
 showWithTypes (Atom ts name) = "(Atom " ++ showTypeSig ts ++ " \"" ++ name ++ "\")"
-showWithTypes (PTrait name types funs) = "(PTrait " ++ show name ++ " [" ++ intercalate ", " (map show types) ++ "] [" ++ intercalate ", " (map show funs) ++ "])"
-showWithTypes (PImplementation trait dtype defs) = "(PImplementation " ++ show trait ++ " " ++ show dtype ++ " [" ++ intercalate ", " (map show defs) ++ "])"
-showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
-showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ intercalate ", " (map show args) ++ "])"
-showWithTypes (PString parts) = "(PString [" ++ intercalate "," (map show parts) ++ "])"
-showWithTypes (PChar contents) = "(PChar \"" ++ contents ++ "\")"
+showWithTypes (PTrait name types funs) = "(PTrait " ++ show name ++ " [" ++ joinCommaSep types ++ "] [" ++ joinCommaSep funs ++ "])"
+showWithTypes (PImplementation trait dtype defs) = "(PImplementation " ++ show trait ++ " " ++ show dtype ++ " [" ++ joinCommaSep defs ++ "])"
+showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ joinCommaSep args ++ "])"
+showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ joinCommaSep args ++ "])"
+showWithTypes (PInterpolatedString parts) = "(PInterpolatedString [" ++ joinCommaSep parts ++ "])"
+showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
 showWithTypes (PTypeSig ts) = "(PTypeSig " ++ showTypeSig ts ++ ")"
@@ -110,13 +120,13 @@ showWithTypes (PBool True) = "(PBool True)"
 showWithTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithTypes a ++ " " ++ showWithTypes b ++ ")"
 showWithTypes PNoop = "(PNoop)"
 showWithTypes (PBool False) = "(PBool False)"
-showWithTypes (PDict ts pairs) = "(PDict " ++ showTypeSig ts ++ "\") [" ++ showDictContents pairs ++ "])"
+showWithTypes (PDict ts pairs) = "(PDict " ++ showTypeSig ts ++ "\") [" ++ joinCommaSep pairs ++ "])"
 showWithTypes (PTuple ts contents) = "(PTuple " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
 showWithTypes (PList ts contents) = "(PList " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
 showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (InternalFunction f argList) = "(InternalFunction " ++ show f ++ " " ++ showWithTypes argList ++ ")"
-showWithTypes (ConsList cs) = "(ConsList [" ++ intercalate "," (map show cs) ++ "])"
+showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
 showWithTypes (PCase ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
@@ -127,7 +137,7 @@ showWithTypes _ = "UNKNOWN"
 showWithoutTypes :: Expr -> String
 showWithoutTypes (Atom _ts name) = "(Atom anyTypeSig \"" ++ name ++ "\")"
 showWithoutTypes (Cmp s a b) = "(Cmp " ++ show s ++ " " ++ showWithoutTypes a ++ " " ++ showWithoutTypes b ++ ")"
-showWithoutTypes (PDict _ts pairs) = "(PDict anyTypeSig [" ++ showDictContents pairs ++ "])"
+showWithoutTypes (PDict _ts pairs) = "(PDict anyTypeSig [" ++ joinCommaSep pairs ++ "])"
 showWithoutTypes (PTuple _ts contents) = "(PTuple anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep contents ++ "])"
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
@@ -198,16 +208,16 @@ instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
   show (FunctionVal ts env remainingArgs _) = "<fun>"
   -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
-  show (Pattern definitions) = "<pattern " ++ intercalate ", " (map show definitions) ++ ">"
+  show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
   show (IntVal n) = show n
   show (FloatVal n) = show n
-  show (TupleVal ns) = "(" ++ List.intercalate ", " (map show ns) ++ ")"
-  show (ListVal ns) = "[" ++ List.intercalate ", " (map show ns) ++ "]"
-  show (DictVal m) = "{" ++ List.intercalate ", " (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
+  show (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
+  show (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
+  show (DictVal m) = "{" ++ joinCommaSep (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = n
-  show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ List.intercalate ", " (map show defs)
+  show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
   show (StringVal n) = show n
   show (BoolVal n)
     | n = "true"
@@ -346,7 +356,7 @@ prettyLangType StringType = "String"
 prettyLangType BooleanType = "Boolean"
 prettyLangType DictionaryType = "Dictionary"
 prettyLangType DictKeyType = "DictKey"
-prettyLangType (FunctionType lts lt) = "(" ++ intercalate "," (map prettyLangType lts) ++ ": " ++ prettyLangType lt ++ ")"
+prettyLangType (FunctionType lts lt) = "(" ++ joinCommaSep lts ++ ": " ++ prettyLangType lt ++ ")"
 prettyLangType UndefinedType = "Undefined"
 prettyLangType AtomType = "Atom"
 prettyLangType AnyType = "Any"
@@ -386,7 +396,7 @@ instance LangTypeable Expr where
     Cmp {} -> UndefinedType
     PTypeSig {} -> UndefinedType
     PNoop {} -> UndefinedType
-    ConsList {} -> UndefinedType
+    ConsList {} -> ListType AnyType
     PDataConstructor name _ -> DataConstructorType name
     PTrait {} -> UndefinedType
     s -> error (show s)
@@ -407,7 +417,5 @@ instance LangTypeable Val where
     s -> error $ "Not implemented" ++ show s
 
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
-
-showDictContents pairs = intercalate ", " (map show pairs)
 
 joinCommaSep contents = intercalate ", " (map show contents)

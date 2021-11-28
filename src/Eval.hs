@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Eval where
 
@@ -12,128 +11,132 @@ import Data.ByteString.Lazy.Char8 qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
+import Data.Text qualified as T
 import Debug.Trace
 import Exceptions
-import Syntax
+import Parser (parseExprs)
 import System.Environment
 import System.IO.Extra (readFile')
 import System.IO.Unsafe
 import TypeCheck
+import Types
+import Util
 
-instance Evaluatable Val where
-  evalIn env val = (val, env)
-  toExpr val = undefined
-
-instance Evaluatable Expr where
-  toExpr expr = expr
-  evalIn env (PTrait name types funs) =
-    let env' = extendWithTrait env name types
-        !env'' = snd $ evalsIn env' funs
-     in (Undefined, env'')
-  evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
-  evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
-  evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
-  evalIn env (PDataConstructor name exprArgs) =
-    let evaledArgs = map (fst . evalIn env) exprArgs
-     in case inScope env name of
-          Just [DataConstructorDefinitionVal dtype argVals] ->
-            if length exprArgs > length argVals
-              then error $ "Too many arguments to value constructor " ++ show name
-              else case List.find (\(_i, ex, val) -> not $ typeMatches env (toLangType ex) (toLangType val)) (zip3 [1 ..] exprArgs argVals) of
-                Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType ex) ++ ", got: " ++ show (toLangType val) ++ " in position " ++ show (i + 1)
-                Nothing -> (DataVal dtype name evaledArgs, env)
-          Nothing -> error $ "No such constructor found: " ++ show name
-  evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
-  evalIn env (PCase ts cond cases) =
-    let condVal = fst $ evalIn env cond
-        findFun (pred, predDo) = patternMatch env condVal (FunctionVal ts env [pred] predDo)
-     in case List.find findFun cases of
-          Just (pred, predDo) -> case pred of
-            (Atom _ts atomId) -> let env' = extend env atomId AnyType cond in evalIn env' predDo
-            argExpr -> let env' = extendNonAtom env argExpr cond in evalIn env' predDo
-  evalIn env (Lambda ts args e) =
-    (FunctionVal ts env args e, env)
-  evalIn env (InternalFunction f args) = internalFunction env f args
-  evalIn env (App e1 e2) = apply (setScope env) e1 e2
-  evalIn env (Atom _ts atomId) = case inScope env atomId of
-    Just [definition] -> (definition, env)
-    Just definitions -> case last definitions of
-      FunctionVal {} -> (Pattern definitions, env)
-      lastDef -> (lastDef, env)
-    Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
-  evalIn env (PString parts) =
-    let fn x = case fst $ evalIn env x of
-          StringVal s -> s
-          o -> show o
-     in (StringVal $ List.intercalate "" $ map fn parts, env)
-  evalIn env (PChar n) = (StringVal n, env)
-  evalIn env (PFloat n) = (FloatVal n, env)
-  evalIn env (PInteger n) = (IntVal n, env)
-  evalIn env (PDictUpdate baseDict updateDict) =
-    let (DictVal d1) = fst $ evalIn env baseDict
-        (DictVal d2) = fst $ evalIn env updateDict
-     in (DictVal $ Map.union d2 d1, env)
-  evalIn env (DictAccess k dict) =
-    let (DictVal m) = fst $ evalIn env dict
-        kv = fst $ evalIn env k
-     in (fromJust (Map.lookup kv m), env)
-  evalIn env (PDictKey k) = (DictKey k, env)
-  evalIn env (PDict _ts pairs) =
-    let fn (k, v) =
-          let key = case fst $ evalIn env k of
-                (DictKey s) -> DictKey s
-                (StringVal s) -> DictKey s
-                _ -> error "Non-string dict key"
-              val = fst $ evalIn env v
-           in (key, val)
-     in (DictVal $ Map.fromList $ map fn pairs, env)
-  evalIn env (PRange _ts lBoundExp uBoundExp) =
-    let lBound = fst $ evalIn env lBoundExp
-        uBound = fst $ evalIn env uBoundExp
-     in case (lBound, uBound) of
-          (IntVal l, IntVal u) -> (ListVal $ map IntVal [l .. u], env)
-          _ -> error "Invalid range"
-  evalIn env (PList _ts es) = (ListVal $ map (fst . evalIn env) es, env)
-  evalIn env (PTuple _ts es) = (TupleVal $ map (fst . evalIn env) es, env)
-  evalIn env (PBool n) = (BoolVal n, env)
-  evalIn env (Binop Assign (PTuple _ts1 bindings) (PTuple _ts2 vs)) =
-    let evaledValues = map (fst . evalIn env) vs
-        newEnv = extendWithTuple env bindings evaledValues
-     in if length bindings /= length evaledValues
-          then throw $ EvalException "Destructuring failed. Mismatched parameter count"
-          else (TupleVal evaledValues, newEnv)
-  evalIn env (Binop Concat e1 e2) =
-    let (ListVal xs, _) = evalIn env e1
-        (ListVal ys, _) = evalIn env e2
-        _ = error "Invalid"
-     in (ListVal $ xs ++ ys, env)
-  evalIn env (Binop Pipe e1 e2) = apply (setScope env) e2 e1
-  evalIn env (Binop Cons e1 e2) =
-    let (v1, _) = evalIn env e1
-     in case fst $ evalIn env e2 of
-          ListVal xs -> (ListVal (v1 : xs), env)
-  evalIn env (Binop Assign (Atom _ts a) v) =
-    let env' = extend env a AnyType v
-        (value, _) = evalIn env v
-     in (value, env')
-  evalIn env (Unaryop Not e) =
-    case fst $ evalIn env e of
-      (BoolVal b) -> (BoolVal $ not b, env)
-  evalIn env (Unaryop op e) =
-    let (v, _) = evalIn env e
-     in (evalUnOp op v, env)
-  evalIn env (Binop op e1 e2) =
-    let (v1, _) = evalIn env e1
-        (v2, _) = evalIn env e2
-        x = evalOp op
-     in (v1 `x` v2, env)
-  evalIn env (Cmp op e1 e2) =
-    let (v1, _) = evalIn env e1
-        (v2, _) = evalIn env e2
-        x = cmpOp op
-     in (v1 `x` v2, env)
-  evalIn env PNoop = (Undefined, env)
-  evalIn _ a = error $ "failed to find match in evalIn: " ++ show a
+evalIn :: Env -> Expr -> (Val, Env)
+evalIn env (Evaluated val) = (val, env)
+evalIn env (PImport stringExpr) = case fst $ evalIn env stringExpr of
+  (StringVal filePath) ->
+    let contents = unsafePerformIO $ readFile filePath
+        parsed = parseExprs $ strip contents
+     in evalsIn env parsed
+evalIn env (PTrait name types funs) =
+  let env' = extendWithTrait env name types
+      !env'' = snd $ evalsIn env' funs
+   in (Undefined, env'')
+evalIn env (PImplementation trait for defs) = (Undefined, extendWithImplementation env trait for defs)
+evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
+evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
+evalIn env (PDataConstructor name exprArgs) =
+  let evaledArgs = map (fst . evalIn env) exprArgs
+   in case inScope env name of
+        Just [DataConstructorDefinitionVal dtype argVals] ->
+          if length exprArgs > length argVals
+            then error $ "Too many arguments to value constructor " ++ show name
+            else case List.find (\(_i, ex, val) -> not $ typeMatches env (toLangType ex) (toLangType val)) (zip3 [1 ..] exprArgs argVals) of
+              Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType ex) ++ ", got: " ++ show (toLangType val) ++ " in position " ++ show (i + 1)
+              Nothing -> (DataVal dtype name evaledArgs, env)
+        Nothing -> error $ "No such constructor found: " ++ show name
+evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
+evalIn env (PCase ts cond cases) =
+  let condVal = fst $ evalIn env cond
+      findFun (pred, predDo) = patternMatch env condVal (FunctionVal ts env [pred] predDo)
+   in case List.find findFun cases of
+        Just (pred, predDo) -> case pred of
+          (Atom _ts atomId) -> let env' = extend env atomId AnyType cond in evalIn env' predDo
+          argExpr -> let env' = extendNonAtom env argExpr cond in evalIn env' predDo
+evalIn env (Lambda ts args e) =
+  (FunctionVal ts env args e, env)
+evalIn env (InternalFunction f args) = internalFunction env f args
+evalIn env (App e1 e2) = apply (setScope env) e1 e2
+evalIn env (Atom _ts atomId) = case inScope env atomId of
+  Just [definition] -> (definition, env)
+  Just definitions -> case last definitions of
+    FunctionVal {} -> (Pattern definitions, env)
+    lastDef -> (lastDef, env)
+  Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
+evalIn env (PInterpolatedString parts) =
+  let fn x = case fst $ evalIn env x of
+        StringVal s -> s
+        o -> show o
+   in (StringVal $ List.intercalate "" $ map fn parts, env)
+evalIn env (PString n) = (StringVal n, env)
+evalIn env (PFloat n) = (FloatVal n, env)
+evalIn env (PInteger n) = (IntVal n, env)
+evalIn env (PDictUpdate baseDict updateDict) =
+  let (DictVal d1) = fst $ evalIn env baseDict
+      (DictVal d2) = fst $ evalIn env updateDict
+   in (DictVal $ Map.union d2 d1, env)
+evalIn env (DictAccess k dict) =
+  let (DictVal m) = fst $ evalIn env dict
+      kv = fst $ evalIn env k
+   in (fromJust (Map.lookup kv m), env)
+evalIn env (PDictKey k) = (DictKey k, env)
+evalIn env (PDict _ts pairs) =
+  let fn (k, v) =
+        let key = case fst $ evalIn env k of
+              (DictKey s) -> DictKey s
+              (StringVal s) -> DictKey s
+              _ -> error "Non-string dict key"
+            val = fst $ evalIn env v
+         in (key, val)
+   in (DictVal $ Map.fromList $ map fn pairs, env)
+evalIn env (PRange _ts lBoundExp uBoundExp) =
+  let lBound = fst $ evalIn env lBoundExp
+      uBound = fst $ evalIn env uBoundExp
+   in case (lBound, uBound) of
+        (IntVal l, IntVal u) -> (ListVal $ map IntVal [l .. u], env)
+        _ -> error "Invalid range"
+evalIn env (PList _ts es) = (ListVal $ map (fst . evalIn env) es, env)
+evalIn env (PTuple _ts es) = (TupleVal $ map (fst . evalIn env) es, env)
+evalIn env (PBool n) = (BoolVal n, env)
+evalIn env (Binop Assign (PTuple _ts1 bindings) (PTuple _ts2 vs)) =
+  let evaledValues = map (fst . evalIn env) vs
+      newEnv = extendWithTuple env bindings evaledValues
+   in if length bindings /= length evaledValues
+        then throw $ EvalException "Destructuring failed. Mismatched parameter count"
+        else (TupleVal evaledValues, newEnv)
+evalIn env (Binop Concat e1 e2) =
+  let (ListVal xs, _) = evalIn env e1
+      (ListVal ys, _) = evalIn env e2
+      _ = error "Invalid"
+   in (ListVal $ xs ++ ys, env)
+evalIn env (Binop Pipe e1 e2) = apply (setScope env) e2 e1
+evalIn env (Binop Cons e1 e2) =
+  let (v1, _) = evalIn env e1
+   in case fst $ evalIn env e2 of
+        ListVal xs -> (ListVal (v1 : xs), env)
+evalIn env (Binop Assign (Atom _ts a) v) =
+  let env' = extend env a AnyType v
+      (value, _) = evalIn env v
+   in (value, env')
+evalIn env (Unaryop Not e) =
+  case fst $ evalIn env e of
+    (BoolVal b) -> (BoolVal $ not b, env)
+evalIn env (Unaryop op e) =
+  let (v, _) = evalIn env e
+   in (evalUnOp op v, env)
+evalIn env (Binop op e1 e2) =
+  let (v1, _) = evalIn env e1
+      (v2, _) = evalIn env e2
+      x = evalOp op
+   in (v1 `x` v2, env)
+evalIn env (Cmp op e1 e2) =
+  let (v1, _) = evalIn env e1
+      (v2, _) = evalIn env e2
+      x = cmpOp op
+   in (v1 `x` v2, env)
+evalIn env PNoop = (Undefined, env)
+evalIn _ a = error $ "failed to find match in evalIn: " ++ show a
 
 extendWithDataDefinition :: Env -> String -> [ConstructorWithArgs] -> Env
 extendWithDataDefinition env typeCons = foldl foldFun env
@@ -216,7 +219,7 @@ extendNonAtom env argExpr expr = case argExpr of
     _ -> error "Non-tuple value received for tuple destructuring"
   _ -> env
   where
-    val = fst $ evalIn env expr
+    val = fst $ evalIn env $ toExpr expr
 
 extend :: Evaluatable e => Env -> Id -> LangType -> e -> Env
 extend env "_" _ _ = env
@@ -227,7 +230,7 @@ extend env id expectedType ex =
   where
     insertFun = if id == "@" then const else flip (++)
     gotType = toLangType val
-    val = fst $ evalIn env ex
+    val = fst $ evalIn env $ toExpr ex
     key = last (envScopes env) ++ ":" ++ id
 
 internalFunction :: Evaluatable e => Env -> Id -> e -> (Val, Env)
@@ -235,7 +238,7 @@ internalFunction env f argsList = case evaledArgsList of
   ListVal evaledArgs -> (fun f evaledArgs, env)
   _ -> error "Got non-list"
   where
-    evaledArgsList = fst $ evalIn env argsList
+    evaledArgsList = fst $ evalIn env $ toExpr argsList
     fun "fold" (fun : init : ListVal xs : _) =
       let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
        in List.foldl' foldFun init xs
@@ -243,9 +246,6 @@ internalFunction env f argsList = case evaledArgsList of
       let zipFun :: Evaluatable e => e -> e -> Val
           zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
        in ListVal $ zipWith zipFun xs ys
-    fun "head" xs = case xs of
-      [] -> DataVal "Maybe" "None" []
-      (x : _) -> DataVal "Maybe" "Some" [x]
     fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . (: [])) s
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(k, v) -> TupleVal [k, v]) (Map.toList d)
@@ -258,7 +258,7 @@ internalFunction env f argsList = case evaledArgsList of
     fun "toJSON" (a : _) = StringVal $ BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "sort" xs = ListVal . List.sort $ xs
-    fun x r = error ("No such function " ++ show x ++ show r)
+    fun x r = error ("No such InternalFunction " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
     funToExpr (Pattern defs) = case head defs of
       (FunctionVal ts _env args e) -> Lambda ts args e
@@ -287,7 +287,7 @@ apply env e1 e2 =
     (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
-    (passedArg, _) = evalIn env e2
+    (passedArg, _) = evalIn env $ toExpr e2
     functionFullyApplied args = length args == 1
 
 patternMatch :: Env -> Val -> Val -> Bool
@@ -306,18 +306,21 @@ traitBindingMatches (StringVal _) (Just "String") = True
 traitBindingMatches (StringVal _) (Just _) = False
 traitBindingMatches (ListVal _) (Just "List") = True
 traitBindingMatches (ListVal _) (Just _) = False
-traitBindingMatches _ Nothing = True
 traitBindingMatches (DataVal dConsFromPassed _ _) (Just binding) = dConsFromPassed == binding
 -- traitBindingMatches t (Just "Any") = True
 -- traitBindingMatches t (Just b) =
 --   let passedType = prettyLangType (toLangType t)
 --    in trace ("EXPECTING: " ++ show b ++ "GOT: " ++ show (toLangType t)) $ passedType == b
 traitBindingMatches s (Just x) = True
+traitBindingMatches _ Nothing = True
 
 patternMatches :: Expr -> Val -> Bool
 patternMatches (PList _ []) (ListVal []) = True
+patternMatches (PString str) (StringVal val) = str == val
+patternMatches (PList _ [a]) (ListVal [b]) = True
 patternMatches (PList _ _) _ = False
 patternMatches (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
+patternMatches (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
 patternMatches (PBool a) (BoolVal b) = a == b
 patternMatches (PInteger e) (IntVal v) = e == v
 patternMatches (PFloat e) (FloatVal v) = e == v
@@ -331,16 +334,16 @@ runFun env ts argsList expr funExpr =
           (Atom _ts atomId) -> extend env atomId (expectedType env ts $ length allArgs) expr
           argExpr -> extendNonAtom env argExpr expr
    in if null remainingArgs'
-        then evalIn newEnv funExpr
+        then evalIn newEnv $ toExpr funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)
 
-eval :: Evaluatable e => e -> Val
+eval :: Expr -> Val
 eval = fst . evalIn emptyEnv
 
-evalsIn :: Evaluatable e => Env -> [e] -> (Val, Env)
+evalsIn :: Env -> [Expr] -> (Val, Env)
 evalsIn env = List.foldl' fl (Undefined, env)
   where
     fl (!_val, env) ex = evalIn (resetScope env) ex
 
-evals :: Evaluatable e => [e] -> Val
+evals :: [Expr] -> Val
 evals exprs = fst $ evalsIn emptyEnv exprs

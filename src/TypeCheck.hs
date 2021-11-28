@@ -10,7 +10,7 @@ import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
 import Exceptions
-import Syntax
+import Types
 
 instance Hashable Env where
   hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v

@@ -22,6 +22,7 @@ import System.IO
 import Text.Megaparsec.Error (errorBundlePretty)
 import Text.Pretty.Simple
 import Text.Printf
+import Util
 
 main = do
   (args, filePath) <- getArgs >>= parse
@@ -33,7 +34,7 @@ handleInput args filePath = do
   exec filePath contents
 
 exec :: String -> String -> IO ()
-exec source str = case parseExprs' source (T.unpack $ T.strip $ T.pack str) of
+exec source str = case parseExprs' source (strip str) of
   Left e -> do
     pPrint $ errorBundlePretty e
   Right exprs -> do

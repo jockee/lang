@@ -3,10 +3,8 @@
   - TODO: if not in Foldable, it can't use Foldables functions
   - WIP: use the correct definition of fold for foldables
   - TODO: ListVal is `Foldable for _List_`
-  - TODO: handle haskell error (readfile)
 
   ## USABILITY
-  - TODO: Lib location when shebang calling. how to keep track?
   - TODO: sockets
 
   ## PARSING

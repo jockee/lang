@@ -8,11 +8,12 @@ import Control.Monad.Combinators.Expr
 import Data.List qualified as List
 import Data.Void
 import Debug.Trace
-import Eval ()
-import Syntax
+-- import Eval ()
+
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
+import Types
 
 doesntLineBreak :: String
 doesntLineBreak = ['!', ',', '+', '-', '{', '[', '/', '(', '|', '=', ':', '?']
@@ -33,14 +34,14 @@ sc = L.space hspace1 lineComment blockComment
 
 expr :: Parser Expr
 expr =
-  shebang <|> comment <|> sc
-    *> ( comment
+  shebang <|> try comment <|> sc
+    *> ( import'
            <|> ifelse
            <|> try (typeDef [])
            <|> letBinding
            <|> parseCase
            <|> traitDefinition
-           <|> parseDataDefinition
+           <|> dataDefinition
            <|> implementationDefinition
            <|> try lambda
            <|> try ternary
@@ -72,14 +73,14 @@ formula = makeExprParser juxta table <?> "formula"
       PInteger x -> PInteger $ negate x
       PFloat x -> PFloat $ negate x
     not' = Prefix (try $ space *> string "!" <* space >> return (Unaryop Not))
-    toInteger = Prefix (try $ space *> string "toInteger" <* some spaceChar >> return (Unaryop ToInteger))
-    abs = Prefix (try $ space *> string "abs" <* some spaceChar >> return (Unaryop Abs))
-    toFloat = Prefix (try $ space *> string "toFloat" <* some spaceChar >> return (Unaryop ToFloat))
-    floor = Prefix (try $ space *> string "floor" <* some spaceChar >> return (Unaryop Floor))
-    round = Prefix (try $ space *> string "round" <* some spaceChar >> return (Unaryop Round))
-    ceiling = Prefix (try $ space *> string "ceiling" <* some spaceChar >> return (Unaryop Ceiling))
-    sqrt = Prefix (try $ space *> string "sqrt" <* some spaceChar >> return (Unaryop Sqrt))
-    pow = InfixL (try $ space *> string "^" <* space >> return (Binop Pow))
+    toInteger = Prefix (try $ hspace *> string "toInteger" <* some spaceChar >> return (Unaryop ToInteger))
+    abs = Prefix (try $ hspace *> string "abs" <* some spaceChar >> return (Unaryop Abs))
+    toFloat = Prefix (try $ hspace *> string "toFloat" <* some spaceChar >> return (Unaryop ToFloat))
+    floor = Prefix (try $ hspace *> string "floor" <* some spaceChar >> return (Unaryop Floor))
+    round = Prefix (try $ hspace *> string "round" <* some spaceChar >> return (Unaryop Round))
+    ceiling = Prefix (try $ hspace *> string "ceiling" <* some spaceChar >> return (Unaryop Ceiling))
+    sqrt = Prefix (try $ hspace *> string "sqrt" <* some spaceChar >> return (Unaryop Sqrt))
+    pow = InfixL (try $ hspace *> string "^" <* space >> return (Binop Pow))
     notEqOp = InfixL (try $ space *> string "!=" <* space >> return (Binop NotEql))
     eqOp = InfixR (try $ space *> string "==" <* space >> return (Binop Eql))
     subOp = InfixL (try $ space *> string "-" <* space >> return (Binop Sub))
@@ -136,6 +137,7 @@ term =
         <|> true
         <|> false
         <|> parseInterpolatedString
+        -- <|> parseString
         <|> try consList
         <|> variable
         <|> try tuple
@@ -162,7 +164,7 @@ dictContents = do
 consList :: Parser Expr
 consList = do
   char '(' <* space
-  listContents <- identifier `sepBy` (space *> string "::" <* space)
+  listContents <- identifier `sepBy2` (space *> string "::" <* space)
   space *> char ')'
   return $ ConsList listContents
 
@@ -356,6 +358,12 @@ lambda = do
   string ":" <* notFollowedBy (string ":")
   Lambda (sig [AnyType] AnyType) identifiers <$> expr
 
+import' :: Parser Expr
+import' = do
+  string "import" <* space
+  filePath <- parseInterpolatedString
+  return $ PImport filePath
+
 ifelse :: Parser Expr
 ifelse = do
   string "if" <* space
@@ -366,8 +374,8 @@ ifelse = do
   tr2 <- term
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
-parseDataDefinition :: Parser Expr
-parseDataDefinition = do
+dataDefinition :: Parser Expr
+dataDefinition = do
   string "data" <* space
   typeCons <- identifier
   space *> string "=" <* space
@@ -391,7 +399,7 @@ traitDefinition = do
   let (types, funs) =
         List.partition
           ( \case
-              ts@(PTypeSig _) -> True
+              PTypeSig _ -> True
               _ -> False
           )
           bindings
@@ -411,7 +419,7 @@ implementationDefinition = do
 dataConstructor :: Parser Expr
 dataConstructor = do
   first <- upperChar
-  rest <- many (letterChar <|> digitChar) <* space
+  rest <- many (letterChar <|> digitChar) <* hspace
   args <- many term
   return (PDataConstructor (first : rest) args)
 
@@ -419,7 +427,7 @@ ternary :: Parser Expr
 ternary = do
   cond <- term <* string "?" <* space
   tr <- term
-  string ":" <* space
+  string ":" <* hspace
   tr2 <- term
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
@@ -442,7 +450,7 @@ noop = do
 
 comment :: Parser Expr
 comment = do
-  string "//"
+  hspace *> string "//"
   many $ anySingleBut '\n'
   return PNoop
 
@@ -480,14 +488,21 @@ parseExprs' source = parse (allOf manyExpressions) source
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do
   string "\""
-  parts <- many $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
+  parts <- some $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
   string "\""
-  return $ PString parts
+  return $ PInterpolatedString parts
+
+-- parseString :: Parser Expr
+-- parseString = do
+--   string "\""
+--   s <- many $ escapedChars <|> noneOf ['\\', '"']
+--   string "\""
+--   return $ PString s
 
 parseStringContent :: Parser Expr
 parseStringContent = do
   s <- escapedChars <|> noneOf ['\\', '"']
-  return $ PChar [s]
+  return $ PString [s]
 
 escapedChars :: Parser Char
 escapedChars = do

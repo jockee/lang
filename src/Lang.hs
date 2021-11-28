@@ -1,8 +1,12 @@
 module Lang where
 
+import Data.Maybe
+import Debug.Trace
 import Eval
 import Parser
-import Syntax
+import System.Environment
+import Types
+import Util
 
 e :: String -> IO Val
 e = evalsInStdLib
@@ -25,6 +29,8 @@ evaledStdLibEnv = snd . evalsIn emptyEnv . parseExprs <$> rawStdLib
 
 rawStdLib :: IO String
 rawStdLib = do
-  types <- readFile "src/stdlib/types.lang"
-  stdLib <- readFile "src/stdlib/stdlib.lang"
-  pure $ types ++ stdLib
+  langPath <- lookupEnv "LANG_PATH"
+  let path = maybe "" (\p -> if last p == '/' then p else p ++ "/") langPath
+  types <- readFile $ path ++ "src/stdlib/types.lang"
+  stdLib <- readFile $ path ++ "src/stdlib/stdlib.lang"
+  pure . strip $ types ++ stdLib

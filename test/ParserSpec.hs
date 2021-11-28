@@ -2,8 +2,8 @@ module ParserSpec where
 
 import Data.String.Interpolate (i, iii)
 import Parser
-import Syntax
 import Test.Hspec
+import Types
 
 s = showWithoutTypes
 
@@ -43,7 +43,7 @@ spec = describe "Parser" $ do
     s (parseExpr "1 || 1") `shouldBe` s (Binop Or (PInteger 1) (PInteger 1))
 
   it "string" $
-    s (parseExpr "\"test\"") `shouldBe` s (PString [PChar "t", PChar "e", PChar "s", PChar "t"])
+    s (parseExpr "\"test\"") `shouldBe` s (PInterpolatedString [PString "t", PString "e", PString "s", PString "t"])
 
   it "ternary" $
     s (parseExpr "true ? 1 : 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
@@ -237,10 +237,10 @@ spec = describe "Parser" $ do
 
   describe "String interpolation" $ do
     it "just an integer" $
-      show (parseExpr "\"a#{1}b\"") `shouldBe` show (PString [PChar "a", PInteger 1, PChar "b"])
+      show (parseExpr "\"a#{1}b\"") `shouldBe` show (PInterpolatedString [PString "a", PInteger 1, PString "b"])
 
     it "addition" $
-      show (parseExpr "\"a#{1+1}b\"") `shouldBe` show (PString [PChar "a", Binop Add (PInteger 1) (PInteger 1), PChar "b"])
+      show (parseExpr "\"a#{1+1}b\"") `shouldBe` show (PInterpolatedString [PString "a", Binop Add (PInteger 1) (PInteger 1), PString "b"])
 
   describe "Cons list" $
     it "function definition" $

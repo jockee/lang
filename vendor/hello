@@ -3,6 +3,6 @@ passedArgs = drop 1 getArgs
 
 case (head passedArgs):
 | Some x: (print "hello #{x}")
-| None: (print "nope");
+| None: (print "no args - can't say hello");
 
 1
