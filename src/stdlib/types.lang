@@ -16,12 +16,11 @@ implement Functor for Maybe:
 | fmap f (Some x) = Some (f x);
 
 implement Applicative for Maybe:
-| ap (Some f) m  = fmap f m
+| ap (Some f) m = fmap f m
 | ap _ _ = None
 | pure a = Some a;
 
-implement Monad for Maybe:
-| bind (Some a) k = k a
+implement Monad for Maybe: | bind (Some a) k = k a
 | bind None _ = None;
 
 implement Functor for Result:
@@ -68,3 +67,6 @@ implement Foldable for List:
 
 implement Foldable for String:
 | fold x init s = (HFI fold [x, init, (HFI toChars [s])]);
+
+// implement Foldable for Dictionary:
+// | fold x init s = (HFI fold [x, init, (HFI dictToList [s])]);

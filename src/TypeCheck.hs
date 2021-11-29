@@ -33,26 +33,34 @@ typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " +
 
 -- XXX: shouldn't be using env, as this can't statically typecheck? maybe typechecking creates its
 -- XXX: own env which has the same information for types
-typeMatches :: Env -> LangType -> LangType -> Bool
-typeMatches env (DataConstructorType dcons) (TypeConstructorType tcons _) = case inScope env dcons of
+concreteTypesMatch :: Env -> LangType -> LangType -> Bool
+concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) = case inScope env dcons of
   Just [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
   _ -> error $ "Got more than one definition for " ++ show dcons
-typeMatches _ AnyType _ = True
-typeMatches _ AtomType _ = True
-typeMatches _ _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
-typeMatches _ a b = a == b
-typeMatches _ _ _ = False
+concreteTypesMatch _ AnyType _ = True
+concreteTypesMatch _ (TraitVariableType {}) (FunctionType {}) = True -- NOTE: make sure functions match on arity and types
+concreteTypesMatch _ (FunctionType {}) (FunctionType {}) = True -- NOTE: make sure functions match on arity and types
+concreteTypesMatch _ _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
+concreteTypesMatch _ a b = a == b
+concreteTypesMatch _ a b = False
 
 expectedType :: Env -> TypeSig -> Int -> LangType
 expectedType env ts argsRemaining =
   case typeSigName ts of
-    Just name -> maybe AnyType typeAtPos (inTypes name)
+    Just name ->
+      if null $ typeSigIn ts
+        then maybe AnyType (`typeAtPos` argsRemaining) (typeFromEnv env name)
+        else typeAtPos ts argsRemaining
     Nothing -> AnyType -- not named, so for the time being not typed
   where
-    typeAtPos x =
-      let types = typeSigIn x
-       in types !! (length types - argsRemaining)
-    inTypes name = Map.lookup name (typeSigs env)
+
+typeFromEnv :: Env -> String -> Maybe TypeSig
+typeFromEnv env name = Map.lookup name (typeSigs env)
+
+typeAtPos :: TypeSig -> Int -> LangType
+typeAtPos ts argsRemaining =
+  let types = typeSigIn ts
+   in types !! (length types - argsRemaining)
 
 typeCheckMany :: [Expr] -> Either String Env
 typeCheckMany exprs = foldl fl (Right emptyEnv) exprs

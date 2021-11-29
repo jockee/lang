@@ -207,7 +207,6 @@ type ConstructorWithArgs = (String, [String])
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
   show (FunctionVal ts env remainingArgs _) = "<fun>"
-  -- show (FunctionVal ts env remainingArgs _) = "<fun \nTS: " ++ show ts ++ "\nArgs: " ++ intercalate ", " (map showWithTypes remainingArgs)
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
@@ -215,7 +214,7 @@ instance Show Val where
   show (FloatVal n) = show n
   show (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
   show (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
-  show (DictVal m) = "{" ++ joinCommaSep (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
+  show (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = n
   show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
   show (StringVal n) = show n
@@ -323,13 +322,14 @@ instance Arith Val where
 
 data TypeSig = TypeSig
   { typeSigName :: Maybe String,
-    typeSigTraitBinding :: Maybe String,
+    typeSigImplementationBinding :: Maybe String,
+    typeSigTraitBinding :: Maybe Trait,
     typeSigIn :: [LangType],
     typeSigReturn :: LangType
   }
   deriving (Show, Eq)
 
-anyTypeSig = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
+anyTypeSig = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
 
 data LangType
   = ListType LangType
@@ -340,10 +340,10 @@ data LangType
   | DictionaryType
   | DictKeyType
   | FunctionType [LangType] LangType
+  | TraitVariableType String LangType
   | DataConstructorType String
-  | TypeConstructorType Name LangType
+  | TypeConstructorType String LangType
   | UndefinedType
-  | AtomType
   | AnyType
   deriving (Show, Eq, Data, Typeable)
 
@@ -358,7 +358,6 @@ prettyLangType DictionaryType = "Dictionary"
 prettyLangType DictKeyType = "DictKey"
 prettyLangType (FunctionType lts lt) = "(" ++ joinCommaSep lts ++ ": " ++ prettyLangType lt ++ ")"
 prettyLangType UndefinedType = "Undefined"
-prettyLangType AtomType = "Atom"
 prettyLangType AnyType = "Any"
 prettyLangType x = show $ toConstr x
 
@@ -369,8 +368,10 @@ instance LangTypeable String where
   toLangType s = case s of
     "String" -> StringType
     "Integer" -> IntType
+    "List" -> ListType AnyType
     "Float" -> FloatType
     "Boolean" -> BooleanType
+    "Dictionary" -> DictionaryType
     _ -> AnyType
 
 instance LangTypeable Expr where
@@ -384,7 +385,7 @@ instance LangTypeable Expr where
     PString {} -> StringType
     PBool {} -> BooleanType
     PRange {} -> ListType AnyType
-    Atom {} -> AtomType
+    Atom {} -> AnyType
     PDictUpdate {} -> UndefinedType
     DictAccess {} -> UndefinedType
     PDictKey {} -> UndefinedType
@@ -403,11 +404,11 @@ instance LangTypeable Expr where
     s -> error (show s)
 
 instance LangTypeable Val where
+  toLangType (FunctionVal ts _ _ _) = FunctionType (typeSigIn ts) (typeSigReturn ts)
   toLangType val = case val of
     IntVal {} -> IntType
     FloatVal {} -> FloatType
     StringVal {} -> StringType
-    FunctionVal {} -> FunctionType [UndefinedType] UndefinedType
     BoolVal {} -> BooleanType
     DictVal {} -> DictionaryType
     DictKey {} -> DictKeyType

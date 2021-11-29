@@ -265,7 +265,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         it "evals works for one expression" $ \stdLibEnv ->
           evals [parseExpr "s x = x * 2", parseExpr "s 2"] `shouldBe` IntVal 4
 
-      describe "Dict" $ do
+      describe "Dictionary" $ do
         it "dict" $ \stdLibEnv ->
           eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [((DictKey "a"), (IntVal 1))])
 
@@ -407,13 +407,14 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             `shouldSatisfy` ( \case
                                 (_, env) ->
                                   Map.lookup "a" (typeSigs env)
-                                    == Just (TypeSig {typeSigName = Just "a", typeSigTraitBinding = Nothing, typeSigIn = [], typeSigReturn = IntType})
+                                    == Just (TypeSig {typeSigName = Just "a", typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = IntType})
                             )
 
         it "Called with wrong type" $ \stdLibEnv ->
           evaluate (evals (parseExprs "a # Integer: Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
         it "Called with wrong type second argument" $ \stdLibEnv ->
+          -- XXX: it's not decorating functions with their type defs on call?
           evaluate (evals (parseExprs "a # Integer, Integer: Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
         it "Correct types, two different" $ \stdLibEnv ->
@@ -574,18 +575,23 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
                   implement Foldable2 for String:
                   | fold2 x init s = (HFI fold [x, init, (HFI toChars [s])]);
+
+                  implement Foldable2 for Dictionary:
+                  | fold2 x init xs = (HFI fold [x, init, (HFI dictToList [xs])]);
                 |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
           val `shouldBe` IntVal 3
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
+          val `shouldBe` IntVal 2
 
         it "Uses the right function - non-last argument" $ \stdLibEnv -> do
           let baseExpr =
                 [iii|
                   trait Foldable2 f:
                   | fold2 \# (a, b: a), f b, a: a
-                  | length2 xs = fold2 (acc x: acc + 1) 0 xs;
+                  | length2 xs = fold2 (acc x: acc + 1) xs 0;
 
                   implement Foldable2 for List:
                   | fold2 x xs init = (HFI fold [x, init, xs]);
@@ -593,10 +599,27 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                   implement Foldable2 for String:
                   | fold2 x s init = (HFI fold [x, init, (HFI toChars [s])]);
                 |]
-          pendingWith "'pattern matches' trait arguments"
-          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
+          val `shouldBe` IntVal 3
+
+        it "Uses the right function - return value" $ \stdLibEnv -> do
+          let baseExpr =
+                [iii|
+                  trait Applicative2 f:
+                  | pure \# a: f a;
+
+                  implement Applicative2 for List:
+                  | pure x = [x]
+
+                  implement Applicative2 for Maybe:
+                  | pure x = Some x
+                |]
+          pendingWith "not a completed test"
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "pure 1")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "maybe ")
           val `shouldBe` IntVal 3
 
         it "uses trait functions if implements" $ \stdLibEnv -> do
@@ -623,7 +646,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                 |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs expr
           case Map.lookup "global:ap2" (envValues env) of
-            Just [FunctionVal ts _ _ _] -> ts `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigTraitBinding = Just "Maybe", typeSigIn = [], typeSigReturn = TypeConstructorType "Applicative2" (FunctionType [AnyType] AnyType)})
+            Just [FunctionVal ts _ _ _] -> ts `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
             _ -> expectationFailure "No"
 
       describe "JSON" $ do

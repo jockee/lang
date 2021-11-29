@@ -1,8 +1,6 @@
 # KEY
 
-  - TODO: if not in Foldable, it can't use Foldables functions
-  - WIP: use the correct definition of fold for foldables
-  - TODO: ListVal is `Foldable for _List_`. Ie, give [] the name List
+  - TODO: now that extend is not used for type checking, we can merge extending into common function
 
   ## USABILITY
   - TODO: sockets
@@ -53,7 +51,6 @@
 # NOTES
 
 -- NOTE: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
--- NOTE: remove AtomType - it's AnyType?
 -- NOTE: module braces syntax?
 
 -- COULD BE MOVED TO STDLIB

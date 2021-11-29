@@ -43,7 +43,7 @@ expr =
            <|> implementationDefinition
            <|> try lambda
            <|> try ternary
-           <|> try (function Nothing)
+           <|> try (function Nothing Nothing)
            <|> formula
            <|> noop
        )
@@ -295,16 +295,19 @@ typeDef :: [(String, String)] -> Parser Expr
 typeDef typeConstructors = do
   name <- identifier <* space
   string "#" *> space
-  bindings <- typeBinding typeConstructors
+  bindings <- typeBindings typeConstructors
   let (args, rtrn) = (init bindings, last bindings)
-  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigTraitBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
+  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
 
-typeBinding :: [(String, String)] -> Parser [LangType]
-typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType) `sepBy1` ((string ":" <|> string ",") <* hspace)
+typeBindings :: [(String, String)] -> Parser [LangType]
+typeBindings typeConstructors = typeBinding typeConstructors `sepBy1` ((string ":" <|> string ",") <* hspace)
+
+typeBinding :: [(String, String)] -> Parser LangType
+typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> typeVariable <|> concreteTypeConstructor <|> listType
   where
     funcType = do
       string "(" <* space
-      bindings <- typeBinding typeConstructors
+      bindings <- typeBindings typeConstructors
       space *> string ")"
       let (args, rtrn) = (init bindings, last bindings)
       return $ FunctionType args rtrn
@@ -318,7 +321,7 @@ typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typ
       args <- typeBinding typeConstructors
       let typeConstructor = first : rest
       case List.find (\x -> typeConstructor == fst x) typeConstructors of
-        Just (_, tCons) -> pure $ TypeConstructorType tCons $ head args
+        Just (_, tCons) -> pure $ TraitVariableType tCons args
         Nothing -> error ("Can't find type constructor variable binding for " ++ show typeConstructor)
     concreteTypeConstructor = do
       first <- upperChar
@@ -331,19 +334,19 @@ typeBinding typeConstructors = (funcType <|> try variableTypeConstructor <|> typ
         else pure $ TypeConstructorType (first : rest) arg
     listType = do
       string "[" <* space
-      bindings <- typeBinding typeConstructors
+      bindings <- typeBindings typeConstructors
       space *> string "]"
       let (tp : _) = bindings
       return $ ListType tp
 
-function :: Maybe TypeConstructor -> Parser Expr
-function traitBinding = do
+function :: Maybe TypeConstructor -> Maybe String -> Parser Expr
+function traitBinding implementationBinding = do
   terms <- term `sepBy1` hspace
   string "=" <* space
   let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
-  let funSig = TypeSig {typeSigName = Just nameStr, typeSigTraitBinding = traitBinding, typeSigIn = [], typeSigReturn = AnyType}
+  let funSig = TypeSig {typeSigName = Just nameStr, typeSigImplementationBinding = implementationBinding, typeSigTraitBinding = traitBinding, typeSigIn = replicate (length args) AnyType, typeSigReturn = AnyType}
   if null args
     then return $ Binop Assign name body
     else case name of
@@ -354,7 +357,7 @@ lambda :: Parser Expr
 lambda = do
   identifiers <- (variable <|> tuple) `sepBy` hspace
   string ":" <* notFollowedBy (string ":")
-  Lambda (sig [AnyType] AnyType) identifiers <$> expr
+  Lambda (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
 
 import' :: Parser Expr
 import' = do
@@ -393,7 +396,7 @@ traitDefinition = do
   let typeConstructors = [(head vars, name) | not (null vars)]
   space *> string ":" <* space
   space *> string "|" <* hspace
-  bindings <- (try (typeDef typeConstructors) <|> function (Just name)) `sepBy1` (space *> char '|' <* hspace)
+  bindings <- (try (typeDef typeConstructors) <|> function (Just name) Nothing) `sepBy1` (space *> char '|' <* hspace)
   let (types, funs) =
         List.partition
           ( \case
@@ -411,7 +414,7 @@ implementationDefinition = do
   typeConstructor <- identifier
   space *> string ":" <* space
   space *> string "|" <* hspace
-  functions <- function (Just typeConstructor) `sepBy1` many (space *> char '|' <* hspace)
+  functions <- function (Just trait) (Just typeConstructor) `sepBy1` many (space *> char '|' <* hspace)
   return $ PImplementation trait typeConstructor functions
 
 dataConstructor :: Parser Expr
@@ -499,4 +502,4 @@ escapedChars = do
   oneOf ['\\', '"']
 
 sig :: [LangType] -> LangType -> TypeSig
-sig inn out = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigIn = inn, typeSigReturn = out}
+sig inn out = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = inn, typeSigReturn = out}
