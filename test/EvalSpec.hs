@@ -213,7 +213,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "reject (x: x == 2) [1,2]")
         val `shouldBe` ListVal [IntVal 1]
 
-      it "list length" $ \stdLibEnv -> do
+      it "length" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "length [1,2]")
         val `shouldBe` IntVal 2
 
@@ -231,7 +231,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "toList" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "toList {a: 1, b: 2}")
-        val `shouldBe` ListVal [TupleVal [DictKey "a", IntVal 1], TupleVal [DictKey "b", IntVal 2]]
+        val `shouldBe` ListVal [TupleVal [StringVal "a", IntVal 1], TupleVal [StringVal "b", IntVal 2]]
 
       it "values" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "values {a: 1, b: 2}")
@@ -239,7 +239,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "keys" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "keys {a: 1, b: 2}")
-        val `shouldBe` ListVal [DictKey "a", DictKey "b"]
+        val `shouldBe` ListVal [StringVal "a", StringVal "b"]
 
       it "merge" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "merge {a: 1} {b: 2}")
@@ -338,7 +338,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
         it "nested functions can use the same variable name" $ \stdLibEnv -> do
           let (val, env) = evalsIn stdLibEnv $ parseExprs "filter' f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs; s x = filter' (a: a <= x) [1,2,3]; s 2"
-          pendingWith "scope"
           val `shouldBe` ListVal [IntVal 1, IntVal 2]
 
       describe "Tuple" $ do
@@ -399,8 +398,8 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         xit "Can't declare integer as string typedef" $ \stdLibEnv ->
           evaluate (evals (parseExprs "a # String; a = 1")) `shouldThrow` anyException
 
-        xit "Too many arguments in function definition" $ \stdLibEnv ->
-          evaluate (evals (parseExprs "a # Integer: Integer; a b c = b + c ")) `shouldThrow` anyException
+        it "Too many arguments in function definition" $ \stdLibEnv ->
+          evaluate (evals (parseExprs "a # Integer: Integer; a b c = b + c")) `shouldThrow` anyException
 
         it "Binding definition pushed to env" $ \stdLibEnv ->
           evalIn emptyEnv (parseExpr "a # Integer")

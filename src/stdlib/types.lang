@@ -68,5 +68,6 @@ implement Foldable for List:
 implement Foldable for String:
 | fold x init s = (HFI fold [x, init, (HFI toChars [s])]);
 
-// implement Foldable for Dictionary:
-// | fold x init s = (HFI fold [x, init, (HFI dictToList [s])]);
+implement Foldable for Dictionary:
+| fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
+| key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs;

@@ -215,7 +215,7 @@ instance Show Val where
   show (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
   show (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
   show (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (DictKey n) = n
+  show (DictKey n) = show n
   show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
   show (StringVal n) = show n
   show (BoolVal n)
@@ -345,8 +345,9 @@ data LangType
   | TypeConstructorType String LangType
   | UndefinedType
   | AnyType
-  deriving (Show, Eq, Data, Typeable)
+  deriving (Show, Eq, Data)
 
+prettyLangType :: LangType -> String
 prettyLangType (TypeConstructorType name _) = name
 prettyLangType (DataConstructorType dtype) = dtype
 prettyLangType FloatType = "Float"

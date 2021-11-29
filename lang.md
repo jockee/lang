@@ -1,5 +1,6 @@
 # KEY
 
+  - TODO: it "nested functions can use the same variable name"
   - TODO: now that extend is not used for type checking, we can merge extending into common function
 
   ## USABILITY
@@ -12,7 +13,6 @@
     * fix `either`
 
   - TODO: Type classes/traits:
-    * `length` for strings, dict, tuple, list (Foldable)
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
 
@@ -30,10 +30,6 @@
     - TODO: handle functions as input types
     - TODO: check return type on return - after `evalIn`
     - TODO: parse nested type definition
-    - TODO: achieve polymorphism through type classes:
-      * optional type system. a full type system is too much work?
-      * each Val should perhaps carry a struct/record specifying its type, along with other things of value
-      * https://rosettacode.org/wiki/Type_detection#Kotlin
 
 # MID
 

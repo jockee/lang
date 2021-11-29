@@ -41,8 +41,8 @@ evalIn env (PDataConstructor name exprArgs) =
         Just [DataConstructorDefinitionVal dtype argVals] ->
           if length exprArgs > length argVals
             then error $ "Too many arguments to value constructor " ++ show name
-            else case List.find (\(_i, ex, val) -> not $ concreteTypesMatch env (toLangType ex) (toLangType val)) (zip3 [1 ..] exprArgs argVals) of
-              Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType ex) ++ ", got: " ++ show (toLangType val) ++ " in position " ++ show (i + 1)
+            else case List.find (\(_i, val, ex) -> not $ concreteTypesMatch env (toLangType val) (toLangType ex)) (zip3 [1 ..] argVals exprArgs) of
+              Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType val) ++ ", got: " ++ show (toLangType ex) ++ " in position " ++ show (i + 1)
               Nothing -> (DataVal dtype name evaledArgs, env)
         Nothing -> error $ "No such constructor found: " ++ show name
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
@@ -50,9 +50,7 @@ evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
       findFun (pred, predDo) = matchingDefinition env condVal (FunctionVal ts env [pred] predDo)
    in case List.find findFun cases of
-        Just (pred, predDo) -> case pred of
-          (Atom _ts atomId) -> let env' = extend env atomId cond in evalIn env' predDo
-          argExpr -> let env' = extendNonAtom env argExpr cond in evalIn env' predDo
+        Just (pred, predDo) -> evalIn (extend env pred cond) predDo
 evalIn env (Lambda ts args e) =
   (FunctionVal ts env args e, env)
 evalIn env (HFI f args) = hfiFun env f args
@@ -114,13 +112,15 @@ evalIn env (Binop Cons e1 e2) =
   let (v1, _) = evalIn env e1
    in case fst $ evalIn env e2 of
         ListVal xs -> (ListVal (v1 : xs), env)
-evalIn env (Binop Assign (Atom _ts funName) (Lambda ts args e)) =
+evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
       value = fst $ evalIn env (Lambda ts' args e)
-      env' = extend env funName value
-   in (value, env')
-evalIn env (Binop Assign (Atom _ts a) v) =
-  let env' = extend env a v
+      env' = extend env atom value
+   in if length args /= length (typeSigIn ts')
+        then error $ "Function definition argument count differs from typesig argument count for function " ++ show funName
+        else (value, env')
+evalIn env (Binop Assign expr v) =
+  let env' = extend env expr v
       (value, _) = evalIn env v
    in (value, env')
 evalIn env (Unaryop Not e) =
@@ -146,25 +146,23 @@ extendWithDataDefinition :: Env -> String -> [ConstructorWithArgs] -> Env
 extendWithDataDefinition env typeCons = foldl foldFun env
   where
     foldFun :: Env -> ConstructorWithArgs -> Env
-    foldFun accEnv (vc, args) = extend accEnv vc (DataConstructorDefinitionVal typeCons args)
+    foldFun accEnv (vc, args) = extend accEnv (Atom anyTypeSig vc) (DataConstructorDefinitionVal typeCons args)
 
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
-  let foldFun accEnv (binding, val) = case binding of
-        Atom _ts atomId -> extend accEnv atomId val
-        argExpr -> extendNonAtom accEnv argExpr val
+  let foldFun accEnv (binding, val) = extend accEnv binding val
    in foldl foldFun env (zip bindings vs)
 
 extendWithTrait :: Env -> String -> [Expr] -> Env
-extendWithTrait env name defs = extend env name $ TraitVal name defs
+extendWithTrait env name defs = extend env (Atom anyTypeSig name) $ TraitVal name defs
 
 extendWithImplementation :: Env -> Trait -> [Expr] -> Env
 extendWithImplementation env trait = foldl foldFun env
   where
     foldFun accEnv def = case def of
-      (Binop Assign (Atom _ts funName) (Lambda ts args e)) ->
+      (Binop Assign atom@(Atom _ts funName) (Lambda ts args e)) ->
         let newTS = updateTS ts funName
-         in extend accEnv funName (Lambda newTS args e)
+         in extend accEnv atom (Lambda newTS args e)
     updateTS oldTS funName =
       (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
@@ -182,8 +180,8 @@ extendWithDict env exprPairs valMap = foldl foldFun env exprPairs
   where
     foldFun :: Env -> (Expr, Expr) -> Env
     foldFun accEnv expr = case expr of
-      (PDictKey a, Atom _ts atomId) -> case Map.lookup (DictKey a) valMap of
-        Just val -> extend accEnv atomId val
+      (PDictKey a, atom@(Atom _ts atomId)) -> case Map.lookup (DictKey a) valMap of
+        Just val -> extend accEnv atom val
         Nothing -> error "Dictionary doesn't contain key"
       (PDictKey a, expr) ->
         let evaledExpr = fst $ evalIn accEnv expr
@@ -200,16 +198,17 @@ extendWithConsList env bindings vs
         linit = zip (take (length bindings - 1) bindings) vs
      in foldFun llast (foldr foldFun env linit)
   where
-    foldFun (binding, val) accEnv = extend accEnv binding val
+    foldFun (binding, val) accEnv = extend accEnv (Atom anyTypeSig binding) val
 
 extendWithDataConstructor :: Env -> [Expr] -> [Val] -> Env
 extendWithDataConstructor env exprs vals = foldl foldFun env (zip exprs vals)
   where
     foldFun :: Env -> (Expr, Val) -> Env
-    foldFun accEnv (Atom _ts atomId, val) = extend accEnv atomId val
+    foldFun accEnv (expr, val) = extend accEnv expr val
 
-extendNonAtom :: Evaluatable e => Env -> Expr -> e -> Env
-extendNonAtom env argExpr expr = case argExpr of
+extend :: Evaluatable e => Env -> Expr -> e -> Env
+extend env argExpr expr = case argExpr of
+  (Atom _ id) -> extendAtom env id expr
   (PDataConstructor _consName exprs) -> case val of
     (DataVal _dtype _name vals) -> extendWithDataConstructor env exprs vals
     s -> error $ "Non-value-cons value received for value cons destructuring" ++ show s
@@ -226,9 +225,9 @@ extendNonAtom env argExpr expr = case argExpr of
   where
     val = fst $ evalIn env $ toExpr expr
 
-extend :: Evaluatable e => Env -> Id -> e -> Env
-extend env "_" _ = env
-extend env id ex = env {envValues = Map.insertWith insertFun key [val] (envValues env)}
+extendAtom :: Evaluatable e => Env -> Id -> e -> Env
+extendAtom env "_" _ = env
+extendAtom env id ex = env {envValues = Map.insertWith insertFun key [val] (envValues env)}
   where
     insertFun = if id == "@" then const else flip (++)
     val = fst $ evalIn env $ toExpr ex
@@ -249,7 +248,7 @@ hfiFun env f argsList = case evaledArgsList of
        in ListVal $ zipWith zipFun xs ys
     fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . (: [])) s
     fun "dictToList" (dict : _) = case dict of
-      (DictVal d) -> ListVal $ map (\(k, v) -> TupleVal [k, v]) (Map.toList d)
+      (DictVal d) -> ListVal $ map (\(DictKey k, v) -> TupleVal [StringVal k, v]) (Map.toList d)
     fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' path
     fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
@@ -340,10 +339,7 @@ patternMatch _ _ = True
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let (arg : remainingArgs') = argsList
-      newEnv =
-        case arg of
-          (Atom _ts atomId) -> extend env atomId expr
-          argExpr -> extendNonAtom env argExpr expr
+      newEnv = extend env arg expr
    in if null remainingArgs'
         then evalIn newEnv $ toExpr funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)

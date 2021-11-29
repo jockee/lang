@@ -34,15 +34,16 @@ typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " +
 -- XXX: shouldn't be using env, as this can't statically typecheck? maybe typechecking creates its
 -- XXX: own env which has the same information for types
 concreteTypesMatch :: Env -> LangType -> LangType -> Bool
-concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) = case inScope env dcons of
-  Just [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
-  _ -> error $ "Got more than one definition for " ++ show dcons
+concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) =
+  case inScope env dcons of
+    Just [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
+    _ -> error $ "Got more than one definition for " ++ show dcons
+concreteTypesMatch env (FunctionType expInArgs expRtrn) (FunctionType gotInArgs gotRtrn) =
+  all (uncurry (concreteTypesMatch env)) (zip expInArgs gotInArgs)
+    && length expInArgs == length gotInArgs
+    && concreteTypesMatch env expRtrn gotRtrn
 concreteTypesMatch _ AnyType _ = True
-concreteTypesMatch _ (TraitVariableType {}) (FunctionType {}) = True -- NOTE: make sure functions match on arity and types
-concreteTypesMatch _ (FunctionType {}) (FunctionType {}) = True -- NOTE: make sure functions match on arity and types
-concreteTypesMatch _ _ AnyType = True -- XXX: in reality the value-side giving an AnyType should probably be an exception
 concreteTypesMatch _ a b = a == b
-concreteTypesMatch _ a b = False
 
 expectedType :: Env -> TypeSig -> Int -> LangType
 expectedType env ts argsRemaining =
