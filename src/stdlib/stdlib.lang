@@ -12,14 +12,14 @@ empty? "" = true
 empty? s = false
 head [] = None
 head (x::_) = Some x
-sort xs = (HFI sort xs) // NOTE: implement without internal?
 zipWith f xs ys = (HFI zipWith [f, xs, ys])
 zip xs ys = zipWith (x y: (x, y)) xs ys
 toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 
-sortt [] = []
-sortt (x::xs) = let smaller = (filter (a: a <= x) xs), larger = (filter (a: a > x) xs): (sortt
-smaller) ++ [x] ++ (sortt larger)
+sort [] = []
+sort (y::xs) = let smaller = (filter (a: a <= y) xs),
+                    larger = (filter (a: a > y) xs):
+                  sort smaller ++ [y] ++ sort larger
 
 // DICTIONARIES
 toList xs = (HFI dictToList [xs])

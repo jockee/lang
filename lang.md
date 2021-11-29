@@ -2,7 +2,7 @@
 
   - TODO: if not in Foldable, it can't use Foldables functions
   - WIP: use the correct definition of fold for foldables
-  - TODO: ListVal is `Foldable for _List_`
+  - TODO: ListVal is `Foldable for _List_`. Ie, give [] the name List
 
   ## USABILITY
   - TODO: sockets
@@ -10,7 +10,6 @@
   ## PARSING
   - TODO: too much needs to be wrapped in parens
     * `| Some x: (print "hello #{x}") ` can't be `| Some x: print "hello #{x}"`
-  - TODO: parse file doesn't handle end of file well. can't currently end on semicolon
   - TODO: remove the need for semicolons
     * fix `either`
 
@@ -49,6 +48,7 @@
     | x > 1 = true
   - TODO: `filter` if-then-else without parens around predicate
   - TODO: replace string with T.Text?
+  - TODO: indentation or braces instead of pipe?
 
 # NOTES
 

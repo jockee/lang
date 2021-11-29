@@ -217,6 +217,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "length [1,2]")
         val `shouldBe` IntVal 2
 
+      it "sort" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "sort [3,1,2]")
+        val `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+
       it "take" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "take 3 [1,2,3,4,5]")
         val `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
@@ -332,6 +336,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         it "cons" $ \stdLibEnv ->
           evals (parseExprs "1 :: []") `shouldBe` ListVal [IntVal 1]
 
+        it "nested functions can use the same variable name" $ \stdLibEnv -> do
+          let (val, env) = evalsIn stdLibEnv $ parseExprs "filter' f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs; s x = filter' (a: a <= x) [1,2,3]; s 2"
+          pendingWith "scope"
+          val `shouldBe` ListVal [IntVal 1, IntVal 2]
+
       describe "Tuple" $ do
         it "destructuring tuple returns itself" $ \stdLibEnv ->
           eval (parseExpr "( a, b ) = ( 1, 2 )") `shouldBe` (TupleVal [IntVal 1, IntVal 2])
@@ -380,9 +389,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           evals (parseExprs "a = 3; (1..a)") `shouldBe` (ListVal [IntVal 1, IntVal 2, IntVal 3])
 
       describe "Internal functions" $ do
-        it "sort" $ \stdLibEnv ->
-          eval (parseExpr "(HFI sort [3, 2])") `shouldBe` ListVal [IntVal 2, IntVal 3]
-
         it "zipWith" $ \stdLibEnv ->
           eval (parseExpr "(HFI zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` ListVal [ListVal [IntVal 1, IntVal 3], ListVal [IntVal 2, IntVal 2]]
 
@@ -556,21 +562,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable: | xmap # (a: b), a: b; implement Mappable for Maybe: | xmap _ None = None | xmap f (Some x) = f x")
           length (sequenceA $ Map.lookup "global:xmap" (envValues env)) `shouldBe` 2
 
-        -- XXX: don't think this tests more than pattern match
-        -- it "Uses the right function" $ \stdLibEnv -> do
-        --   let expr =
-        --         [iii|
-        --           trait Applicative2 f:
-        --           | ap2 \# f (a: b), f a: f b;
-        --           implement Applicative2 for Maybe:
-        --           | ap2 _ _ = None;
-        --           implement Applicative2 for Result:
-        --           | ap2 _ (Err a) = Err a;
-        --           ap (Ok (x: x*2)) (Err 1)
-        --         |]
-        --   let (val, env) = evalsIn stdLibEnv $ parseExprs expr
-        --   val `shouldBe` DataVal "Result" "Err" [IntVal 1]
-
         it "Uses the right function - last argument" $ \stdLibEnv -> do
           let baseExpr =
                 [iii|
@@ -602,6 +593,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                   implement Foldable2 for String:
                   | fold2 x s init = (HFI fold [x, init, (HFI toChars [s])]);
                 |]
+          pendingWith "'pattern matches' trait arguments"
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")

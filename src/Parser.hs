@@ -266,7 +266,7 @@ letBinding :: Parser Expr
 letBinding = do
   string "let" <* space
   pairs <- pair `sepBy1` many (spaceChar <|> char ',')
-  space *> string ":"
+  space *> string ":" <* space
   body <- expr
   return $ foldr foldFun body pairs
   where
@@ -467,10 +467,9 @@ parseExprs s = case parseExprs' "unknown" s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr <|> noop) `endBy` many (notPrecededByInfix <|> notFollowedByInfix <|> char ';')
+manyExpressions = (parseModule <|> expr <|> noop) `endBy` many (newlineWithoutAdjacentInfixOp <|> char ';')
   where
-    notPrecededByInfix = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline
-    notFollowedByInfix = newline <* notFollowedBy (space *> oneOf doesntLineBreak)
+    newlineWithoutAdjacentInfixOp = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' source = parse (manyExpressions <* eof) source

@@ -67,4 +67,4 @@ implement Foldable for List:
 | fold x init xs = (HFI fold [x, init, xs]);
 
 implement Foldable for String:
-| fold x init s = (HFI fold [x, init, (HFI toChars [s])])
+| fold x init s = (HFI fold [x, init, (HFI toChars [s])]);
