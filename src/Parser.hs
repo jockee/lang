@@ -38,9 +38,9 @@ expr =
            <|> try (typeDef [])
            <|> letBinding
            <|> parseCase
-           <|> traitDefinition
+           <|> trait
            <|> dataDefinition
-           <|> implementationDefinition
+           <|> implementation
            <|> try lambda
            <|> try ternary
            <|> try (function Nothing Nothing)
@@ -162,7 +162,7 @@ dictContents = do
 consList :: Parser Expr
 consList = do
   char '(' <* space
-  listContents <- identifier `sepBy2` (space *> string "::" <* space)
+  listContents <- identifier `sepBy2` (hspace *> string "::" <* hspace)
   space *> char ')'
   return $ ConsList listContents
 
@@ -245,16 +245,16 @@ parseModule = do
   rest <- many (letterChar <|> digitChar)
   space *> string "{"
   contents <- manyExpressions
-  string "}"
+  space *> string "}"
   return (Module (first : rest) contents)
 
 parseCase :: Parser Expr
 parseCase = do
   string "case" <* space
   predicate <- expr
-  space *> string ":" <* space
-  space *> string "|" <* space
-  cases <- singleCase `sepBy1` (space *> char '|' <* hspace)
+  hspace *> string "{" <* space
+  cases <- singleCase `endBy1` (expressionSep <* space)
+  space *> string "}"
   return $ PCase (sig [AnyType] AnyType) predicate cases
   where
     singleCase = do
@@ -317,7 +317,7 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
       pure $ toLangType (first : rest)
     variableTypeConstructor = do
       first <- lowerChar
-      rest <- many (letterChar <|> digitChar) <* space
+      rest <- many (letterChar <|> digitChar) <* hspace
       args <- typeBinding typeConstructors
       let typeConstructor = first : rest
       case List.find (\x -> typeConstructor == fst x) typeConstructors of
@@ -325,7 +325,7 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
         Nothing -> error ("Can't find type constructor variable binding for " ++ show typeConstructor)
     concreteTypeConstructor = do
       first <- upperChar
-      rest <- many (letterChar <|> digitChar) <* space
+      rest <- many (letterChar <|> digitChar) <* hspace
       arg <- option AnyType typeVariable
       let dataConstructor = first : rest
       let existingType = toLangType dataConstructor
@@ -361,9 +361,8 @@ lambda = do
 
 import' :: Parser Expr
 import' = do
-  string "import" <* space
-  filePath <- parseInterpolatedString
-  return $ PImport filePath
+  string "import" <* hspace
+  PImport <$> parseInterpolatedString
 
 ifelse :: Parser Expr
 ifelse = do
@@ -388,15 +387,15 @@ dataDefinition = do
       valueArgs <- many identifier
       return (valueCons, valueArgs)
 
-traitDefinition :: Parser Expr
-traitDefinition = do
-  string "trait" <* space
-  name <- identifier <* space
+trait :: Parser Expr
+trait = do
+  string "trait" <* hspace
+  name <- identifier <* hspace
   vars <- many identifier
   let typeConstructors = [(head vars, name) | not (null vars)]
-  space *> string ":" <* space
-  space *> string "|" <* hspace
-  bindings <- (try (typeDef typeConstructors) <|> function (Just name) Nothing) `sepBy1` (space *> char '|' <* hspace)
+  hspace *> string "{" <* space
+  bindings <- (try (typeDef typeConstructors) <|> function (Just name) Nothing) `endBy1` (expressionSep <* space)
+  space *> string "}"
   let (types, funs) =
         List.partition
           ( \case
@@ -406,15 +405,15 @@ traitDefinition = do
           bindings
   return $ PTrait name types funs
 
-implementationDefinition :: Parser Expr
-implementationDefinition = do
-  string "implement" <* space
+implementation :: Parser Expr
+implementation = do
+  string "implement" <* hspace
   trait <- identifier
-  space *> string "for" <* space
+  hspace *> string "for" <* hspace
   typeConstructor <- identifier
-  space *> string ":" <* space
-  space *> string "|" <* hspace
-  functions <- function (Just trait) (Just typeConstructor) `sepBy1` many (space *> char '|' <* hspace)
+  hspace *> string "{" <* space
+  functions <- try (function (Just trait) (Just typeConstructor)) `endBy1` (expressionSep <* space)
+  space *> string "}"
   return $ PImplementation trait typeConstructor functions
 
 dataConstructor :: Parser Expr
@@ -470,12 +469,15 @@ parseExprs s = case parseExprs' "unknown" s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr <|> noop) `endBy` many (newlineWithoutAdjacentInfixOp <|> char ';')
+manyExpressions = (parseModule <|> expr <|> noop) `endBy1` expressionSep
+
+expressionSep :: Parser String
+expressionSep = many (newlineWithoutAdjacentInfixOp <|> char ';')
   where
     newlineWithoutAdjacentInfixOp = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline <* notFollowedBy (space *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
-parseExprs' source = parse (manyExpressions <* eof) source
+parseExprs' = parse (manyExpressions <* eof)
 
 parseInterpolatedString :: Parser Expr
 parseInterpolatedString = do

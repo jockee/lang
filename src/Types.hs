@@ -209,7 +209,7 @@ instance Show Val where
   show (FunctionVal ts env remainingArgs _) = "<fun>"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
-  show (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
+  show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
   show (IntVal n) = show n
   show (FloatVal n) = show n
   show (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
@@ -222,6 +222,25 @@ instance Show Val where
     | n = "true"
     | otherwise = "false"
   show Undefined = "Undefined"
+
+prettyVal :: Val -> String
+prettyVal (ModuleVal name) = "<module " ++ show name ++ ">"
+prettyVal (FunctionVal ts env remainingArgs _) = "<fun>"
+prettyVal (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
+prettyVal (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
+prettyVal (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
+prettyVal (IntVal n) = show n
+prettyVal (FloatVal n) = show n
+prettyVal (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
+prettyVal (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
+prettyVal (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> prettyVal k ++ ": " ++ prettyVal v) (Map.toList m)) ++ "}"
+prettyVal (DictKey n) = n
+prettyVal (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
+prettyVal (StringVal n) = n
+prettyVal (BoolVal n)
+  | n = "true"
+  | otherwise = "false"
+prettyVal Undefined = "Undefined"
 
 class Num a => Arith a where
   cmpOp :: String -> (a -> a -> Val)

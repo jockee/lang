@@ -1,6 +1,6 @@
 module ParserSpec where
 
-import Data.String.Interpolate (i, iii)
+import Data.String.Interpolate (i)
 import Parser
 import Test.Hspec
 import Types
@@ -264,24 +264,24 @@ spec = describe "Parser" $ do
 
   describe "Case expression" $ do
     it "two boolean cases" $
-      s (parseExpr "case true: | true: 1 | false: 0") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 0)])
+      s (parseExpr "case true { true: 1; false: 0}") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 0)])
 
     it "handles more difficult expressions" $
-      s (parseExpr "case (Some 1): \n| (Some x): 1 \n| None: 0") `shouldBe` s (PCase anyTypeSig (PDataConstructor "Some" [PInteger 1]) [(PDataConstructor "Some" [Atom anyTypeSig "x"], PInteger 1), (PDataConstructor "None" [], PInteger 0)])
+      s (parseExpr "case (Some 1) { \n (Some x): 1 \n None: 0 }") `shouldBe` s (PCase anyTypeSig (PDataConstructor "Some" [PInteger 1]) [(PDataConstructor "Some" [Atom anyTypeSig "x"], PInteger 1), (PDataConstructor "None" [], PInteger 0)])
 
   describe "Trait" $ do
     it "can create trait" $
-      s (parseExpr "trait Mappable: | map # (a: b): a: b") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})] [])
+      s (parseExpr "trait Mappable { map # (a: b): a: b }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})] [])
 
     it "function definition in trait" $
-      s (parseExpr "trait Mappable: | bap # (a: b): a: b | bap f xs = 1") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
+      s (parseExpr "trait Mappable { bap # (a: b): a: b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f: | fmap # (a: b), f a: f b") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType}))] [])
+      s (parseExpr "trait Functor f { fmap # (a: b), f a: f b }") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType}))] [])
 
   describe "Implementation" $ do
     it "can create implementation" $
-      s (parseExpr "implement Mappable for Maybe: | map f a = None") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", Atom anyTypeSig "a"] (PDataConstructor "None" []))])
+      s (parseExpr "implement Mappable for Maybe { map f a = None }") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", Atom anyTypeSig "a"] (PDataConstructor "None" []))])
 
     it "can create implementation with multiple definitions" $
-      s (parseExpr "implement Mappable for Maybe: | map _ None = None | map f (Some x) = f x") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "_", PDataConstructor "None" []] (PDataConstructor "None" [])), Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", PDataConstructor "Some" [Atom anyTypeSig "x"]] (App (Atom anyTypeSig "f") (Atom anyTypeSig "x")))])
+      s (parseExpr "implement Mappable for Maybe {map _ None = None \n map f (Some x) = f x}") `shouldBe` s (PImplementation "Mappable" "Maybe" [Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "_", PDataConstructor "None" []] (PDataConstructor "None" [])), Binop Assign (Atom anyTypeSig "map") (Lambda anyTypeSig [Atom anyTypeSig "f", PDataConstructor "Some" [Atom anyTypeSig "x"]] (App (Atom anyTypeSig "f") (Atom anyTypeSig "x")))])

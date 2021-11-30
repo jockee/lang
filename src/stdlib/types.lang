@@ -1,73 +1,85 @@
 data Maybe = Some a | None
 data Result = Ok a | Err b
 
-trait Functor f:
-| fmap # (a: b), f a: f b;
+trait Functor f {
+  fmap # (a: b), f a: f b
+}
 
-trait Applicative f:
-| ap # f (a: b), f a: f b
-| pure # a: f a;
+trait Applicative f {
+  ap # f (a: b), f a: f b
+  pure # a: f a
+}
 
-trait Monad m:
-| bind # m a, (a: m b): m b;
+trait Monad m {
+  bind # m a, (a: m b): m b
+}
 
-implement Functor for Maybe:
-| fmap _ None = None
-| fmap f (Some x) = Some (f x);
+implement Functor for Maybe {
+  fmap _ None = None
+  fmap f (Some x) = Some (f x)
+}
 
-implement Applicative for Maybe:
-| ap (Some f) m = fmap f m
-| ap _ _ = None
-| pure a = Some a;
+implement Applicative for Maybe {
+  ap (Some f) m = fmap f m
+  ap _ _ = None
+  pure a = Some a
+}
 
-implement Monad for Maybe: | bind (Some a) k = k a
-| bind None _ = None;
+implement Monad for Maybe {
+  bind (Some a) k = k a
+  bind None _ = None
+}
 
-implement Functor for Result:
-| fmap f (Ok a) = Ok (f a)
-| fmap _ (Err b) = Err b;
+implement Functor for Result {
+  fmap f (Ok a) = Ok (f a)
+  fmap _ (Err b) = Err b
+}
 
-implement Applicative for Result:
-| ap (Ok f) a = fmap f a
-| ap _ (Err b) = Err b
-| pure a = Ok a;
+implement Applicative for Result {
+  ap (Ok f) a = fmap f a
+  ap _ (Err b) = Err b
+  pure a = Ok a
+}
 
-implement Monad for Result:
-| bind (Ok a) k = k a
-| bind _ (Err b) = Err b;
+implement Monad for Result {
+  bind (Ok a) k = k a
+  bind _ (Err b) = Err b
+}
 
-trait Num n:
-| odd? # a, a: a;
+trait Num n {
+  odd? # a, a: a
+}
 
-// implement Num for Integer:
-// | odd? a b = (HFI mod [a, b]) == 0
+trait Foldable f {
+  fold # (a, b: a), a, f b: a
+  length xs = fold (acc x: acc + 1) 0 xs
+  sum xs = fold (acc n: n + acc) 0 xs
+  map k xs = fold (acc x: (acc ++ [k x])) [] xs
+  filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
+  reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
+  product xs = fold (acc n: n * acc) 1 xs
+  includes? x xs = fold (acc p: (p == x) ? true : false) false xs
+  unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
+  last xs = reverse xs |> head
+  find f xs = filter f xs |> head
+  reverse xs = fold (acc x: x :: acc) [] xs
+  max xs = sort xs |> reverse |> head
+  min xs = sort xs |> head
+  all? f xs = length (filter f xs) == length xs
+  any? f xs = length (filter f xs) > 0
+  take n xs = fold (acc (x, i): (i < n) ? (acc ++ [x]) : acc) [] (zip xs (0 .. (length xs)))
+  drop n xs = reverse xs |> take ((length xs) - n) |> reverse
+}
 
-trait Foldable f:
-| fold # (a, b: a), a, f b: a
-| length xs = fold (acc x: acc + 1) 0 xs
-| sum xs = fold (acc n: n + acc) 0 xs
-| map k xs = fold (acc x: (acc ++ [k x])) [] xs
-| filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
-| reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
-| product xs = fold (acc n: n * acc) 1 xs
-| includes? x xs = fold (acc p: (p == x) ? true : false) false xs
-| unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
-| last xs = reverse xs |> head
-| find f xs = filter f xs |> head
-| reverse xs = fold (acc x: x :: acc) [] xs
-| max xs = sort xs |> reverse |> head
-| min xs = sort xs |> head
-| all? f xs = length (filter f xs) == length xs
-| any? f xs = length (filter f xs) > 0
-| take n xs = fold (acc (x, i): (i < n) ? (acc ++ [x]) : acc) [] (zip xs (0 .. (length xs)))
-| drop n xs = reverse xs |> take ((length xs) - n) |> reverse;
+implement Foldable for List {
+  fold x init xs = (HFI fold [x, init, xs])
+}
 
-implement Foldable for List:
-| fold x init xs = (HFI fold [x, init, xs]);
+implement Foldable for String {
+  fold x init s = (HFI fold [x, init, (HFI toChars [s])])
+}
 
-implement Foldable for String:
-| fold x init s = (HFI fold [x, init, (HFI toChars [s])]);
-
-implement Foldable for Dictionary:
-| fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
-| key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs;
+implement Foldable for Dictionary {
+  fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
+  key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
+}

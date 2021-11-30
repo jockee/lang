@@ -30,7 +30,10 @@ merge d1 d2 = { d1 | d2 }
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 
-either ef of e = case e: | (Err x): Err (ef x) | (Ok x): Ok (of x);
+either ef of e = case e {
+  (Err x): Err (ef x)
+  (Ok x): Ok (of x)
+}
 
 at # Integer, [a]: Maybe a
 at i xs =
@@ -42,7 +45,7 @@ even? n = n % 2 == 0
 odd? n = !(odd? n)
 
 // FILES
-readFile p = (HFI readFile [p])
-writeFile path body = (HFI writeFile [path, body])
-
-  // required comment :-)
+module File {
+  readFile p = (HFI readFile [p])
+  writeFile path body = (HFI writeFile [path, body])
+}
