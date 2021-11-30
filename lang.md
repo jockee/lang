@@ -1,5 +1,8 @@
 # KEY
 
+  - TODO: inScope needs to verify that it exists in module
+  - TODO: extend needs to
+  - TODO: remove requirement for Dict.toList from within that module
   - TODO: it "nested functions can use the same variable name"
 
   ## USABILITY
@@ -12,8 +15,6 @@
   - TODO: Type classes/traits:
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
-
-  - TODO: modules/namespacing.
 
   - TODO: PATTERN MATCHING
     - TODO: dict partial - spread operator

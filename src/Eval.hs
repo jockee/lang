@@ -14,6 +14,7 @@ import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Parser (parseExprs)
+import Safe
 import System.Environment
 import System.IO.Extra (readFile')
 import System.IO.Unsafe
@@ -23,6 +24,7 @@ import Util
 
 evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (Evaluated val) = (val, env)
+evalIn env (PatternExpr modVals) = (Pattern modVals, env)
 evalIn env (PImport stringExpr) = case fst $ evalIn env stringExpr of
   (StringVal filePath) ->
     let contents = unsafePerformIO $ readFile' (envLangPath env ++ filePath)
@@ -33,18 +35,20 @@ evalIn env (PTrait name types funs) =
     snd $ evalsIn (extendWithTrait env name types) funs
   )
 evalIn env (PImplementation trait _for defs) = (Undefined, extendWithImplementation env trait defs)
-evalIn env (Module name e) = evalsIn (moduleToEnv env name) e
+evalIn env (Module name ex) =
+  let (val, env') = evalsIn (moduleToEnv env name) ex
+   in (val, env' {inModule = inModule env})
 evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefinition env name constructors)
 evalIn env (PDataConstructor name exprArgs) =
   let evaledArgs = map (fst . evalIn env) exprArgs
    in case inScope env name of
-        Just [DataConstructorDefinitionVal dtype argVals] ->
+        [(_modules, DataConstructorDefinitionVal dtype argVals)] ->
           if length exprArgs > length argVals
             then error $ "Too many arguments to value constructor " ++ show name
             else case List.find (\(_i, val, ex) -> not $ concreteTypesMatch env (toLangType val) (toLangType ex)) (zip3 [1 ..] argVals exprArgs) of
               Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType val) ++ ", got: " ++ show (toLangType ex) ++ " in position " ++ show (i + 1)
               Nothing -> (DataVal dtype name evaledArgs, env)
-        Nothing -> error $ "No such constructor found: " ++ show name
+        [] -> error $ "No such constructor found: " ++ show name
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
 evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
@@ -56,11 +60,11 @@ evalIn env (Lambda ts args e) =
 evalIn env (HFI f args) = hfiFun env f args
 evalIn env (App e1 e2) = apply (setScope env) e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
-  Just [definition] -> (definition, env)
-  Just definitions -> case last definitions of
-    FunctionVal {} -> (Pattern definitions, env)
-    lastDef -> (lastDef, env)
-  Nothing -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
+  [(modules, definition)] -> (definition, env {inModule = modules})
+  [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
+  definitions -> case last definitions of
+    (_modules, FunctionVal {}) -> (Pattern definitions, env)
+    (modules, lastDef) -> (lastDef, env {inModule = modules})
 evalIn env (PInterpolatedString parts) =
   let fn x = case fst $ evalIn env x of
         StringVal s -> s
@@ -166,7 +170,7 @@ extendWithImplementation env trait = foldl foldFun env
     updateTS oldTS funName =
       (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
-      Just [TraitVal _ defs] -> case List.find (findDef funName) defs of
+      [(_modules, TraitVal _ defs)] -> case List.find (findDef funName) defs of
         Just (PTypeSig ts) -> ts
         _ -> anyTypeSig
       _ -> error $ "Got more than one trait definition for " ++ show trait
@@ -220,18 +224,22 @@ extend env argExpr expr = case argExpr of
     _ -> error "Non-list value received for list destructuring"
   (PTuple _ts bindings) -> case val of
     (TupleVal vals) -> extendWithTuple env bindings vals
-    _ -> error "Non-tuple value received for tuple destructuring"
+    s -> error $ "Non-tuple value " ++ show s ++ " received for tuple destructuring"
   _ -> env
   where
     val = fst $ evalIn env $ toExpr expr
 
 extendAtom :: Evaluatable e => Env -> Id -> e -> Env
 extendAtom env "_" _ = env
-extendAtom env id ex = env {envValues = Map.insertWith insertFun key [val] (envValues env)}
+extendAtom env id ex = env {envValues = Map.insertWith insertFun id [envEntry] (envValues env)}
   where
     insertFun = if id == "@" then const else flip (++)
-    val = fst $ evalIn env $ toExpr ex
-    key = last (envScopes env) ++ ":" ++ id
+    envEntry =
+      EnvEntry
+        { envEntryModules = inModule env,
+          envEntryScope = lastMay (envScopes env),
+          envEntryValue = fst $ evalIn env $ toExpr ex
+        }
 
 hfiFun :: Evaluatable e => Env -> Id -> e -> (Val, Env)
 hfiFun env f argsList = case evaledArgsList of
@@ -253,34 +261,32 @@ hfiFun env f argsList = case evaledArgsList of
     fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
-    fun "print" (a : _) = unsafePerformIO (print a >> pure a)
+    fun "print" (a : _) = unsafePerformIO (putStrLn (prettyVal a) >> pure a)
     fun "parseJSON" ((StringVal s) : _) = jsonToVal $ BS.pack s
     fun "toJSON" (a : _) = StringVal $ BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
-    funToExpr (Pattern defs) = case head defs of
-      (FunctionVal ts _env args e) -> Lambda ts args e
+    funToExpr (Pattern defs) = PatternExpr defs
     funToExpr r = error $ show r
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
+    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg . snd) definitions of
       [] -> error "Could not find matching function definition"
-      [FunctionVal ts _ args e3] -> runFun env' ts args e2 e3
+      [(modules, FunctionVal ts _ args e3)] -> runFun (env' {inModule = modules}) ts args e2 e3
       (f : fs) -> case f of
-        (FunctionVal ts _ args e3) ->
+        (_modules, FunctionVal ts _ args e3) ->
           if functionFullyApplied args
             then runFun env' ts args e2 e3
             else
               let (appliedFuns, accEnv) = foldl toFunVal ([], env') (f : fs)
-                  toFunVal :: ([Val], Env) -> Val -> ([Val], Env)
                   toFunVal (accFuns, accEnv) fun =
                     case fun of
-                      (FunctionVal ts _ args e3) ->
+                      (modules, FunctionVal ts _ args e3) ->
                         let (val, env'') = runFun accEnv ts args e2 e3
-                         in (accFuns ++ [val], env'')
+                         in (accFuns ++ [(modules, val)], env'' {inModule = modules})
                       _ -> error "Non-function application"
                in (Pattern appliedFuns, accEnv)
     (FunctionVal ts _ args e3, env') -> runFun env' ts args e2 e3
@@ -288,53 +294,6 @@ apply env e1 e2 =
   where
     (passedArg, _) = evalIn env $ toExpr e2
     functionFullyApplied args = length args == 1
-
-matchingDefinition :: Env -> Val -> Val -> Bool
-matchingDefinition env passedArg (FunctionVal ts _ args@(expectedArgExp : _) _) =
-  typesMatch env (Right (ts, Just $ length args)) passedArg
-    && patternMatch expectedArgExp passedArg
-matchingDefinition _ _ _ = False
-
-typesMatch :: Env -> Either LangType (TypeSig, Maybe Int) -> Val -> Bool
-typesMatch env (Right (ts, argsLength)) passedArg =
-  concreteTypesMatch env expectedType' passedArgType
-    && implementationBindingMatches (fmap (typeAtPos ts) argsLength) (typeSigImplementationBinding ts) passedArg
-  where
-    passedArgType = toLangType passedArg
-    expectedType' = case expectedType env ts (fromMaybe 0 argsLength) of
-      (TraitVariableType trait _) -> case typeSigImplementationBinding ts of
-        Just binding -> case typeSigTraitBinding ts of
-          Just traitBinding ->
-            if trait == traitBinding
-              then toLangType binding
-              else error ("Mismatching trait. Expected: " ++ trait ++ ", got: " ++ show (typeSigTraitBinding ts))
-        Nothing -> error "Got implementation binding, but no trait binding"
-      lType -> lType
-typesMatch env (Left expType) passedArg =
-  concreteTypesMatch env expType (toLangType passedArg)
-
-implementationBindingMatches :: Maybe LangType -> Maybe String -> Val -> Bool
-implementationBindingMatches (Just (TraitVariableType _trait _)) implBinding passedArg =
-  maybe True (`matcher` passedArg) implBinding
-  where
-    matcher binding (DataVal dConsFromPassed _ _) = dConsFromPassed == binding
-    matcher binding (FunctionVal TypeSig {typeSigImplementationBinding = tsib} _ _ _) = tsib == Just binding
-    matcher s t
-      | toLangType s == toLangType t = True
-      | otherwise = False
-implementationBindingMatches _ _ _ = True
-
-patternMatch :: Expr -> Val -> Bool
-patternMatch (PList _ []) (ListVal []) = True
-patternMatch (PString str) (StringVal val) = str == val
-patternMatch (PList _ [_]) (ListVal [_]) = True
-patternMatch (PList _ _) _ = False
-patternMatch (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
-patternMatch (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
-patternMatch (PBool a) (BoolVal b) = a == b
-patternMatch (PInteger e) (IntVal v) = e == v
-patternMatch (PFloat e) (FloatVal v) = e == v
-patternMatch _ _ = True
 
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =

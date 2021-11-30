@@ -123,7 +123,7 @@ term :: Parser Expr
 term =
   lexeme
     ( try parseFloat
-        <|> try (parens parseInternalFunction)
+        <|> try (parens internalFunction)
         <|> try parseInteger
         <|> try dataConstructor
         <|> moduleAccess
@@ -134,7 +134,7 @@ term =
         <|> list
         <|> true
         <|> false
-        <|> try parseInterpolatedString
+        <|> try interpolatedString
         <|> parseString
         <|> try consList
         <|> variable
@@ -197,7 +197,7 @@ dictAccess = dotKey <|> try dictDotKey
       rest <- option [] identifier
       char '.'
       x <- dictKey
-      return (DictAccess x (Atom (sig [DictionaryType] DictionaryType) (first : rest)))
+      return (DictAccess x (Atom (sig [DictType] DictType) (first : rest)))
 
 tupleContents :: Parser [Expr]
 tupleContents = juxta `sepBy2` many (spaceChar <|> char ',')
@@ -231,19 +231,19 @@ list = do
   spaceC *> char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
 
-parseInternalFunction :: Parser Expr
-parseInternalFunction = do
+internalFunction :: Parser Expr
+internalFunction = do
   string "HFI" <* space
   f <- identifier
   args <- list <|> variable
   return (HFI f args)
 
-parseModule :: Parser Expr
-parseModule = do
+module' :: Parser Expr
+module' = do
   string "module" <* hspace
   first <- upperChar
   rest <- many (letterChar <|> digitChar)
-  spaceC *> string "{"
+  hspace *> string "{" <* spaceC
   contents <- manyExpressions
   spaceC *> string "}"
   return (Module (first : rest) contents)
@@ -280,10 +280,10 @@ let' = do
 moduleAccess :: Parser Expr
 moduleAccess = do
   first <- upperChar
-  rest <- option [] identifier
-  char '.'
-  x <- identifier
-  return (Atom (sig [AnyType] AnyType) ([first] ++ rest ++ "." ++ x))
+  rest <- many alphaNumChar
+  hspace
+  args <- many (char '.' <|> alphaNumChar)
+  return (Atom (sig [AnyType] AnyType) ([first] ++ rest ++ args))
 
 variable :: Parser Expr
 variable = Atom (sig [] AnyType) `fmap` identifier
@@ -358,7 +358,7 @@ lambda = do
 import' :: Parser Expr
 import' = do
   string "import" <* hspace
-  PImport <$> parseInterpolatedString
+  PImport <$> interpolatedString
 
 ifelse :: Parser Expr
 ifelse = do
@@ -415,7 +415,7 @@ implementation = do
 dataConstructor :: Parser Expr
 dataConstructor = do
   first <- upperChar
-  rest <- many (letterChar <|> digitChar) <* hspace
+  rest <- many (letterChar <|> digitChar) <* notFollowedBy (char '.') <* hspace
   args <- many term
   return (PDataConstructor (first : rest) args)
 
@@ -465,7 +465,7 @@ parseExprs s = case parseExprs' "unknown" s of
   Right exprs -> exprs
 
 manyExpressions :: Parser [Expr]
-manyExpressions = (parseModule <|> expr <|> noop) `endBy1` expressionSep
+manyExpressions = (lexeme module' <|> expr <|> noop) `endBy1` expressionSep
 
 expressionSep :: Parser String
 expressionSep = many (newlineWithoutAdjacentInfixOp <|> char ';')
@@ -475,8 +475,8 @@ expressionSep = many (newlineWithoutAdjacentInfixOp <|> char ';')
 parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (manyExpressions <* eof)
 
-parseInterpolatedString :: Parser Expr
-parseInterpolatedString = do
+interpolatedString :: Parser Expr
+interpolatedString = do
   string "\""
   parts <- some $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
   string "\""

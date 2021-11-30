@@ -58,7 +58,9 @@ library
     , parser-combinators
     , pretty-simple
     , protolude
+    , safe
     , scientific
+    , split
     , string-interpolate
     , text
     , transformers
@@ -94,7 +96,9 @@ executable langc
     , parser-combinators
     , pretty-simple
     , protolude
+    , safe
     , scientific
+    , split
     , string-interpolate
     , text
     , transformers
@@ -135,7 +139,9 @@ test-suite lang-test
     , parser-combinators
     , pretty-simple
     , protolude
+    , safe
     , scientific
+    , split
     , string-interpolate
     , text
     , transformers

@@ -14,7 +14,6 @@ head [] = None
 head (x::_) = Some x
 zipWith f xs ys = (HFI zipWith [f, xs, ys])
 zip xs ys = zipWith (x y: (x, y)) xs ys
-toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 
 sort [] = []
 sort (y::xs) = let smaller = (filter (a: a <= y) xs),
@@ -22,27 +21,29 @@ sort (y::xs) = let smaller = (filter (a: a <= y) xs),
                   sort smaller ++ [y] ++ sort larger
 
 // DICTIONARIES
-toList xs = (HFI dictToList [xs])
-keys dict = toList dict |> map ((a, b): a)
-values dict = toList dict |> map ((a, b): b)
-merge d1 d2 = { d1 | d2 }
+module Dict {
+  toList xs = (HFI dictToList [xs])
+  keys dict = Dict.toList dict |> map ((a, b): a) // NOTE: remove Dict. when possible
+  values dict = Dict.toList dict |> map ((a, b): b) // NOTE: remove Dict. when possible
+  merge d1 d2 = { d1 | d2 }
+}
 
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
 
 either ef of e = case e {
-  (Err x): Err (ef x)
-  (Ok x): Ok (of x)
+  Err x: Err (ef x)
+  Ok x: Ok (of x)
 }
 
-// at Integer, [a] => Maybe a
+at Integer, [a] => Maybe a
 at i xs =
   zip xs (0 .. (length xs))
   |> find ((a, b): b == i)
 at i [] = None
 
 even? n = n % 2 == 0
-odd? n = !(odd? n)
+odd? n = not (odd? n)
 
 // FILES
 module File {

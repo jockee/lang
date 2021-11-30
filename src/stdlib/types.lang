@@ -68,8 +68,9 @@ trait Foldable f { // ok
   min xs = sort xs |> head
   all? f xs = length (filter f xs) == length xs
   any? f xs = length (filter f xs) > 0
-  take n xs = fold (acc (x, i): (i < n) ? (acc ++ [x]) : acc) [] (zip xs (0 .. (length xs)))
+  take n xs = fold (acc (o, i): (i < n) ? (acc ++ [o]) : acc) [] (zip xs (0 .. (length xs)))
   drop n xs = reverse xs |> take ((length xs) - n) |> reverse
+  toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 }
 
 implement Foldable for List {

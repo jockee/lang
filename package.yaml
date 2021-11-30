@@ -44,6 +44,8 @@ dependencies:
 - haskeline
 - exceptions
 - hashable
+- split
+- safe
 
 library:
   default-extensions: &lang-default-extensions

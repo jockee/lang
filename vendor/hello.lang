@@ -1,7 +1,4 @@
 s = (HFI getArgs [])
 print s
-// print "hello";
-// print "hello";
 print "Hello world"
-// print 1+1
-print "Hello world"; print "Hello world"
+print "Hello world"
