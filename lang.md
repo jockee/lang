@@ -1,7 +1,6 @@
 # KEY
 
   - TODO: it "nested functions can use the same variable name"
-  - TODO: now that extend is not used for type checking, we can merge extending into common function
 
   ## USABILITY
   - TODO: sockets
@@ -9,15 +8,12 @@
   ## PARSING
   - TODO: too much needs to be wrapped in parens
     * `| Some x: (print "hello #{x}") ` can't be `| Some x: print "hello #{x}"`
-  - TODO: remove the need for semicolons
-    * fix `either`
 
   - TODO: Type classes/traits:
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
 
   - TODO: modules/namespacing.
-    * nested
 
   - TODO: PATTERN MATCHING
     - TODO: dict partial - spread operator
@@ -42,7 +38,7 @@
     | x > 1 = true
   - TODO: `filter` if-then-else without parens around predicate
   - TODO: replace string with T.Text?
-  - TODO: indentation or braces instead of pipe?
+  - TODO: nested modules
 
 # NOTES
 

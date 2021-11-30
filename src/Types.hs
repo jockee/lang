@@ -26,7 +26,8 @@ data Env where
     { envValues :: Map.Map String [Val],
       withModules :: [String],
       envScopes :: [String],
-      typeSigs :: Map.Map String TypeSig
+      typeSigs :: Map.Map String TypeSig,
+      envLangPath :: String
     } ->
     Env
 
@@ -40,7 +41,7 @@ defaultEnvScopes :: [String]
 defaultEnvScopes = ["global"]
 
 emptyEnv :: Env
-emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty}
+emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, typeSigs = Map.empty, envLangPath = "", withModules = []}
 
 -- Evaluatable
 
@@ -54,7 +55,7 @@ instance Evaluatable Val where
 
 instance Evaluatable Expr where
   toExpr expr = expr
-  toVal expr = undefined
+  toVal _expr = undefined
 
 -- Expr
 
@@ -89,17 +90,16 @@ data Expr where
   PTypeSig :: TypeSig -> Expr
   PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
-  deriving (Typeable)
 
 type Id = String
 
 type Case = (Expr, Expr)
 
 data Op = Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | Assign | Concat | Cons | Pow
-  deriving (Show, Data)
+  deriving stock (Show, Data)
 
 data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs
-  deriving (Show, Data)
+  deriving stock (Show, Data)
 
 instance Show Expr where
   show = showWithoutTypes
@@ -127,7 +127,7 @@ showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
-showWithTypes (PCase ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
+showWithTypes (PCase _ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
 showWithTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithTypes d ++ ")"
@@ -166,19 +166,18 @@ data Val where
   TupleVal :: [Val] -> Val
   ListVal :: [Val] -> Val
   TraitVal :: Name -> [Expr] -> Val
-  deriving (Typeable)
 
 jsonToVal :: ByteString -> Val
 jsonToVal json = toVal (decode json :: Maybe Value)
   where
-    toVal (Just (AT.String s)) = (StringVal $ T.unpack s)
-    toVal (Just AT.Null) = (DataVal "Maybe" "None" [])
+    toVal (Just (AT.String s)) = StringVal $ T.unpack s
+    toVal (Just AT.Null) = DataVal "Maybe" "None" []
     toVal (Just (AT.Object xs)) = DictVal $ Map.fromList $ map (\(k, v) -> (DictKey $ T.unpack k, (toVal . Just) v)) (HM.toList xs)
     toVal (Just (AT.Array xs)) = ListVal $ map (toVal . Just) $ V.toList xs
     toVal (Just (AT.Number s)) = case S.floatingOrInteger s of
       Left f -> FloatVal f
       Right i -> IntVal i
-    toVal Nothing = (DataVal "Maybe" "None" [])
+    toVal Nothing = DataVal "Maybe" "None" []
 
 instance ToJSON Val where
   toJSON (BoolVal b) = AT.Bool b
@@ -189,8 +188,8 @@ instance ToJSON Val where
   toJSON (DataVal "Maybe" "Some" [x]) = toJSON x
   toJSON (DataVal "Maybe" "None" _) = AT.Null
   toJSON (TupleVal xs) = AT.Array $ V.fromList $ map toJSON xs
-  toJSON (Undefined) = AT.Null
-  toJSON (DictVal d) = object $ map (\((DictKey s), v) -> (T.pack s, toJSON v)) $ Map.toList d
+  toJSON Undefined = AT.Null
+  toJSON (DictVal d) = object $ map (\(DictKey s, v) -> (T.pack s, toJSON v)) $ Map.toList d
 
 type ArgsList = [Expr]
 
@@ -206,7 +205,7 @@ type ConstructorWithArgs = (String, [String])
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal ts env remainingArgs _) = "<fun>"
+  show (FunctionVal _ts _env _remainingArgs _) = "<fun>"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
@@ -225,10 +224,10 @@ instance Show Val where
 
 prettyVal :: Val -> String
 prettyVal (ModuleVal name) = "<module " ++ show name ++ ">"
-prettyVal (FunctionVal ts env remainingArgs _) = "<fun>"
+prettyVal (FunctionVal _ts _env _remainingArgs _) = "<fun>"
 prettyVal (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
 prettyVal (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
-prettyVal (DataVal dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
+prettyVal (DataVal _dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
 prettyVal (IntVal n) = show n
 prettyVal (FloatVal n) = show n
 prettyVal (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
@@ -280,7 +279,7 @@ instance Eq Val where
   (ListVal xs) == (ListVal ys) = xs == ys
   (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (FunctionVal ts1 env1 ids1 e1) == (FunctionVal ts2 env2 ids2 e2) =
+  (FunctionVal ts1 env1 _ids1 _e1) == (FunctionVal ts2 env2 _ids2 _e2) =
     ts1 == ts2 && envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
@@ -346,8 +345,9 @@ data TypeSig = TypeSig
     typeSigIn :: [LangType],
     typeSigReturn :: LangType
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
+anyTypeSig :: TypeSig
 anyTypeSig = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
 
 data LangType
@@ -364,7 +364,7 @@ data LangType
   | TypeConstructorType String LangType
   | UndefinedType
   | AnyType
-  deriving (Show, Eq, Data)
+  deriving stock (Show, Eq, Data)
 
 prettyLangType :: LangType -> String
 prettyLangType (TypeConstructorType name _) = name
@@ -438,6 +438,8 @@ instance LangTypeable Val where
     DataVal cons name _ -> TypeConstructorType cons (toLangType name)
     s -> error $ "Not implemented" ++ show s
 
+showTypeSig :: TypeSig -> String
 showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} = "(TypeSig {typeSigName = " ++ show name ++ ", typeSigIn = " ++ show inn ++ ", typeSigReturn = " ++ show rtrn ++ "})"
 
+joinCommaSep :: Show a => [a] -> String
 joinCommaSep contents = intercalate ", " (map show contents)

@@ -2,16 +2,17 @@ data Maybe = Some a | None
 data Result = Ok a | Err b
 
 trait Functor f {
-  fmap # (a: b), f a: f b
+  fmap (a: b), f a => f b
+  fmap => (a: b)
 }
 
 trait Applicative f {
-  ap # f (a: b), f a: f b
-  pure # a: f a
+  ap f (a: b), f a => f b
+  pure a => f a
 }
 
 trait Monad m {
-  bind # m a, (a: m b): m b
+  bind m a, (a: m b) => m b
 }
 
 implement Functor for Maybe {
@@ -46,12 +47,12 @@ implement Monad for Result {
   bind _ (Err b) = Err b
 }
 
-trait Num n {
-  odd? # a, a: a
-}
+// trait Num n {
+//   odd? a, a => a
+// }
 
-trait Foldable f {
-  fold # (a, b: a), a, f b: a
+trait Foldable f { // ok
+  fold (a, b: a), a, f b => a // comm
   length xs = fold (acc x: acc + 1) 0 xs
   sum xs = fold (acc n: n + acc) 0 xs
   map k xs = fold (acc x: (acc ++ [k x])) [] xs

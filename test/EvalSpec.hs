@@ -406,16 +406,16 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
         describe "Runtime type system" $ do
           xit "Can't declare Integer as String" $ \stdLibEnv ->
-            evaluate (eval (parseExpr "i = 1 # String")) `shouldThrow` anyException
+            evaluate (eval (parseExpr "i = 1 => String")) `shouldThrow` anyException
 
           xit "Can't declare integer as string typedef" $ \stdLibEnv ->
-            evaluate (evals (parseExprs "a # String; a = 1")) `shouldThrow` anyException
+            evaluate (evals (parseExprs "a => String; a = 1")) `shouldThrow` anyException
 
           it "Too many arguments in function definition" $ \stdLibEnv ->
-            evaluate (evals (parseExprs "a # Integer: Integer; a b c = b + c")) `shouldThrow` anyException
+            evaluate (evals (parseExprs "a Integer => Integer; a b c = b + c")) `shouldThrow` anyException
 
           it "Binding definition pushed to env" $ \stdLibEnv ->
-            evalIn emptyEnv (parseExpr "a # Integer")
+            evalIn emptyEnv (parseExpr "a => Integer")
               `shouldSatisfy` ( \case
                                   (_, env) ->
                                     Map.lookup "a" (typeSigs env)
@@ -423,17 +423,17 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                               )
 
           it "Called with wrong type" $ \stdLibEnv ->
-            evaluate (evals (parseExprs "a # Integer: Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
+            evaluate (evals (parseExprs "a Integer => Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
           xit "Called with wrong type second argument" $ \stdLibEnv ->
             -- XXX: it's not decorating functions with their type defs on call?
-            evaluate (evals (parseExprs "a # Integer, Integer: Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
+            evaluate (evals (parseExprs "a Integer, Integer => Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
           it "Correct types, two different" $ \stdLibEnv ->
-            evals (parseExprs "a # Integer, String: Integer; a b c = b + 1; a 1 \"s\"") `shouldBe` IntVal 2
+            evals (parseExprs "a Integer, String => Integer; a b c = b + 1; a 1 \"s\"") `shouldBe` IntVal 2
 
           it "Called with wrong type second argument, different types" $ \stdLibEnv ->
-            evaluate (evals (parseExprs "a # String, Integer: Integer; a b c = c + 1; a 1 \"s\"")) `shouldThrow` anyException
+            evaluate (evals (parseExprs "a String, Integer => Integer; a b c = c + 1; a 1 \"s\"")) `shouldThrow` anyException
 
         describe "Pattern matching" $ do
           it "can fall through" $ \stdLibEnv ->
@@ -559,27 +559,27 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
         describe "Trait" $ do
           it "can create trait" $ \stdLibEnv -> do
-            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap # (a: b): a: b }")
+            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b): a => b }")
             Map.keys (envValues env) `shouldContain` ["global:Mappable"]
 
           it "handles type variables" $ \stdLibEnv -> do
-            let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f { fmap # (a: b), f a: f b }")
+            let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f { fmap (a: b), f a => f b }")
             Map.keys (envValues env) `shouldContain` ["global:Functor"]
 
         describe "Implementation" $ do
           it "can create implementation" $ \stdLibEnv -> do
-            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap # (a: b), a: b }; implement Mappable for Maybe { xmap f a = None }")
+            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap f a = None }")
             Map.keys (envValues env) `shouldContain` ["global:xmap"]
 
           it "can create implementation with multiple definitions" $ \stdLibEnv -> do
-            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap # (a: b), a: b }; implement Mappable for Maybe { xmap _ None = None; xmap f (Some x) = f x }")
+            let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap _ None = None; xmap f (Some x) = f x }")
             length (sequenceA $ Map.lookup "global:xmap" (envValues env)) `shouldBe` 2
 
           it "Uses the right function - last argument" $ \stdLibEnv -> do
             let baseExpr =
                   [i|
                   trait Foldable2 f {
-                    fold2 \# (a, b: a), a, f b: a
+                    fold2 (a, b: a), a, f b => a
                     length2 xs = fold2 (acc x: acc + 1) 0 xs
                   }
 
@@ -606,7 +606,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             let baseExpr =
                   [i|
                   trait Foldable2 f {
-                    fold2 \# (a, b: a), f b, a: a
+                    fold2 (a, b: a), f b, a => a
                     length2 xs = fold2 (acc x: acc + 1) xs 0
                   }
 
@@ -627,7 +627,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             let baseExpr =
                   [i|
                   trait Applicative2 f {
-                    pure \# a: f a
+                    pure a => f a
                   }
 
                   implement Applicative2 for List {
@@ -648,8 +648,8 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             let expr =
                   [__i|
                   trait Applicative2 f {
-                    ap2 \# f (a: b), f a: f b;
-                    ap3 \# f (a: b), f a: f b;
+                    ap2 f (a: b), f a => f b;
+                    ap3 f (a: b), f a => f b;
                     ap3 _ _ = 1
                   }
                   implement Applicative2 for Maybe { ap2 _ _ = None }
@@ -661,7 +661,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           it "passes trait function type definition" $ \stdLibEnv -> do
             let expr =
                   [__i|
-                  trait Applicative2 f { ap2 \# f (a: b), f a: f b }
+                  trait Applicative2 f { ap2 f (a: b), f a => f b }
                   implement Applicative2 for Maybe { ap2 _ _ = None }
                 |]
             let (val, env) = evalsIn stdLibEnv $ parseExprs expr

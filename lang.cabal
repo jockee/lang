@@ -27,7 +27,6 @@ library
   exposed-modules:
       Eval
       Exceptions
-      Extend
       Lang
       Parser
       Repl

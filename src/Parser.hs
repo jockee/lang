@@ -6,6 +6,7 @@ module Parser where
 import Control.Monad
 import Control.Monad.Combinators.Expr
 import Data.List qualified as List
+import Data.Maybe (fromJust)
 import Data.Void
 import Debug.Trace
 import Text.Megaparsec
@@ -13,11 +14,11 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
 import Types
 
+spaceC :: Parser (Maybe Expr)
+spaceC = space *> optional comment <* space
+
 doesntLineBreak :: String
 doesntLineBreak = ['!', ',', '+', '-', '{', '[', '/', '(', '|', '=', ':', '?']
-
--- doesntLineBreak :: [String]
--- oesntLineBreak = [",", "+", "-", "{", "[", "(", "|", "=", ":", "?"]
 
 type Parser = Parsec Void String
 
@@ -35,17 +36,16 @@ expr =
   shebang <|> try comment <|> sc
     *> ( import'
            <|> ifelse
-           <|> try (typeDef [])
-           <|> letBinding
-           <|> parseCase
+           <|> let'
+           <|> case'
            <|> trait
            <|> dataDefinition
            <|> implementation
            <|> try lambda
            <|> try ternary
            <|> try (function Nothing Nothing)
+           <|> try (typeDef [])
            <|> formula
-           <|> noop
        )
     <?> "expr"
 
@@ -70,7 +70,7 @@ formula = makeExprParser juxta table <?> "formula"
     neg n = case n of
       PInteger x -> PInteger $ negate x
       PFloat x -> PFloat $ negate x
-    not' = Prefix (try $ space *> string "!" <* space >> return (Unaryop Not))
+    not' = Prefix (try $ spaceC *> string "!" <* spaceC >> return (Unaryop Not))
     toInteger = Prefix (try $ hspace *> string "toInteger" <* some spaceChar >> return (Unaryop ToInteger))
     abs = Prefix (try $ hspace *> string "abs" <* some spaceChar >> return (Unaryop Abs))
     toFloat = Prefix (try $ hspace *> string "toFloat" <* some spaceChar >> return (Unaryop ToFloat))
@@ -78,23 +78,23 @@ formula = makeExprParser juxta table <?> "formula"
     round = Prefix (try $ hspace *> string "round" <* some spaceChar >> return (Unaryop Round))
     ceiling = Prefix (try $ hspace *> string "ceiling" <* some spaceChar >> return (Unaryop Ceiling))
     sqrt = Prefix (try $ hspace *> string "sqrt" <* some spaceChar >> return (Unaryop Sqrt))
-    pow = InfixL (try $ hspace *> string "^" <* space >> return (Binop Pow))
-    notEqOp = InfixL (try $ space *> string "!=" <* space >> return (Binop NotEql))
-    eqOp = InfixR (try $ space *> string "==" <* space >> return (Binop Eql))
-    subOp = InfixL (try $ space *> string "-" <* space >> return (Binop Sub))
-    addOp = InfixL (try $ (space >> string "+") <* notFollowedBy (char '+') <* space >> return (Binop Add))
-    divOp = InfixL (try $ space *> string "/" <* notFollowedBy (char '/') <* space >> return (Binop Div))
-    modOp = InfixL (try $ space *> string "%" <* space >> return (Binop Mod))
-    mulOp = InfixL (try $ space *> string "*" <* space >> return (Binop Mul))
-    andOp = InfixL (try $ space *> string "&&" <* space >> return (Binop And))
-    gtOp = InfixL (try $ space *> string ">" <* space >> return (Cmp ">"))
-    ltOp = InfixL (try $ space *> string "<" <* space >> return (Cmp "<"))
-    gteOp = InfixL (try $ space *> string ">=" <* space >> return (Cmp ">="))
-    lteOp = InfixL (try $ space *> string "<=" <* space >> return (Cmp "<="))
-    orOp = InfixL (try $ space *> string "||" <* space >> return (Binop Or))
-    concatOp = InfixL (try $ space *> string "++" <* space >> return (Binop Concat))
-    consOp = InfixL (try $ space *> string "::" <* space >> return (Binop Cons))
-    pipeOp = InfixL (try $ space *> string "|>" <* space >> return (Binop Pipe))
+    pow = InfixL (try $ hspace *> string "^" <* spaceC >> return (Binop Pow))
+    notEqOp = InfixL (try $ spaceC *> string "!=" <* spaceC >> return (Binop NotEql))
+    eqOp = InfixR (try $ spaceC *> string "==" <* spaceC >> return (Binop Eql))
+    subOp = InfixL (try $ spaceC *> string "-" <* spaceC >> return (Binop Sub))
+    addOp = InfixL (try $ (spaceC >> string "+") <* notFollowedBy (char '+') <* spaceC >> return (Binop Add))
+    divOp = InfixL (try $ spaceC *> string "/" <* notFollowedBy (char '/') <* spaceC >> return (Binop Div))
+    modOp = InfixL (try $ spaceC *> string "%" <* spaceC >> return (Binop Mod))
+    mulOp = InfixL (try $ spaceC *> string "*" <* spaceC >> return (Binop Mul))
+    andOp = InfixL (try $ spaceC *> string "&&" <* spaceC >> return (Binop And))
+    gtOp = InfixL (try $ spaceC *> string ">" <* spaceC >> return (Cmp ">"))
+    ltOp = InfixL (try $ spaceC *> string "<" <* spaceC >> return (Cmp "<"))
+    gteOp = InfixL (try $ spaceC *> string ">=" <* spaceC >> return (Cmp ">="))
+    lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
+    orOp = InfixL (try $ spaceC *> string "||" <* spaceC >> return (Binop Or))
+    concatOp = InfixL (try $ spaceC *> string "++" <* spaceC >> return (Binop Concat))
+    consOp = InfixL (try $ spaceC *> string "::" <* spaceC >> return (Binop Cons))
+    pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return (Binop Pipe))
 
 lexeme = L.lexeme hspace
 
@@ -168,19 +168,19 @@ consList = do
 
 dict :: Parser Expr
 dict = do
-  char '{' <* space
+  char '{' <* spaceC
   x <- try dictContents
-  space *> char '}'
+  spaceC *> char '}'
   return x
 
 dictUpdate :: Parser Expr
 dictUpdate = do
-  char '{' <* space
+  char '{' <* spaceC
   dct <- variable <|> dict
-  space *> char '|' <* space
-  optional $ char '{' <* space
+  spaceC *> char '|' <* spaceC
+  optional $ char '{' <* spaceC
   updates <- try dictContents <|> variable
-  space *> char '}'
+  spaceC *> char '}'
   hspace *> optional (char '}')
   return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
 
@@ -226,9 +226,9 @@ tuple = do
 
 list :: Parser Expr
 list = do
-  char '[' <* space
+  char '[' <* spaceC
   x <- try listContents
-  space *> char ']'
+  spaceC *> char ']'
   return (PList (sig [ListType AnyType] (ListType AnyType)) x)
 
 parseInternalFunction :: Parser Expr
@@ -240,40 +240,40 @@ parseInternalFunction = do
 
 parseModule :: Parser Expr
 parseModule = do
-  string "module" <* space
+  string "module" <* hspace
   first <- upperChar
   rest <- many (letterChar <|> digitChar)
-  space *> string "{"
+  spaceC *> string "{"
   contents <- manyExpressions
-  space *> string "}"
+  spaceC *> string "}"
   return (Module (first : rest) contents)
 
-parseCase :: Parser Expr
-parseCase = do
+case' :: Parser Expr
+case' = do
   string "case" <* space
   predicate <- expr
-  hspace *> string "{" <* space
-  cases <- singleCase `endBy1` (expressionSep <* space)
-  space *> string "}"
+  hspace *> string "{" <* spaceC
+  cases <- singleCase `endBy1` (expressionSep <* spaceC)
+  spaceC *> string "}"
   return $ PCase (sig [AnyType] AnyType) predicate cases
   where
     singleCase = do
-      casePred <- try (term <* string ":") <* space
+      casePred <- try (term <* string ":") <* spaceC
       caseDo <- term <|> formula
       return (casePred, caseDo)
 
-letBinding :: Parser Expr
-letBinding = do
-  string "let" <* space
+let' :: Parser Expr
+let' = do
+  string "let" <* spaceC
   pairs <- pair `sepBy1` many (spaceChar <|> char ',')
-  space *> string ":" <* space
+  spaceC *> string ":" <* spaceC
   body <- expr
   return $ foldr foldFun body pairs
   where
     foldFun (pairKey, pairVal) acc =
       App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
-      key <- space *> try (term <* string "=") <* space
+      key <- spaceC *> try (term <* string "=") <* spaceC
       val <- term <|> formula
       return (key, val)
 
@@ -293,10 +293,10 @@ dictKey = PDictKey `fmap` identifier
 
 typeDef :: [(String, String)] -> Parser Expr
 typeDef typeConstructors = do
-  name <- identifier <* space
-  string "#" *> space
-  bindings <- typeBindings typeConstructors
-  let (args, rtrn) = (init bindings, last bindings)
+  name <- try $ identifier <* space
+  args <- try $ option [] $ typeBindings typeConstructors
+  space *> string "=>" <* spaceC
+  rtrn <- typeBinding typeConstructors
   return $ PTypeSig TypeSig {typeSigName = Just name, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
 
 typeBindings :: [(String, String)] -> Parser [LangType]
@@ -316,13 +316,9 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
       rest <- many (letterChar <|> digitChar)
       pure $ toLangType (first : rest)
     variableTypeConstructor = do
-      first <- lowerChar
-      rest <- many (letterChar <|> digitChar) <* hspace
+      typeConstructor <- choice (map (string . fst) typeConstructors) <* hspace
       args <- typeBinding typeConstructors
-      let typeConstructor = first : rest
-      case List.find (\x -> typeConstructor == fst x) typeConstructors of
-        Just (_, tCons) -> pure $ TraitVariableType tCons args
-        Nothing -> error ("Can't find type constructor variable binding for " ++ show typeConstructor)
+      pure $ TraitVariableType (fromJust $ List.lookup typeConstructor typeConstructors) args
     concreteTypeConstructor = do
       first <- upperChar
       rest <- many (letterChar <|> digitChar) <* hspace
@@ -366,19 +362,19 @@ import' = do
 
 ifelse :: Parser Expr
 ifelse = do
-  string "if" <* space
+  string "if" <* hspace
   cond <- term
-  space *> string ":" <* space
+  space *> string ":" <* spaceC
   tr <- term
-  space *> string "else" <* space
+  space *> string "else" <* spaceC
   tr2 <- term
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 dataDefinition :: Parser Expr
 dataDefinition = do
-  string "data" <* space
+  string "data" <* spaceC
   typeCons <- identifier
-  space *> string "=" <* space
+  space *> string "=" <* spaceC
   constructors <- constructor `sepBy1` char '|'
   return $ PDataDefinition typeCons constructors
   where
@@ -393,8 +389,8 @@ trait = do
   name <- identifier <* hspace
   vars <- many identifier
   let typeConstructors = [(head vars, name) | not (null vars)]
-  hspace *> string "{" <* space
-  bindings <- (try (typeDef typeConstructors) <|> function (Just name) Nothing) `endBy1` (expressionSep <* space)
+  hspace *> string "{" <* spaceC
+  bindings <- (try (function (Just name) Nothing) <|> typeDef typeConstructors) `endBy1` (expressionSep <* spaceC)
   space *> string "}"
   let (types, funs) =
         List.partition
@@ -411,8 +407,8 @@ implementation = do
   trait <- identifier
   hspace *> string "for" <* hspace
   typeConstructor <- identifier
-  hspace *> string "{" <* space
-  functions <- try (function (Just trait) (Just typeConstructor)) `endBy1` (expressionSep <* space)
+  hspace *> string "{" <* spaceC
+  functions <- try (function (Just trait) (Just typeConstructor)) `endBy1` (expressionSep <* spaceC)
   space *> string "}"
   return $ PImplementation trait typeConstructor functions
 
@@ -425,7 +421,7 @@ dataConstructor = do
 
 ternary :: Parser Expr
 ternary = do
-  cond <- term <* string "?" <* space
+  cond <- term <* string "?" <* spaceC
   tr <- term
   string ":" <* hspace
   tr2 <- term
@@ -474,7 +470,7 @@ manyExpressions = (parseModule <|> expr <|> noop) `endBy1` expressionSep
 expressionSep :: Parser String
 expressionSep = many (newlineWithoutAdjacentInfixOp <|> char ';')
   where
-    newlineWithoutAdjacentInfixOp = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline <* notFollowedBy (space *> oneOf doesntLineBreak)
+    newlineWithoutAdjacentInfixOp = try $ lookAhead (noneOf doesntLineBreak) *> hspace *> newline <* notFollowedBy (spaceC *> oneOf doesntLineBreak)
 
 parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (manyExpressions <* eof)

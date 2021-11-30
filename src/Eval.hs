@@ -25,7 +25,7 @@ evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (Evaluated val) = (val, env)
 evalIn env (PImport stringExpr) = case fst $ evalIn env stringExpr of
   (StringVal filePath) ->
-    let contents = unsafePerformIO $ readFile filePath
+    let contents = unsafePerformIO $ readFile' (envLangPath env ++ filePath)
         parsed = parseExprs $ strip contents
      in evalsIn env parsed
 evalIn env (PTrait name types funs) =
@@ -249,7 +249,7 @@ hfiFun env f argsList = case evaledArgsList of
     fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . (: [])) s
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(DictKey k, v) -> TupleVal [StringVal k, v]) (Map.toList d)
-    fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' path
+    fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' (envLangPath env ++ path)
     fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
