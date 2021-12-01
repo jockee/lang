@@ -23,35 +23,35 @@ import GHC.Real
 
 data Env where
   Env ::
-    { envValues :: Map.Map String [EnvEntry],
-      inModule :: [Module],
-      withModules :: [String],
-      envScopes :: [String],
+    { inModule :: Maybe Module,
+      withModules :: [Module],
+      envScopes :: [VarMap],
       typeSigs :: Map.Map String TypeSig,
       envLangPath :: String
     } ->
     Env
 
+type VarMap = Map.Map String [EnvEntry]
+
 type Module = String
 
 data EnvEntry = EnvEntry
-  { envEntryModules :: [String], -- NOTE: can this really just be a plain list? needs nesting?
-    envEntryScope :: Maybe String,
+  { envEntryModule :: Maybe Module,
     envEntryValue :: Val
   }
   deriving stock (Show, Eq)
 
 instance Show Env where
-  show Env {typeSigs = t, envValues = v, envScopes = s} = show v ++ show s ++ show t
+  show Env {typeSigs = t, envScopes = s} = show s ++ show t
 
 instance Eq Env where
-  Env {typeSigs = t1, envValues = v1, envScopes = s1} == Env {typeSigs = t2, envValues = v2, envScopes = s2} = t1 == t2 && v1 == v2 && s1 == s2
+  Env {typeSigs = t1, envScopes = s1} == Env {typeSigs = t2, envScopes = s2} = t1 == t2 && s1 == s2
 
-defaultEnvScopes :: [String]
-defaultEnvScopes = []
+defaultEnvScopes :: [VarMap]
+defaultEnvScopes = [Map.empty]
 
 emptyEnv :: Env
-emptyEnv = Env {envValues = Map.empty, envScopes = defaultEnvScopes, inModule = [], typeSigs = Map.empty, envLangPath = "", withModules = []}
+emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, typeSigs = Map.empty, envLangPath = "", withModules = []}
 
 -- Evaluatable
 
@@ -100,7 +100,7 @@ data Expr where
   PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
   Evaluated :: Val -> Expr -- NOTE: Only needed to "uneval" a pattern
-  PatternExpr :: [([Module], Val)] -> Expr -- NOTE: Only needed to "uneval" a pattern
+  PatternExpr :: [(Maybe Module, Val)] -> Expr -- NOTE: Only needed to "uneval" a pattern
 
 type Id = String
 
@@ -168,7 +168,7 @@ data Val where
   FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
   DataVal :: DataConstructor -> Name -> [Val] -> Val
   DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
-  Pattern :: [([Module], Val)] -> Val
+  Pattern :: [(Maybe Module, Val)] -> Val
   BoolVal :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
@@ -293,7 +293,7 @@ instance Eq Val where
   (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
   (FunctionVal ts1 env1 _ids1 _e1) == (FunctionVal ts2 env2 _ids2 _e2) =
-    ts1 == ts2 && envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful envValues env1 == envValues env2 -- for testing purposes. lambda function equality is probably not very useful
+    ts1 == ts2 && envScopes env1 == envScopes env2 -- for testing purposes. lambda function equality is probably not very useful envScopes env1 == envScopes env2 -- for testing purposes. lambda function equality is probably not very useful
   _ == _ = False
 
 instance Real Val where
@@ -353,6 +353,7 @@ instance Arith Val where
 
 data TypeSig = TypeSig
   { typeSigName :: Maybe String,
+    typeSigModule :: Maybe String,
     typeSigImplementationBinding :: Maybe String,
     typeSigTraitBinding :: Maybe Trait,
     typeSigIn :: [LangType],
@@ -361,7 +362,7 @@ data TypeSig = TypeSig
   deriving stock (Show, Eq)
 
 anyTypeSig :: TypeSig
-anyTypeSig = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
+anyTypeSig = TypeSig {typeSigName = Nothing, typeSigModule = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = AnyType}
 
 data LangType
   = ListType LangType

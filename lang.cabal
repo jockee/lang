@@ -47,7 +47,6 @@ library
     , containers
     , exceptions
     , extra
-    , hashable
     , haskeline
     , hspec
     , hspec-discover
@@ -84,7 +83,6 @@ executable langc
     , containers
     , exceptions
     , extra
-    , hashable
     , haskeline
     , hspec
     , hspec-discover
@@ -127,7 +125,6 @@ test-suite lang-test
     , containers
     , exceptions
     , extra
-    , hashable
     , haskeline
     , hspec
     , hspec-discover

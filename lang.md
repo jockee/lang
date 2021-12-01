@@ -1,9 +1,5 @@
-* could lookup on scope, and every scope contains a map of vals
-* how to keep track of which scope we're in?
-
-
--- TODO: implement env as a stack, not a map
-
+* push module to ts
+* prettify setting and unsetting scope
 
 # KEY
 

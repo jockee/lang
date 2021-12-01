@@ -317,40 +317,41 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
     describe "General" $ do
       it "adds to global scope" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "folder = 1"
-        Map.keys (envValues env) `shouldContain` ["folder"]
+        case inScope env "folder" of
+          [] -> expectationFailure "No"
+          _ -> return ()
 
       it "assignment in lambda does not leak" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (x: f = 1); fn 1"
-        case Map.lookup "f" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = []}] -> expectationFailure "NO"
-          _ -> return ()
+        case inScope env "f" of
+          [] -> return ()
+          _ -> expectationFailure "No"
 
       it "moves back up to global" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
-        case Map.lookup "a" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = []}] -> return ()
-          _ -> expectationFailure "No"
+        (length (envScopes env)) `shouldBe` 1
 
       it "does not leak state" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
-        case Map.lookup "f" (envValues env) of
-          Just [EnvEntry {envEntryScope = scope}] -> scope `shouldNotBe` Nothing -- Nothing indicates global scope
+        case inScope env "f" of
+          [] -> return ()
           _ -> expectationFailure "No"
 
       it "let-in does not leak state" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "let x = 2: x"
-        case Map.lookup "x" (envValues env) of
-          Just [EnvEntry {envEntryScope = scope}] -> scope `shouldNotBe` Nothing -- Nothing indicates global scope
+        case inScope env "x" of
+          [] -> return ()
           _ -> expectationFailure "No"
 
       it "fold does not leak state" $ \stdLibEnv -> do
-        let (val, env) = evalsIn stdLibEnv $ parseExprs "fold (acc x: acc) 1 [1]"
-        case Map.lookup "x" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing}] -> expectationFailure "No"
-          _ -> return ()
-        case Map.lookup "acc" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing}] -> expectationFailure "No"
-          _ -> return ()
+        let (val, env) = evalsIn stdLibEnv $ parseExprs "fold (acc g: acc) 1 [1]"
+        print $ length $ envScopes env
+        case inScope env "g" of
+          [] -> return ()
+          s -> trace ("calling f with x = " ++ show s) $ expectationFailure "x"
+        case inScope env "acc" of
+          [] -> return ()
+          _ -> expectationFailure "acc"
 
       it "does not leak nested scope" $ \stdLibEnv ->
         evaluate (evals (parseExprs "fn (x: (let b = 1 in b) b)")) `shouldThrow` anyException
@@ -431,7 +432,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           `shouldSatisfy` ( \case
                               (_, env) ->
                                 Map.lookup "a" (typeSigs env)
-                                  == Just (TypeSig {typeSigName = Just "a", typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = IntType})
+                                  == Just (TypeSig {typeSigName = Just "a", typeSigModule = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = [], typeSigReturn = IntType})
                           )
 
       it "Called with wrong type" $ \stdLibEnv ->
@@ -502,11 +503,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         val `shouldBe` IntVal 1
 
     describe "Modules" $ do
-      it "pusher to env" $ \stdLibEnv -> do
+      it "pushes to env" $ \stdLibEnv -> do
         let (_, env) = evalsIn emptyEnv (parseExprs "module A { a = 1 }")
-        case Map.lookup "a" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = ["A"]}] -> return ()
-          _ -> expectationFailure "No"
+        case inScope env "A.a" of
+          [] -> expectationFailure "No"
+          _ -> return ()
 
       it "evals module" $ \stdLibEnv ->
         evals (parseExprs "module A { 1 }") `shouldBe` IntVal 1
@@ -525,6 +526,9 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "can call without namespacing inside module" $ \stdLibEnv ->
         evals (parseExprs "module A { a x = 1; b i = a i }; A.b 1") `shouldBe` IntVal 1
+
+      it "can call without namespacing inside module" $ \stdLibEnv ->
+        evals (parseExprs "module Dict2 { toList xs = 1; keys dict = toList dict |> map ((a, b): a) }; Dict2.keys {a:1}") `shouldBe` IntVal 1
 
     describe "String interpolation" $
       it "atoms and integer" $ \stdLibEnv ->
@@ -584,32 +588,32 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
     describe "Trait" $ do
       it "can create trait" $ \stdLibEnv -> do
         let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b): a => b }")
-        case Map.lookup "Mappable" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = []}] -> return ()
-          _ -> expectationFailure "No"
+        case inScope env "Mappable" of
+          [] -> expectationFailure "No"
+          _ -> return ()
 
       it "handles type variables" $ \stdLibEnv -> do
         let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f { fmap (a: b), f a => f b }")
-        case Map.lookup "Functor" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = []}] -> return ()
-          _ -> expectationFailure "No"
+        case inScope env "Functor" of
+          [] -> expectationFailure "No"
+          _ -> return ()
 
-    describe "Implementation" $ do
-      it "can create implementation" $ \stdLibEnv -> do
-        let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap f a = None }")
-        case Map.lookup "xmap" (envValues env) of
-          Just [EnvEntry {envEntryScope = Nothing, envEntryModules = []}] -> return ()
-          _ -> expectationFailure "No"
+      describe "Implementation" $ do
+        it "can create implementation" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap f a = None }")
+          case inScope env "xmap" of
+            [] -> expectationFailure "No"
+            _ -> return ()
 
-      it "can create implementation with multiple definitions" $ \stdLibEnv -> do
-        let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap _ None = None; xmap f (Some x) = f x }")
-        case Map.lookup "xmap" (envValues env) of
-          Just [EnvEntry {}, EnvEntry {}] -> return ()
-          _ -> expectationFailure "No"
+        it "can create implementation with multiple definitions" $ \stdLibEnv -> do
+          let (_, env) = evalsIn emptyEnv (parseExprs "trait Mappable { xmap (a: b), a => b }; implement Mappable for Maybe { xmap _ None = None; xmap f (Some x) = f x }")
+          case inScope env "xmap" of
+            [] -> expectationFailure "No"
+            _ -> return ()
 
-      it "Uses the right function - last argument" $ \stdLibEnv -> do
-        let baseExpr =
-              [i|
+        it "Uses the right function - last argument" $ \stdLibEnv -> do
+          let baseExpr =
+                [i|
               trait Foldable2 f {
                 fold2 (a, b: a), a, f b => a
                 length2 xs = fold2 (acc x: acc + 1) 0 xs
@@ -627,16 +631,16 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                 fold2 x init xs = (HFI fold [x, init, (HFI dictToList [xs])])
               }
             |]
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
-        val `shouldBe` IntVal 2
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
-        val `shouldBe` IntVal 3
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
-        val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
+          val `shouldBe` IntVal 3
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
+          val `shouldBe` IntVal 2
 
-      it "Uses the right function - non-last argument" $ \stdLibEnv -> do
-        let baseExpr =
-              [i|
+        it "Uses the right function - non-last argument" $ \stdLibEnv -> do
+          let baseExpr =
+                [i|
               trait Foldable2 f {
                 fold2 (a, b: a), f b, a => a
                 length2 xs = fold2 (acc x: acc + 1) xs 0
@@ -650,14 +654,14 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                 fold2 x s init = (HFI fold [x, init, (HFI toChars [s])])
               }
             |]
-        let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
-        val `shouldBe` IntVal 2
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
-        val `shouldBe` IntVal 3
+          let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
+          val `shouldBe` IntVal 3
 
-      it "Uses the right function - return value" $ \stdLibEnv -> do
-        let baseExpr =
-              [i|
+        it "Uses the right function - return value" $ \stdLibEnv -> do
+          let baseExpr =
+                [i|
               trait Applicative2 f {
                 pure a => f a
               }
@@ -670,15 +674,15 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
                 pure x = Some x
               }
             |]
-        pendingWith "not a completed test"
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "pure 1")
-        val `shouldBe` IntVal 2
-        let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "maybe ")
-        val `shouldBe` IntVal 3
+          pendingWith "not a completed test"
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "pure 1")
+          val `shouldBe` IntVal 2
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "maybe ")
+          val `shouldBe` IntVal 3
 
-      it "uses trait functions if implements" $ \stdLibEnv -> do
-        let expr =
-              [__i|
+        it "uses trait functions if implements" $ \stdLibEnv -> do
+          let expr =
+                [__i|
               trait Applicative2 f {
                 ap2 f (a: b), f a => f b;
                 ap3 f (a: b), f a => f b;
@@ -687,32 +691,32 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
               implement Applicative2 for Maybe { ap2 _ _ = None }
               ap3 1 2
             |]
-        let (val, env) = evalsIn stdLibEnv $ parseExprs expr
-        val `shouldBe` IntVal 1
+          let (val, env) = evalsIn stdLibEnv $ parseExprs expr
+          val `shouldBe` IntVal 1
 
       it "passes trait function type definition" $ \stdLibEnv -> do
         let expr =
               [__i|
-              trait Applicative2 f { ap2 f (a: b), f a => f b }
-              implement Applicative2 for Maybe { ap2 _ _ = None }
-            |]
+            trait Applicative2 f { ap2 f (a: b), f a => f b }
+            implement Applicative2 for Maybe { ap2 _ _ = None }
+          |]
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
-        case Map.lookup "ap2" (envValues env) of
-          Just [EnvEntry {envEntryValue = FunctionVal ts _ _ _}] ->
+        case inScope env "ap2" of
+          [] -> expectationFailure "No"
+          [(_, FunctionVal ts _ _ _)] ->
             ts
-              `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
-          _ -> expectationFailure "No"
+              `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigModule = Nothing, typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
 
-    describe "JSON" $ do
-      it "parseJSON" $ \stdLibEnv -> do
-        let expr = "parseJSON \"[1, null, 2.3]\""
-        let (val, _) = evalsIn stdLibEnv $ parseExprs expr
-        val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
+      describe "JSON" $ do
+        it "parseJSON" $ \stdLibEnv -> do
+          let expr = "parseJSON \"[1, null, 2.3]\""
+          let (val, _) = evalsIn stdLibEnv $ parseExprs expr
+          val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 
-      it "toJSON" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv $ parseExprs "toJSON {a: 1, b: 2, c: None}"
-        val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
+        it "toJSON" $ \stdLibEnv -> do
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "toJSON {a: 1, b: 2, c: None}"
+          val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
 
-      it "idempotent" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv $ parseExprs "parseJSON (toJSON {a: 1, b: 2, c: None})"
-        val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])
+        it "idempotent" $ \stdLibEnv -> do
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "parseJSON (toJSON {a: 1, b: 2, c: None})"
+          val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])

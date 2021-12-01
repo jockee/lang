@@ -297,7 +297,7 @@ typeDef typeConstructors = do
   args <- try $ option [] $ typeBindings typeConstructors
   space *> string "=>" <* spaceC
   rtrn <- typeBinding typeConstructors
-  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
+  return $ PTypeSig TypeSig {typeSigName = Just name, typeSigModule = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = args, typeSigReturn = rtrn}
 
 typeBindings :: [(String, String)] -> Parser [LangType]
 typeBindings typeConstructors = typeBinding typeConstructors `sepBy1` ((string ":" <|> string ",") <* hspace)
@@ -342,7 +342,7 @@ function traitBinding implementationBinding = do
   let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
-  let funSig = TypeSig {typeSigName = Just nameStr, typeSigImplementationBinding = implementationBinding, typeSigTraitBinding = traitBinding, typeSigIn = replicate (length args) AnyType, typeSigReturn = AnyType}
+  let funSig = TypeSig {typeSigName = Just nameStr, typeSigModule = Nothing, typeSigImplementationBinding = implementationBinding, typeSigTraitBinding = traitBinding, typeSigIn = replicate (length args) AnyType, typeSigReturn = AnyType}
   if null args
     then return $ Binop Assign name body
     else case name of
@@ -500,4 +500,4 @@ escapedChars = do
   oneOf ['\\', '"']
 
 sig :: [LangType] -> LangType -> TypeSig
-sig inn out = TypeSig {typeSigName = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = inn, typeSigReturn = out}
+sig inn out = TypeSig {typeSigName = Nothing, typeSigModule = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = inn, typeSigReturn = out}

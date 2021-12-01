@@ -5,7 +5,6 @@ import Control.Exception
 import Data.Aeson.Types (JSONPathElement (Key))
 import Data.Data
 import Data.Foldable (asum)
-import Data.Hashable
 import Data.List
 import Data.List qualified as List
 import Data.List.Split (splitOn)
@@ -15,9 +14,6 @@ import Data.Ord
 import Debug.Trace
 import Exceptions
 import Types
-
-instance Hashable Env where
-  hashWithSalt k Env {envValues = v} = k `hashWithSalt` Map.keys v
 
 matchingDefinition :: Env -> Val -> Val -> Bool
 matchingDefinition env passedArg (FunctionVal ts _ args@(expectedArgExp : _) _) =
@@ -121,7 +117,7 @@ typeCheckMany = foldl fl (Right emptyEnv)
     fl (Left err) _ = Left err
 
 moduleToEnv :: Env -> String -> Env
-moduleToEnv env name = env {inModule = inModule env ++ [name], withModules = withModules env ++ [name]}
+moduleToEnv env name = env {inModule = Just name, withModules = withModules env ++ [name]}
 
 typeSigToEnv :: Env -> TypeSig -> Env
 typeSigToEnv env ts =
@@ -129,39 +125,27 @@ typeSigToEnv env ts =
     Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
     Nothing -> env
 
-inScope :: Env -> String -> [([Module], Val)]
-inScope env rawLookupKey = case Map.lookup key (envValues env) of
-  Just envEntries -> fst $ foldr findLowest ([], 0) envEntries
-  Nothing -> []
+inScope :: Env -> String -> [(Maybe Module, Val)]
+inScope env rawLookupKey = inScope' (envScopes env)
   where
-    findLowest eE@EnvEntry {envEntryModules = modules', envEntryValue = val} (acc, bestScopeRank) =
-      let scopeRank' = scopeRank eE
-       in if scopeRank' > 0 && scopeRank' >= bestScopeRank
-            then ((modules', val) : acc, scopeRank')
-            else (acc, bestScopeRank)
-    scopeRank EnvEntry {envEntryModules = modules', envEntryScope = scope} =
-      if null modules' || matchesModules modules'
-        then case scope of
-          Nothing -> 1
-          Just scope' -> maybe 0 (+ 2) (List.elemIndex scope' (envScopes env))
-        else 0
+    inScope' [] = []
+    inScope' scopes = case Map.lookup key (last scopes) of
+      Nothing -> inScope' (init scopes)
+      Just eEs -> filter (matchesModules . fst) $ map (envEntryModule &&& envEntryValue) eEs
     key = last namespaced
-    modules = init namespaced
+    calledWithModules = init namespaced
     namespaced = splitOn "." rawLookupKey
-    matchesModules [] = True
-    matchesModules modules' =
-      not . null $ List.intersect modules' modules ++ List.intersect modules' (inModule env)
+    matchesModules Nothing = True
+    matchesModules (Just module') =
+      trace ("module from entry: " ++ show module' ++ ", inModule " ++ show (inModule env) ++ " withModules : " ++ show (withModules env) ++ ", calledWithModules: " ++ show calledWithModules) $
+        (maybe False ((==) module') (inModule env))
+          || (module' `elem` calledWithModules)
 
 setScope :: Env -> Env
-setScope env = trace ("SET scope") $ newEnv
-  where
-    newScope = show $ hash newEnv
-    newEnv = env {envScopes = envScopes env ++ [newScope]}
+setScope env = env {envScopes = envScopes env ++ [Map.empty]}
 
 unsetScope :: Env -> Env
-unsetScope env = trace ("UNSET scope") $ newEnv
-  where
-    newEnv = env {envScopes = init $ envScopes env}
+unsetScope env = env {envScopes = init $ envScopes env}
 
 resetScope :: Env -> Env
-resetScope env = env {envScopes = defaultEnvScopes}
+resetScope env = env {envScopes = [last (envScopes env)]}
