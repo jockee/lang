@@ -138,35 +138,26 @@ inScope env rawLookupKey = inScope' (envScopes env)
     calledWithModules = init namespaced
     namespaced = splitOn "." rawLookupKey
     matchesModules EnvEntry {envEntryModule = Just module'} =
-      trace ("tsm: " ++ show module' ++ " for " ++ key) $
-        module' `elem` scopedModules env
-          || Just module' == inModule env
-          || module' `elem` includedModules env && (module' `elem` calledWithModules)
-    matchesModules s = True
-
--- matchesModules (Just module') =
---   trace ("module from entry: " ++ show module' ++ ", inModule " ++ show (inModule env) ++ " includedModules : " ++ show (includedModules env) ++ ", calledWithModules: " ++ show calledWithModules) $
---     (maybe False ((==) module') (inModule env))
---       || (module' `elem` calledWithModules)
+      Just module' == inModule env
+        || module' `elem` includedModules env && (module' `elem` calledWithModules)
+    matchesModules _ = True
 
 setScope :: Env -> Maybe Module -> Env
 setScope env mbModule =
-  trace ("new scope. scopedModules: " ++ show (scopedModules env)) $
-    env
-      { envScopes = envScopes',
-        scopedModules = scopedModules'
-      }
+  env
+    { envScopes = envScopes',
+      inModule = inModule'
+    }
   where
     envScopes' = envScopes env ++ [Map.empty]
-    scopedModules' = List.nub $ scopedModules env ++ maybeToList mbModule
+    inModule' = mbModule
 
-unsetScope :: Env -> [Module] -> Env
-unsetScope env scopedModules =
-  trace ("unsettings scope" ++ show scopedModules) $
-    env
-      { envScopes = init $ envScopes env,
-        scopedModules = scopedModules
-      }
+unsetScope :: Env -> Maybe Module -> Env
+unsetScope env inModule' =
+  env
+    { envScopes = init $ envScopes env,
+      inModule = inModule'
+    }
 
 resetScope :: Env -> Env
 resetScope env = env {envScopes = [last (envScopes env)]}

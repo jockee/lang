@@ -345,7 +345,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "fold does not leak state" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fold (acc g: acc) 1 [1]"
-        print $ length $ envScopes env
         case inScope env "g" of
           [] -> return ()
           s -> expectationFailure "x"

@@ -56,11 +56,9 @@ evalIn env (PCase ts cond cases) =
    in case List.find findFun cases of
         Just (pred, predDo) -> evalIn (extend env pred cond) predDo
 evalIn env (Lambda ts args e) =
-  (FunctionVal (ts {typeSigModule = (inModule env)}) env args e, env)
+  (FunctionVal (ts {typeSigModule = inModule env}) env args e, env)
 evalIn env (HFI f args) = hfiFun env f args
-evalIn env (App e1 e2) =
-  let (val, env') = apply env e1 e2
-   in (val, env' {scopedModules = scopedModules env})
+evalIn env (App e1 e2) = apply env e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
   [definition] -> (definition, env)
   [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope" ++ show (map Map.keys (envScopes env))
@@ -214,9 +212,7 @@ extendWithDataConstructor env exprs vals = foldl foldFun env (zip exprs vals)
 
 extend :: Evaluatable e => Env -> Expr -> e -> Env
 extend env argExpr expr = case argExpr of
-  (Atom _ id) ->
-    -- trace ("calling f with x = " ++ show id) $
-    extendAtom env id expr
+  (Atom _ id) -> extendAtom env id expr
   (PDataConstructor _consName exprs) -> case val of
     (DataVal _dtype _name vals) -> extendWithDataConstructor env exprs vals
     s -> error $ "Non-value-cons value received for value cons destructuring" ++ show s
@@ -300,8 +296,7 @@ apply env e1 e2 =
     functionFullyApplied args = length args == 1
     callFullyApplied env ts args e2 e3 =
       let (val, env'') = runFun (setScope env (typeSigModule ts)) ts args e2 e3
-       in --trace ("scopedModules " ++ show (scopedModules env'')) $
-          (val, unsetScope env'' (scopedModules env))
+       in (val, unsetScope env'' (inModule env))
     callFunction env ts args e2 e3 =
       if functionFullyApplied args
         then callFullyApplied env ts args e2 e3
@@ -310,9 +305,7 @@ apply env e1 e2 =
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let (arg : remainingArgs') = argsList
-      newEnv =
-        -- trace ("calling arg " ++ show arg) $
-        extend env arg expr
+      newEnv = extend env arg expr
    in if null remainingArgs'
         then evalIn newEnv $ toExpr funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)

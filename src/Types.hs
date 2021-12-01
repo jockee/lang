@@ -24,7 +24,6 @@ import GHC.Real
 data Env where
   Env ::
     { inModule :: Maybe Module,
-      scopedModules :: [Module],
       includedModules :: [Module],
       envScopes :: [VarMap],
       typeSigs :: Map.Map String TypeSig,
@@ -52,7 +51,7 @@ defaultEnvScopes :: [VarMap]
 defaultEnvScopes = [Map.empty]
 
 emptyEnv :: Env
-emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, scopedModules = [], typeSigs = Map.empty, envLangPath = "", includedModules = []}
+emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, typeSigs = Map.empty, envLangPath = "", includedModules = []}
 
 -- Evaluatable
 
