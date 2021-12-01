@@ -348,7 +348,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         print $ length $ envScopes env
         case inScope env "g" of
           [] -> return ()
-          s -> trace ("calling f with x = " ++ show s) $ expectationFailure "x"
+          s -> expectationFailure "x"
         case inScope env "acc" of
           [] -> return ()
           _ -> expectationFailure "acc"
@@ -527,8 +527,9 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "can call without namespacing inside module" $ \stdLibEnv ->
         evals (parseExprs "module A { a x = 1; b i = a i }; A.b 1") `shouldBe` IntVal 1
 
-      it "can call without namespacing inside module" $ \stdLibEnv ->
-        evals (parseExprs "module Dict2 { toList xs = 1; keys dict = toList dict |> map ((a, b): a) }; Dict2.keys {a:1}") `shouldBe` IntVal 1
+      it "can call without namespacing inside module" $ \stdLibEnv -> do
+        let (val, _) = evalsIn stdLibEnv (parseExprs "module Dict2 { toList2 xs = (HFI dictToList [xs]); keys dict = map ((a, b): a) (toList2 dict) }; Dict2.keys {a:1}")
+        val `shouldBe` ListVal [StringVal "a"]
 
     describe "String interpolation" $
       it "atoms and integer" $ \stdLibEnv ->
@@ -703,7 +704,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
         case inScope env "ap2" of
           [] -> expectationFailure "No"
-          [(_, FunctionVal ts _ _ _)] ->
+          [FunctionVal ts _ _ _] ->
             ts
               `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigModule = Nothing, typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
 

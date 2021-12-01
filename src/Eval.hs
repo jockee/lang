@@ -42,7 +42,7 @@ evalIn env (PDataDefinition name constructors) = (Undefined, extendWithDataDefin
 evalIn env (PDataConstructor name exprArgs) =
   let evaledArgs = map (fst . evalIn env) exprArgs
    in case inScope env name of
-        [(_mbModule, DataConstructorDefinitionVal dtype argVals)] ->
+        [DataConstructorDefinitionVal dtype argVals] ->
           if length exprArgs > length argVals
             then error $ "Too many arguments to value constructor " ++ show name
             else case List.find (\(_i, val, ex) -> not $ concreteTypesMatch env (toLangType val) (toLangType ex)) (zip3 [1 ..] argVals exprArgs) of
@@ -58,15 +58,15 @@ evalIn env (PCase ts cond cases) =
 evalIn env (Lambda ts args e) =
   (FunctionVal (ts {typeSigModule = (inModule env)}) env args e, env)
 evalIn env (HFI f args) = hfiFun env f args
-evalIn env (App e1 e2) = apply env e1 e2
--- let (val, env') = apply (setScope env) e1 e2
---  in (val, unsetScope env')
+evalIn env (App e1 e2) =
+  let (val, env') = apply env e1 e2
+   in (val, env' {scopedModules = scopedModules env})
 evalIn env (Atom _ts atomId) = case inScope env atomId of
-  [(mbModule, definition)] -> trace ("setting inmodule for atom" ++ atomId ++ show (inModule env)) $ (definition, env {inModule = mbModule})
-  [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
+  [definition] -> (definition, env)
+  [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope" ++ show (map Map.keys (envScopes env))
   definitions -> case last definitions of
-    (mbModule, FunctionVal {}) -> (Pattern definitions, env)
-    (mbModule, lastDef) -> (lastDef, env {inModule = mbModule})
+    FunctionVal {} -> (Pattern definitions, env)
+    lastDef -> (lastDef, env)
 evalIn env (PInterpolatedString parts) =
   let fn x = case fst $ evalIn env x of
         StringVal s -> s
@@ -172,7 +172,7 @@ extendWithImplementation env trait = foldl foldFun env
     updateTS oldTS funName =
       (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
-      [(_mbModule, TraitVal _ defs)] -> case List.find (findDef funName) defs of
+      [TraitVal _ defs] -> case List.find (findDef funName) defs of
         Just (PTypeSig ts) -> ts
         _ -> anyTypeSig
       _ -> error $ "Got more than one trait definition for " ++ show trait
@@ -214,7 +214,9 @@ extendWithDataConstructor env exprs vals = foldl foldFun env (zip exprs vals)
 
 extend :: Evaluatable e => Env -> Expr -> e -> Env
 extend env argExpr expr = case argExpr of
-  (Atom _ id) -> extendAtom env id expr
+  (Atom _ id) ->
+    -- trace ("calling f with x = " ++ show id) $
+    extendAtom env id expr
   (PDataConstructor _consName exprs) -> case val of
     (DataVal _dtype _name vals) -> extendWithDataConstructor env exprs vals
     s -> error $ "Non-value-cons value received for value cons destructuring" ++ show s
@@ -239,8 +241,8 @@ extendAtom env id ex = env {envScopes = newScopes}
     insertFun = if id == "@" then const else flip (++)
     envEntry =
       EnvEntry
-        { envEntryModule = inModule env,
-          envEntryValue = fst $ evalIn env $ toExpr ex
+        { envEntryValue = fst $ evalIn env $ toExpr ex,
+          envEntryModule = inModule env
         }
 
 hfiFun :: Evaluatable e => Env -> Id -> e -> (Val, Env)
@@ -275,44 +277,41 @@ hfiFun env f argsList = case evaledArgsList of
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg . snd) definitions of
+    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
       [] -> error "Could not find matching function definition"
-      [(mbModule, FunctionVal ts _ args e3)] ->
-        if functionFullyApplied args
-          then
-            let (val, env'') = runFun (setScope (env' {inModule = mbModule})) ts args e2 e3
-             in (val, unsetScope env'')
-          else runFun (env' {inModule = mbModule}) ts args e2 e3
+      [FunctionVal ts _ args e3] -> callFunction env' ts args e2 e3
       (f : fs) -> case f of
-        (mbModule, FunctionVal ts _ args e3) ->
+        FunctionVal ts _ args e3 ->
           if functionFullyApplied args
-            then
-              let (val, env'') = runFun (setScope (env' {inModule = mbModule})) ts args e2 e3
-               in (val, unsetScope env'')
+            then callFullyApplied env' ts args e2 e3
             else
               let (appliedFuns, accEnv) = foldl toFunVal ([], env') (f : fs)
                   toFunVal (accFuns, accEnv) fun =
                     case fun of
-                      (mbModule, FunctionVal ts _ args e3) ->
+                      FunctionVal ts _ args e3 ->
                         let (val, env'') = runFun accEnv ts args e2 e3
-                         in (accFuns ++ [(mbModule, val)], env'' {inModule = mbModule})
+                         in (accFuns ++ [val], env'')
                       _ -> error "Non-function application"
                in (Pattern appliedFuns, accEnv)
-    (FunctionVal ts _ args e3, env') ->
-      if functionFullyApplied args
-        then
-          let (val, env'') = runFun (setScope env' {inModule = typeSigModule ts}) ts args e2 e3
-           in trace ("inmodule" ++ show (inModule env)) $ (val, unsetScope env'')
-        else runFun env' ts args e2 e3
+    (FunctionVal ts _ args e3, env') -> callFunction env' ts args e2 e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
     (passedArg, _) = evalIn env $ toExpr e2
     functionFullyApplied args = length args == 1
+    callFullyApplied env ts args e2 e3 =
+      let (val, env'') = runFun (setScope env (typeSigModule ts)) ts args e2 e3
+       in --trace ("scopedModules " ++ show (scopedModules env'')) $
+          (val, unsetScope env'' (scopedModules env))
+    callFunction env ts args e2 e3 =
+      if functionFullyApplied args
+        then callFullyApplied env ts args e2 e3
+        else runFun env ts args e2 e3
 
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let (arg : remainingArgs') = argsList
       newEnv =
+        -- trace ("calling arg " ++ show arg) $
         extend env arg expr
    in if null remainingArgs'
         then evalIn newEnv $ toExpr funExpr

@@ -1,5 +1,11 @@
-* push module to ts
 * prettify setting and unsetting scope
+* if we manage to solve entering and leaving modules, maybe scopedModules isn't needed and inModule
+  will suffice
+  * when do we enter or leave a module:
+    * calling a function within a module enters a module
+    * returning from a function leaves module, if it was called from another module
+      ie, we restore pre-call module state
+* scope into module and then leave scopedModule when appropriate
 
 # KEY
 

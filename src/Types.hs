@@ -24,7 +24,8 @@ import GHC.Real
 data Env where
   Env ::
     { inModule :: Maybe Module,
-      withModules :: [Module],
+      scopedModules :: [Module],
+      includedModules :: [Module],
       envScopes :: [VarMap],
       typeSigs :: Map.Map String TypeSig,
       envLangPath :: String
@@ -51,7 +52,7 @@ defaultEnvScopes :: [VarMap]
 defaultEnvScopes = [Map.empty]
 
 emptyEnv :: Env
-emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, typeSigs = Map.empty, envLangPath = "", withModules = []}
+emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, scopedModules = [], typeSigs = Map.empty, envLangPath = "", includedModules = []}
 
 -- Evaluatable
 
@@ -100,7 +101,7 @@ data Expr where
   PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
   Evaluated :: Val -> Expr -- NOTE: Only needed to "uneval" a pattern
-  PatternExpr :: [(Maybe Module, Val)] -> Expr -- NOTE: Only needed to "uneval" a pattern
+  PatternExpr :: [Val] -> Expr -- NOTE: Only needed to "uneval" a pattern
 
 type Id = String
 
@@ -168,7 +169,7 @@ data Val where
   FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
   DataVal :: DataConstructor -> Name -> [Val] -> Val
   DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
-  Pattern :: [(Maybe Module, Val)] -> Val
+  Pattern :: [Val] -> Val
   BoolVal :: Bool -> Val
   StringVal :: String -> Val
   IntVal :: Integer -> Val
@@ -218,7 +219,7 @@ type ConstructorWithArgs = (String, [String])
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal _ts _env _remainingArgs _) = "<fun>"
+  show (FunctionVal ts _env _remainingArgs _) = "<fun " ++ show ts ++ ">"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
@@ -353,7 +354,7 @@ instance Arith Val where
 
 data TypeSig = TypeSig
   { typeSigName :: Maybe String,
-    typeSigModule :: Maybe String,
+    typeSigModule :: Maybe String, -- XXX: delete
     typeSigImplementationBinding :: Maybe String,
     typeSigTraitBinding :: Maybe Trait,
     typeSigIn :: [LangType],

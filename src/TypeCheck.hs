@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+
 module TypeCheck where
 
 import Control.Arrow
@@ -83,7 +85,7 @@ typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " +
 concreteTypesMatch :: Env -> LangType -> LangType -> Bool
 concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) =
   case inScope env dcons of
-    [(_modules, DataConstructorDefinitionVal envTCons _)] -> tcons == envTCons
+    [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
     _ -> error $ "Got more than one definition for " ++ show dcons
 concreteTypesMatch env (FunctionType expInArgs expRtrn) (FunctionType gotInArgs gotRtrn) =
   all (uncurry (concreteTypesMatch env)) (zip expInArgs gotInArgs)
@@ -117,7 +119,7 @@ typeCheckMany = foldl fl (Right emptyEnv)
     fl (Left err) _ = Left err
 
 moduleToEnv :: Env -> String -> Env
-moduleToEnv env name = env {inModule = Just name, withModules = withModules env ++ [name]}
+moduleToEnv env name = env {inModule = Just name, includedModules = includedModules env ++ [name]}
 
 typeSigToEnv :: Env -> TypeSig -> Env
 typeSigToEnv env ts =
@@ -125,27 +127,46 @@ typeSigToEnv env ts =
     Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
     Nothing -> env
 
-inScope :: Env -> String -> [(Maybe Module, Val)]
+inScope :: Env -> String -> [Val]
 inScope env rawLookupKey = inScope' (envScopes env)
   where
     inScope' [] = []
     inScope' scopes = case Map.lookup key (last scopes) of
       Nothing -> inScope' (init scopes)
-      Just eEs -> filter (matchesModules . fst) $ map (envEntryModule &&& envEntryValue) eEs
+      Just eEs -> map envEntryValue $ filter matchesModules eEs
     key = last namespaced
     calledWithModules = init namespaced
     namespaced = splitOn "." rawLookupKey
-    matchesModules Nothing = True
-    matchesModules (Just module') =
-      trace ("module from entry: " ++ show module' ++ ", inModule " ++ show (inModule env) ++ " withModules : " ++ show (withModules env) ++ ", calledWithModules: " ++ show calledWithModules) $
-        (maybe False ((==) module') (inModule env))
-          || (module' `elem` calledWithModules)
+    matchesModules EnvEntry {envEntryModule = Just module'} =
+      trace ("tsm: " ++ show module' ++ " for " ++ key) $
+        module' `elem` scopedModules env
+          || Just module' == inModule env
+          || module' `elem` includedModules env && (module' `elem` calledWithModules)
+    matchesModules s = True
 
-setScope :: Env -> Env
-setScope env = env {envScopes = envScopes env ++ [Map.empty]}
+-- matchesModules (Just module') =
+--   trace ("module from entry: " ++ show module' ++ ", inModule " ++ show (inModule env) ++ " includedModules : " ++ show (includedModules env) ++ ", calledWithModules: " ++ show calledWithModules) $
+--     (maybe False ((==) module') (inModule env))
+--       || (module' `elem` calledWithModules)
 
-unsetScope :: Env -> Env
-unsetScope env = env {envScopes = init $ envScopes env}
+setScope :: Env -> Maybe Module -> Env
+setScope env mbModule =
+  trace ("new scope. scopedModules: " ++ show (scopedModules env)) $
+    env
+      { envScopes = envScopes',
+        scopedModules = scopedModules'
+      }
+  where
+    envScopes' = envScopes env ++ [Map.empty]
+    scopedModules' = List.nub $ scopedModules env ++ maybeToList mbModule
+
+unsetScope :: Env -> [Module] -> Env
+unsetScope env scopedModules =
+  trace ("unsettings scope" ++ show scopedModules) $
+    env
+      { envScopes = init $ envScopes env,
+        scopedModules = scopedModules
+      }
 
 resetScope :: Env -> Env
 resetScope env = env {envScopes = [last (envScopes env)]}
