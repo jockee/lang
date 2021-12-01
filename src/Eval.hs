@@ -58,7 +58,9 @@ evalIn env (PCase ts cond cases) =
 evalIn env (Lambda ts args e) =
   (FunctionVal ts env args e, env)
 evalIn env (HFI f args) = hfiFun env f args
-evalIn env (App e1 e2) = apply (setScope env) e1 e2
+evalIn env (App e1 e2) =
+  let (val, env') = apply (setScope env) e1 e2
+   in (val, unsetScope env')
 evalIn env (Atom _ts atomId) = case inScope env atomId of
   [(modules, definition)] -> (definition, env {inModule = modules})
   [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
@@ -111,7 +113,7 @@ evalIn env (Binop Concat e1 e2) =
       (ListVal ys, _) = evalIn env e2
       _ = error "Invalid"
    in (ListVal $ xs ++ ys, env)
-evalIn env (Binop Pipe e1 e2) = apply (setScope env) e2 e1
+evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
 evalIn env (Binop Cons e1 e2) =
   let (v1, _) = evalIn env e1
    in case fst $ evalIn env e2 of
@@ -298,7 +300,8 @@ apply env e1 e2 =
 runFun :: (Evaluatable e1, Evaluatable e2) => Env -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 runFun env ts argsList expr funExpr =
   let (arg : remainingArgs') = argsList
-      newEnv = extend env arg expr
+      newEnv =
+        extend env arg expr
    in if null remainingArgs'
         then evalIn newEnv $ toExpr funExpr
         else evalIn newEnv (Lambda ts remainingArgs' funExpr)

@@ -129,7 +129,6 @@ typeSigToEnv env ts =
     Just name -> env {typeSigs = Map.insert name ts (typeSigs env)}
     Nothing -> env
 
--- should sort
 inScope :: Env -> String -> [([Module], Val)]
 inScope env rawLookupKey = case Map.lookup key (envValues env) of
   Just envEntries -> fst $ foldr findLowest ([], 0) envEntries
@@ -154,10 +153,15 @@ inScope env rawLookupKey = case Map.lookup key (envValues env) of
       not . null $ List.intersect modules' modules ++ List.intersect modules' (inModule env)
 
 setScope :: Env -> Env
-setScope env = newEnv
+setScope env = trace ("SET scope") $ newEnv
   where
     newScope = show $ hash newEnv
-    newEnv = env {envScopes = List.nub $ envScopes env ++ [newScope]}
+    newEnv = env {envScopes = envScopes env ++ [newScope]}
+
+unsetScope :: Env -> Env
+unsetScope env = trace ("UNSET scope") $ newEnv
+  where
+    newEnv = env {envScopes = init $ envScopes env}
 
 resetScope :: Env -> Env
 resetScope env = env {envScopes = defaultEnvScopes}

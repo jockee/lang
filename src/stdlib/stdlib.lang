@@ -24,7 +24,7 @@ sort (y::xs) = let smaller = (filter (a: a <= y) xs),
 module Dict {
   toList xs = (HFI dictToList [xs])
   keys dict = Dict.toList dict |> map ((a, b): a) // NOTE: remove Dict. when possible
-  values dict = Dict.toList dict |> map ((a, b): b) // NOTE: remove Dict. when possible
+  values dict = toList dict |> map ((a, b): b) // NOTE: remove Dict. when possible
   merge d1 d2 = { d1 | d2 }
 }
 

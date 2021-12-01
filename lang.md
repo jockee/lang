@@ -1,7 +1,12 @@
+* could lookup on scope, and every scope contains a map of vals
+* how to keep track of which scope we're in?
+
+
+-- TODO: implement env as a stack, not a map
+
+
 # KEY
 
-  - TODO: inScope needs to verify that it exists in module
-  - TODO: extend needs to
   - TODO: remove requirement for Dict.toList from within that module
   - TODO: it "nested functions can use the same variable name"
 
