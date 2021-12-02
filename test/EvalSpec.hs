@@ -14,8 +14,6 @@ import Test.Hspec
 import TypeCheck
 import Types
 
-type TestEnv = [Expr]
-
 spec :: Spec
 spec = beforeAll (let !std = evaledStdLibEnv in std) $
   describe "Eval" $ do
@@ -631,40 +629,40 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
               }
 
               implement Foldable2 for String {
-                fold2 x init s = fold x init s
+                fold2 u init s = fold u init s
               }
 
               implement Foldable2 for Dict {
-                fold2 x init xs = fold x init xs
+                fold2 k init xs = fold k init xs
               }
             |]
-          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
-          val `shouldBe` IntVal 2
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
           val `shouldBe` IntVal 3
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
           val `shouldBe` IntVal 2
 
         it "Uses the right function - non-last argument" $ \stdLibEnv -> do
           let baseExpr =
                 [i|
-              trait Foldable2 f {
-                fold2 (a, b: a), f b, a => a
-                length2 xs = fold2 (acc x: acc + 1) xs 0
-              }
+                  trait Foldable2 f {
+                    fold2 (a, b: a), f b, a => a
+                    length2 xs = fold2 (acc x: acc + 1) xs 0
+                  }
 
-              implement Foldable2 for List {
-                fold2 x xs init = fold x init xs
-              }
+                  implement Foldable2 for List {
+                    fold2 x xs init = fold x init xs
+                  }
 
-              implement Foldable2 for String {
-                fold2 x s init = fold x init s
-              }
-            |]
-          let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
-          val `shouldBe` IntVal 2
+                  implement Foldable2 for String {
+                    fold2 k s init = fold k init s
+                  }
+                |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 [1,2,3]")
           val `shouldBe` IntVal 3
+          let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
+          val `shouldBe` IntVal 2
 
         it "Uses the right function - return value" $ \stdLibEnv -> do
           let baseExpr =

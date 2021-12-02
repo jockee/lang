@@ -7,6 +7,7 @@ import Control.Monad
 import Control.Monad.Combinators.Expr
 import Data.List qualified as List
 import Data.Maybe (fromJust)
+import Data.Text qualified as T
 import Data.Void
 import Debug.Trace
 import Text.Megaparsec
@@ -487,12 +488,12 @@ parseString = do
   string "\""
   s <- many $ escapedChars <|> noneOf ['\\', '"']
   string "\""
-  return $ PString s
+  return $ PString $ T.pack s
 
 parseStringContent :: Parser Expr
 parseStringContent = do
   s <- escapedChars <|> noneOf ['\\', '"']
-  return $ PString [s]
+  return $ PString $ T.pack [s]
 
 escapedChars :: Parser Char
 escapedChars = do

@@ -89,7 +89,7 @@ data Expr where
   PFloat :: Double -> Expr
   PImport :: Expr -> Expr
   PInterpolatedString :: [Expr] -> Expr
-  PString :: String -> Expr
+  PString :: T.Text -> Expr
   PBool :: Bool -> Expr
   HFI :: Id -> Expr -> Expr
   Lambda :: (Show e, Evaluatable e) => TypeSig -> ArgsList -> e -> Expr
@@ -124,7 +124,7 @@ showWithTypes (PImplementation trait dtype defs) = "(PImplementation " ++ show t
 showWithTypes (PDataConstructor name args) = "(PDataConstructor " ++ show name ++ " [" ++ joinCommaSep args ++ "])"
 showWithTypes (PDataDefinition name args) = "(PDataDefinition " ++ show name ++ " [" ++ joinCommaSep args ++ "])"
 showWithTypes (PInterpolatedString parts) = "(PInterpolatedString [" ++ joinCommaSep parts ++ "])"
-showWithTypes (PString contents) = "(PString \"" ++ contents ++ "\")"
+showWithTypes (PString contents) = "(PString \"" ++ T.unpack contents ++ "\")"
 showWithTypes (PInteger contents) = "(PInteger " ++ show contents ++ ")"
 showWithTypes (PFloat contents) = "(PFloat " ++ show contents ++ ")"
 showWithTypes (PTypeSig ts) = "(PTypeSig " ++ showTypeSig ts ++ ")"
@@ -171,7 +171,7 @@ data Val where
   DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
   Pattern :: [Val] -> Val
   BoolVal :: Bool -> Val
-  StringVal :: String -> Val
+  StringVal :: T.Text -> Val
   IntVal :: Integer -> Val
   DictVal :: Map.Map Val Val -> Val
   FloatVal :: Double -> Val
@@ -184,7 +184,7 @@ data Val where
 jsonToVal :: ByteString -> Val
 jsonToVal json = toVal (decode json :: Maybe Value)
   where
-    toVal (Just (AT.String s)) = StringVal $ T.unpack s
+    toVal (Just (AT.String s)) = StringVal s
     toVal (Just AT.Null) = DataVal "Maybe" "None" []
     toVal (Just (AT.Object xs)) = DictVal $ Map.fromList $ map (\(k, v) -> (DictKey $ T.unpack k, (toVal . Just) v)) (HM.toList xs)
     toVal (Just (AT.Array xs)) = ListVal $ map (toVal . Just) $ V.toList xs
@@ -195,7 +195,7 @@ jsonToVal json = toVal (decode json :: Maybe Value)
 
 instance ToJSON Val where
   toJSON (BoolVal b) = AT.Bool b
-  toJSON (StringVal s) = AT.String $ T.pack s
+  toJSON (StringVal s) = AT.String s
   toJSON (IntVal s) = AT.Number $ S.scientific s 0
   toJSON (FloatVal s) = AT.Number $ S.fromFloatDigits s
   toJSON (ListVal xs) = AT.Array $ V.fromList $ map toJSON xs
@@ -247,7 +247,7 @@ prettyVal (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
 prettyVal (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> prettyVal k ++ ": " ++ prettyVal v) (Map.toList m)) ++ "}"
 prettyVal (DictKey n) = n
 prettyVal (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
-prettyVal (StringVal n) = n
+prettyVal (StringVal n) = T.unpack n
 prettyVal (BoolVal n)
   | n = "true"
   | otherwise = "false"
@@ -449,6 +449,7 @@ instance LangTypeable Val where
     TupleVal {} -> ListType AnyType
     ListVal {} -> ListType AnyType
     DataVal cons name _ -> TypeConstructorType cons (toLangType name)
+    Pattern defs -> error $ "Patterns can't be matched with " ++ show defs
     s -> error $ "Not implemented" ++ show s
 
 showTypeSig :: TypeSig -> String

@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-local-binds #-}
 
 module Eval where
 
@@ -12,6 +13,7 @@ import Data.List (foldl')
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
+import Data.Text qualified as T
 import Debug.Trace
 import Exceptions
 import Parser (parseExprs)
@@ -27,7 +29,7 @@ evalIn env (Evaluated val) = (val, env)
 evalIn env (PatternExpr modVals) = (Pattern modVals, env)
 evalIn env (PImport stringExpr) = case fst $ evalIn env stringExpr of
   (StringVal filePath) ->
-    let contents = unsafePerformIO $ readFile' (envLangPath env ++ filePath)
+    let contents = unsafePerformIO $ readFile' (envLangPath env ++ T.unpack filePath)
         parsed = parseExprs $ strip contents
      in evalsIn env parsed
 evalIn env (PTrait name types funs) =
@@ -68,8 +70,8 @@ evalIn env (Atom _ts atomId) = case inScope env atomId of
 evalIn env (PInterpolatedString parts) =
   let fn x = case fst $ evalIn env x of
         StringVal s -> s
-        o -> prettyVal o
-   in (StringVal $ List.intercalate "" $ map fn parts, env)
+        o -> T.pack $ prettyVal o
+   in (StringVal $ T.intercalate "" $ map fn parts, env)
 evalIn env (PString n) = (StringVal n, env)
 evalIn env (PFloat n) = (FloatVal n, env)
 evalIn env (PInteger n) = (IntVal n, env)
@@ -86,7 +88,7 @@ evalIn env (PDict _ts pairs) =
   let fn (k, v) =
         let key = case fst $ evalIn env k of
               (DictKey s) -> DictKey s
-              (StringVal s) -> DictKey s
+              (StringVal s) -> DictKey $ T.unpack s
               _ -> error "Non-string dict key"
             val = fst $ evalIn env v
          in (key, val)
@@ -168,11 +170,12 @@ extendWithImplementation env trait = foldl' foldFun env
          in extend accEnv atom (Lambda newTS args e)
       (Binop Assign atom val) -> extend accEnv atom val
     updateTS oldTS funName =
-      (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
+      let ts = fromMaybe oldTS (tsFromTraitDef funName)
+       in ts {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
       [TraitVal _ defs] -> case List.find (findDef funName) defs of
-        Just (PTypeSig ts) -> ts
-        _ -> anyTypeSig
+        Just (PTypeSig ts) -> Just ts
+        _ -> Nothing
       _ -> error $ "Got more than one trait definition for " ++ show trait
     findDef funName (PTypeSig ts) = typeSigName ts == Just funName
 
@@ -249,26 +252,26 @@ hfiFun env f argsList = case evaledArgsList of
     evaledArgsList = fst $ evalIn env $ toExpr argsList
     fun "cons" (a : b : _) = case (a, b) of
       (a', ListVal bs) -> ListVal $ a' : bs
-      (StringVal a', StringVal bs) -> StringVal $ a' ++ bs -- NOTE: this concats instead of conses
+      (StringVal a', StringVal bs) -> StringVal $ T.append a' bs -- NOTE: this concats instead of conses
       s -> error $ show s
     fun "concat" (a : b : _) = case (a, b) of
       (ListVal a', ListVal bs) -> ListVal $ a' ++ bs
-      (StringVal a', StringVal bs) -> StringVal $ a' ++ bs
+      (StringVal a', StringVal bs) -> StringVal $ T.append a' bs
       s -> error $ show s
     fun "zipWith" (fun : ListVal xs : ListVal ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
           zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
        in ListVal $ zipWith zipFun xs ys
-    fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . (: [])) s
+    fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . T.singleton) (T.unpack s)
     fun "dictToList" (dict : _) = case dict of
-      (DictVal d) -> ListVal $ map (\(DictKey k, v) -> TupleVal [StringVal k, v]) (Map.toList d)
-    fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ readFile' (envLangPath env ++ path)
-    fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile path body) in StringVal body
+      (DictVal d) -> ListVal $ map (\(DictKey k, v) -> TupleVal [StringVal $ T.pack k, v]) (Map.toList d)
+    fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ T.pack <$> readFile' (envLangPath env ++ T.unpack path)
+    fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile (T.unpack path) (T.unpack body)) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
-    fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
+    fun "getArgs" _ = ListVal $ map (StringVal . T.pack) $ unsafePerformIO getArgs
     fun "print" (a : _) = unsafePerformIO (putStrLn (prettyVal a) >> pure a)
-    fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack s
-    fun "encodeJSON" (a : _) = StringVal $ BS.unpack $ encode a
+    fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack $ T.unpack s
+    fun "encodeJSON" (a : _) = StringVal . T.pack . BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
@@ -277,26 +280,25 @@ hfiFun env f argsList = case evaledArgsList of
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
-  trace ("apply again") $
-    case evalIn env e1 of
-      (Pattern definitions, env') -> trace ("calling f with x = " ++ show (length definitions)) $ case List.filter (matchingDefinition env' passedArg) definitions of
-        [] -> error "Could not find matching function definition"
-        [FunctionVal ts _ args e3] -> callFunction env' ts args e2 e3
-        funs@((FunctionVal ts _ args e3) : _) ->
-          if functionFullyApplied args
-            then callFullyApplied env' ts args e2 e3
-            else
-              let (appliedFuns, accEnv) = foldl' toFunVal ([], env') funs
-                  toFunVal (accFuns, accEnv) fun = case fun of
-                    FunctionVal ts _ args e3 ->
-                      let (val, env'') = runFun accEnv ts args e2 e3
-                       in (accFuns ++ [val], env'')
-                    _ -> error "Non-function application"
-               in trace ("APFUNS: " ++ show appliedFuns) $ (Pattern appliedFuns, accEnv)
-      (FunctionVal ts _ args e3, env') -> callFunction env' ts args e2 e3
-      (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
+  case evalIn env e1 of
+    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
+      [] -> error "Could not find matching function definition - none matched criteria"
+      [FunctionVal ts _ args e3] -> callFunction env' ts args e2 e3
+      funs@((FunctionVal ts _ args e3) : _) ->
+        if functionFullyApplied args
+          then callFullyApplied env' ts args e2 e3
+          else
+            let (appliedFuns, accEnv) = foldl' toFunVal ([], env') funs
+                toFunVal (accFuns, accEnv) fun = case fun of
+                  FunctionVal ts _ args e3 ->
+                    let (val, env'') = runFun accEnv ts args e2 e3
+                     in (accFuns ++ [val], env'')
+                  _ -> error "Non-function application"
+             in (Pattern appliedFuns, accEnv)
+    (FunctionVal ts _ args e3, env') -> callFunction env' ts args e2 e3
+    (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
-    (passedArg, _) = trace ("expr: " ++ show e2) $ evalIn env $ toExpr e2
+    (passedArg, _) = evalIn env $ toExpr e2
     functionFullyApplied args = length args == 1
     callFullyApplied env ts args e2 e3 =
       let (val, env'') = runFun (setScope env (typeSigModule ts)) ts args e2 e3

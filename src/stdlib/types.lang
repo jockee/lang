@@ -79,21 +79,25 @@ trait Foldable f { // ok
 }
 
 implement Foldable for List {
-  fold b initOrAcc (o::os) = let val = (b initOrAcc o): fold b val os
   fold _ initOrAcc [] = initOrAcc
+  fold b initOrAcc (o::os) = let val = (b initOrAcc o): fold b val os
 }
 
 
-// implement Foldable for String {
-//   foldString b initOrAcc (o::os) = let val = (b initOrAcc o): foldString b val os
-//   foldString _ initOrAcc [] = initOrAcc
-//   fold c initOrAcc cs = foldString c initOrAcc cs (HFI toChars [cs])
-//   fold _ initOrAcc [] = initOrAcc
-// }
-// implement Foldable for Dictionary {
-  // fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
-  // key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
-// }
+implement Foldable for String {
+  foldString _ initOrAcc [] = initOrAcc
+  foldString b initOrAcc (o::os) = let val = (b initOrAcc o): foldString b val os
+  fold _ initOrAcc [] = initOrAcc
+  fold c initOrAcc cs = foldString c initOrAcc (HFI toChars [cs])
+}
+
+implement Foldable for Dict {
+  fold _ initOrAcc [] = initOrAcc
+  fold m initOrAcc bs = foldDict m initOrAcc (HFI dictToList [bs])
+  foldDict _ initOrAcc [] = initOrAcc
+  foldDict b initOrAcc (o::os) = let val = (b initOrAcc o): foldDict b val os
+  key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
+}
 
 trait Monoid t {
   concat [a] => a

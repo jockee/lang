@@ -1,9 +1,13 @@
 # KEY
 
-  - implement jfold for dict, string and list
+  - "nested functions can use the same variable name"
+
+# MID
+
+  - implement fold for dict, string and list
+    - make sure the definition from the implementation is used
     - make sure the definition from the implementation is used
   - string split
-  - "nested functions can use the same variable name"
   - list fmap
   - function from implementation overrides trait function
 
@@ -30,7 +34,6 @@
     - TODO: check return type on return - after `evalIn`
     - TODO: parse nested type definition
 
-# MID
 
 # BACKLOG
 
@@ -44,7 +47,6 @@
 
 # REFACTORING
 
-* replace string with T.Text?
 * ReaderT, StateT? MTL
 
 # NOTES
