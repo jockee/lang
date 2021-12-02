@@ -1,7 +1,5 @@
 import "src/stdlib/types.lang"
 
-parseJSON json = (HFI parseJSON [json])
-toJSON a = (HFI toJSON [a])
 print a = (HFI print [a])
 getArgs = (HFI getArgs [])
 debug debugString outVal = (HFI debug [debugString, outVal])
@@ -49,4 +47,11 @@ odd? n = not (odd? n)
 module File {
   readFile p = (HFI readFile [p])
   writeFile path body = (HFI writeFile [path, body])
+}
+
+module JSON {
+  parse json = (HFI decodeJSON [json])
+  decode json = parse json
+  toJSON a = (HFI encodeJSON [a])
+  encode a = toJSON a
 }

@@ -1,7 +1,11 @@
 # KEY
 
-  - TODO: it "nested functions can use the same variable name"
-  - TODO: list fmap
+  - implement jfold for dict, string and list
+    - make sure the definition from the implementation is used
+  - string split
+  - "nested functions can use the same variable name"
+  - list fmap
+  - function from implementation overrides trait function
 
   ## USABILITY
   - TODO: sockets
@@ -36,11 +40,11 @@
     fun x a
     | x > 1 = true
   - TODO: `filter` if-then-else without parens around predicate
-  - TODO: replace string with T.Text?
   - TODO: nested modules
 
 # REFACTORING
 
+* replace string with T.Text?
 * ReaderT, StateT? MTL
 
 # NOTES

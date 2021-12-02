@@ -166,6 +166,7 @@ extendWithImplementation env trait = foldl' foldFun env
       (Binop Assign atom@(Atom _ts funName) (Lambda ts args e)) ->
         let newTS = updateTS ts funName
          in extend accEnv atom (Lambda newTS args e)
+      (Binop Assign atom val) -> extend accEnv atom val
     updateTS oldTS funName =
       (tsFromTraitDef funName) {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
     tsFromTraitDef funName = case inScope env trait of
@@ -254,9 +255,6 @@ hfiFun env f argsList = case evaledArgsList of
       (ListVal a', ListVal bs) -> ListVal $ a' ++ bs
       (StringVal a', StringVal bs) -> StringVal $ a' ++ bs
       s -> error $ show s
-    fun "fold" (fun : init : ListVal xs : _) =
-      let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
-       in foldl' foldFun init xs
     fun "zipWith" (fun : ListVal xs : ListVal ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
           zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
@@ -269,8 +267,8 @@ hfiFun env f argsList = case evaledArgsList of
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "getArgs" _ = ListVal $ map StringVal $ unsafePerformIO getArgs
     fun "print" (a : _) = unsafePerformIO (putStrLn (prettyVal a) >> pure a)
-    fun "parseJSON" ((StringVal s) : _) = jsonToVal $ BS.pack s
-    fun "toJSON" (a : _) = StringVal $ BS.unpack $ encode a
+    fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack s
+    fun "encodeJSON" (a : _) = StringVal $ BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal ts _env args e) = Lambda ts args e
@@ -279,27 +277,26 @@ hfiFun env f argsList = case evaledArgsList of
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
-  case evalIn env e1 of
-    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
-      [] -> error "Could not find matching function definition"
-      [FunctionVal ts _ args e3] -> callFunction env' ts args e2 e3
-      (f : fs) -> case f of
-        FunctionVal ts _ args e3 ->
+  trace ("apply again") $
+    case evalIn env e1 of
+      (Pattern definitions, env') -> trace ("calling f with x = " ++ show (length definitions)) $ case List.filter (matchingDefinition env' passedArg) definitions of
+        [] -> error "Could not find matching function definition"
+        [FunctionVal ts _ args e3] -> callFunction env' ts args e2 e3
+        funs@((FunctionVal ts _ args e3) : _) ->
           if functionFullyApplied args
             then callFullyApplied env' ts args e2 e3
             else
-              let (appliedFuns, accEnv) = foldl' toFunVal ([], env') (f : fs)
-                  toFunVal (accFuns, accEnv) fun =
-                    case fun of
-                      FunctionVal ts _ args e3 ->
-                        let (val, env'') = runFun accEnv ts args e2 e3
-                         in (accFuns ++ [val], env'')
-                      _ -> error "Non-function application"
-               in (Pattern appliedFuns, accEnv)
-    (FunctionVal ts _ args e3, env') -> callFunction env' ts args e2 e3
-    (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
+              let (appliedFuns, accEnv) = foldl' toFunVal ([], env') funs
+                  toFunVal (accFuns, accEnv) fun = case fun of
+                    FunctionVal ts _ args e3 ->
+                      let (val, env'') = runFun accEnv ts args e2 e3
+                       in (accFuns ++ [val], env'')
+                    _ -> error "Non-function application"
+               in trace ("APFUNS: " ++ show appliedFuns) $ (Pattern appliedFuns, accEnv)
+      (FunctionVal ts _ args e3, env') -> callFunction env' ts args e2 e3
+      (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
-    (passedArg, _) = evalIn env $ toExpr e2
+    (passedArg, _) = trace ("expr: " ++ show e2) $ evalIn env $ toExpr e2
     functionFullyApplied args = length args == 1
     callFullyApplied env ts args e2 e3 =
       let (val, env'') = runFun (setScope env (typeSigModule ts)) ts args e2 e3

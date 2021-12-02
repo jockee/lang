@@ -60,7 +60,7 @@ trait Foldable f { // ok
   fold (a, b: a), a, f b => a // comm
   length xs = fold (acc x: acc + 1) 0 xs
   sum xs = fold (acc n: n + acc) 0 xs
-  map k xs = fold (acc x: (acc ++ [k x])) [] xs
+  map l xs = fold (acc x: (acc ++ [l x])) [] xs
   filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
   reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
   product xs = fold (acc n: n * acc) 1 xs
@@ -79,28 +79,45 @@ trait Foldable f { // ok
 }
 
 implement Foldable for List {
-  fold x init xs = (HFI fold [x, init, xs])
-}
-
-implement Foldable for String {
-  fold x init s = (HFI fold [x, init, (HFI toChars [s])])
+  fold b initOrAcc (o::os) = let val = (b initOrAcc o): fold b val os
+  fold _ initOrAcc [] = initOrAcc
 }
 
 
-// trait Monoid t {
-//   concat [a] => a
+// implement Foldable for String {
+//   foldString b initOrAcc (o::os) = let val = (b initOrAcc o): foldString b val os
+//   foldString _ initOrAcc [] = initOrAcc
+//   fold c initOrAcc cs = foldString c initOrAcc cs (HFI toChars [cs])
+//   fold _ initOrAcc [] = initOrAcc
+// }
+// implement Foldable for Dictionary {
+  // fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
+  // key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
 // }
 
-// instance Monoid for String {
-//   concat (x::xs) = x
-// }
-
-// module String {
-//   join m xs = fold (acc x: (x :: m :: acc)) "" xs
-//   split m xs = fold (acc c: (x == m) ? acc ++ [c] : acc) [] xs
-// }
-
-implement Foldable for Dictionary {
-  fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
-  key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
+trait Monoid t {
+  concat [a] => a
+  empty => a
+  append a, a => a
 }
+
+implement Monoid for String {
+  concat (x::xs) = x :: (concat xs)
+  append a b = a :: b
+  empty = ""
+}
+
+
+module String {
+  // join m xs = fold (acc x: (length acc > 0) ? (acc :: m :: x) : x) "" xs
+  // * om match första: do nothing
+  // * om inte match, lägg till i senaste strängen
+  // * om match senare: ny sträng
+  // * om match sista: do nothing
+  // split m xs = fold (acc c: (x == m) ? acc ++ [c] : acc) [] xs
+// * strip
+// * capitalize
+// * upcase
+// * downcas
+}
+

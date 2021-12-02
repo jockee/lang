@@ -408,8 +408,8 @@ implementation = do
   hspace *> string "for" <* hspace
   typeConstructor <- identifier
   hspace *> string "{" <* spaceC
-  functions <- try (function (Just trait) (Just typeConstructor)) `endBy1` (expressionSep <* spaceC)
-  space *> string "}"
+  functions <- try (function (Just trait) (Just typeConstructor)) `endBy` (expressionSep <* spaceC)
+  spaceC *> string "}"
   return $ PImplementation trait typeConstructor functions
 
 dataConstructor :: Parser Expr

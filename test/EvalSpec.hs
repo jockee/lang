@@ -627,15 +627,15 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
               }
 
               implement Foldable2 for List {
-                fold2 x init xs = (HFI fold [x, init, xs])
+                fold2 x init xs = fold x init xs
               }
 
               implement Foldable2 for String {
-                fold2 x init s = (HFI fold [x, init, (HFI toChars [s])])
+                fold2 x init s = fold x init s
               }
 
               implement Foldable2 for Dict {
-                fold2 x init xs = (HFI fold [x, init, (HFI dictToList [xs])])
+                fold2 x init xs = fold x init xs
               }
             |]
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
@@ -654,11 +654,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
               }
 
               implement Foldable2 for List {
-                fold2 x xs init = (HFI fold [x, init, xs])
+                fold2 x xs init = fold x init xs
               }
 
               implement Foldable2 for String {
-                fold2 x s init = (HFI fold [x, init, (HFI toChars [s])])
+                fold2 x s init = fold x init s
               }
             |]
           let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
@@ -716,14 +716,14 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       describe "JSON" $ do
         it "parseJSON" $ \stdLibEnv -> do
-          let expr = "parseJSON \"[1, null, 2.3]\""
+          let expr = "JSON.parse \"[1, null, 2.3]\""
           let (val, _) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 
         it "toJSON" $ \stdLibEnv -> do
-          let (val, _) = evalsIn stdLibEnv $ parseExprs "toJSON {a: 1, b: 2, c: None}"
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.encode {a: 1, b: 2, c: None}"
           val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
 
         it "idempotent" $ \stdLibEnv -> do
-          let (val, _) = evalsIn stdLibEnv $ parseExprs "parseJSON (toJSON {a: 1, b: 2, c: None})"
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.parse (JSON.encode {a: 1, b: 2, c: None})"
           val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])

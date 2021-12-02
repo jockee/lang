@@ -219,7 +219,7 @@ type ConstructorWithArgs = (String, [String])
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal ts _env _remainingArgs _) = "<fun " ++ show ts ++ ">"
+  show (FunctionVal ts _env remainingArgs _) = "(FunctionVal " ++ show ts ++ " " ++ show remainingArgs ++ ")\n"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
