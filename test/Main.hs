@@ -13,3 +13,5 @@ main :: IO ()
 main = test
 
 test = hspecWith defaultConfig {configFormatter = Just progress} Spec.spec
+
+t = test

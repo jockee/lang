@@ -64,7 +64,7 @@ formula = makeExprParser juxta table <?> "formula"
         [concatOp],
         [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
         [consOp],
-        [pipeOp]
+        [pipeOp, fmapPipe]
       ]
     prefix name fun = Prefix (do string name; return fun)
     neg n = case n of
@@ -91,10 +91,11 @@ formula = makeExprParser juxta table <?> "formula"
     ltOp = InfixL (try $ spaceC *> string "<" <* spaceC >> return (Cmp "<"))
     gteOp = InfixL (try $ spaceC *> string ">=" <* spaceC >> return (Cmp ">="))
     lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
-    orOp = InfixL (try $ spaceC *> string "||" <* spaceC >> return (Binop Or))
+    orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
     concatOp = InfixL (try $ spaceC *> string "++" <* spaceC >> return (Binop Concat))
     consOp = InfixL (try $ spaceC *> string "::" <* spaceC >> return (Binop Cons))
     pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return (Binop Pipe))
+    fmapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop FmapPipe))
 
 lexeme = L.lexeme hspace
 
@@ -136,7 +137,6 @@ term =
         <|> false
         <|> try interpolatedString
         <|> parseString
-        <|> try consList
         <|> variable
         <|> try tuple
         <|> parens expr
@@ -160,7 +160,7 @@ dictContents = do
       return (key, val)
 
 consList :: Parser Expr
-consList = do
+consList = lexeme $ do
   char '(' <* space
   listContents <- identifier `sepBy2` (hspace *> string "::" <* hspace)
   space *> char ')'
@@ -273,7 +273,7 @@ let' = do
     foldFun (pairKey, pairVal) acc =
       App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
-      key <- spaceC *> try (term <* string "=") <* spaceC
+      key <- spaceC *> ((try consList <|> term) <* string "=") <* spaceC
       val <- term <|> formula
       return (key, val)
 
@@ -337,9 +337,9 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
 
 function :: Maybe TypeConstructor -> Maybe String -> Parser Expr
 function traitBinding implementationBinding = do
-  terms <- term `sepBy1` hspace
+  name <- term
+  args <- (try consList <|> term) `sepBy` hspace
   string "=" <* space
-  let (name : args) = terms
   body <- expr
   let Atom _ nameStr = name
   let funSig = TypeSig {typeSigName = Just nameStr, typeSigModule = Nothing, typeSigImplementationBinding = implementationBinding, typeSigTraitBinding = traitBinding, typeSigIn = replicate (length args) AnyType, typeSigReturn = AnyType}
@@ -351,7 +351,7 @@ function traitBinding implementationBinding = do
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (variable <|> tuple) `sepBy` hspace
+  identifiers <- (try consList <|> variable <|> tuple) `sepBy` hspace
   string ":" <* notFollowedBy (string ":")
   Lambda (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
 

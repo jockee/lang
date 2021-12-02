@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE StrictData #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
@@ -106,7 +107,7 @@ type Id = String
 
 type Case = (Expr, Expr)
 
-data Op = Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | Assign | Concat | Cons | Pow
+data Op = Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | FmapPipe | Assign | Concat | Cons | Pow
   deriving stock (Show, Data)
 
 data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs
@@ -222,17 +223,15 @@ instance Show Val where
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
-  show (IntVal n) = show n
-  show (FloatVal n) = show n
-  show (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
-  show (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
+  show (IntVal n) = "(IntVal " ++ show n ++ ")"
+  show (FloatVal n) = "(FloatVal " ++ show n ++ ")"
+  show (TupleVal ns) = "(TupleVal (" ++ joinCommaSep ns ++ "))"
+  show (ListVal ns) = "(ListVal [" ++ joinCommaSep ns ++ "])"
   show (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = show n
   show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
-  show (StringVal n) = show n
-  show (BoolVal n)
-    | n = "true"
-    | otherwise = "false"
+  show (StringVal n) = "(StringVal " ++ show n ++ ")"
+  show (BoolVal n) = "(BoolVal " ++ show n ++ ")"
   show Undefined = "Undefined"
 
 prettyVal :: Val -> String
@@ -353,7 +352,7 @@ instance Arith Val where
 
 data TypeSig = TypeSig
   { typeSigName :: Maybe String,
-    typeSigModule :: Maybe String, -- XXX: delete
+    typeSigModule :: Maybe String,
     typeSigImplementationBinding :: Maybe String,
     typeSigTraitBinding :: Maybe Trait,
     typeSigIn :: [LangType],

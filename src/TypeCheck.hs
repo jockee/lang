@@ -2,19 +2,11 @@
 
 module TypeCheck where
 
-import Control.Arrow
-import Control.Exception
-import Data.Aeson.Types (JSONPathElement (Key))
-import Data.Data
-import Data.Foldable (asum)
-import Data.List
-import Data.List qualified as List
+import Data.List (foldl')
 import Data.List.Split (splitOn)
 import Data.Map qualified as Map
 import Data.Maybe
-import Data.Ord
 import Debug.Trace
-import Exceptions
 import Types
 
 matchingDefinition :: Env -> Val -> Val -> Bool
@@ -113,7 +105,7 @@ typeAtPos ts argsRemaining =
    in types !! (length types - argsRemaining)
 
 typeCheckMany :: [Expr] -> Either String Env
-typeCheckMany = foldl fl (Right emptyEnv)
+typeCheckMany = foldl' fl (Right emptyEnv)
   where
     fl (Right env) ex = typeCheck env AnyType ex
     fl (Left err) _ = Left err
@@ -139,7 +131,7 @@ inScope env rawLookupKey = inScope' (envScopes env)
     namespaced = splitOn "." rawLookupKey
     matchesModules EnvEntry {envEntryModule = Just module'} =
       Just module' == inModule env
-        || module' `elem` includedModules env && (module' `elem` calledWithModules)
+        || module' `elem` includedModules env && module' `elem` calledWithModules
     matchesModules _ = True
 
 setScope :: Env -> Maybe Module -> Env

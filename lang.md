@@ -1,16 +1,7 @@
-* prettify setting and unsetting scope
-* if we manage to solve entering and leaving modules, maybe scopedModules isn't needed and inModule
-  will suffice
-  * when do we enter or leave a module:
-    * calling a function within a module enters a module
-    * returning from a function leaves module, if it was called from another module
-      ie, we restore pre-call module state
-* scope into module and then leave scopedModule when appropriate
-
 # KEY
 
-  - TODO: remove requirement for Dict.toList from within that module
   - TODO: it "nested functions can use the same variable name"
+  - TODO: list fmap
 
   ## USABILITY
   - TODO: sockets
@@ -48,13 +39,11 @@
   - TODO: replace string with T.Text?
   - TODO: nested modules
 
+# REFACTORING
+
+* ReaderT, StateT? MTL
+
 # NOTES
-
--- NOTE: ON SCOPE LEAK: if it still leaks, look at hash key generation. maybe pass 'scopeId' to App (of Expr)?
--- NOTE: module braces syntax?
-
--- COULD BE MOVED TO STDLIB
-* dict update merger. could it, though? how would we modify the dict?
 
 ----
 

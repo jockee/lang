@@ -8,13 +8,13 @@ import Control.Concurrent
 import Control.Exception
 import Data.Aeson
 import Data.ByteString.Lazy.Char8 qualified as BS
+import Data.List (foldl')
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe
 import Debug.Trace
 import Exceptions
 import Parser (parseExprs)
-import Safe
 import System.Environment
 import System.IO.Extra (readFile')
 import System.IO.Unsafe
@@ -68,7 +68,7 @@ evalIn env (Atom _ts atomId) = case inScope env atomId of
 evalIn env (PInterpolatedString parts) =
   let fn x = case fst $ evalIn env x of
         StringVal s -> s
-        o -> show o
+        o -> prettyVal o
    in (StringVal $ List.intercalate "" $ map fn parts, env)
 evalIn env (PString n) = (StringVal n, env)
 evalIn env (PFloat n) = (FloatVal n, env)
@@ -106,16 +106,10 @@ evalIn env (Binop Assign (PTuple _ts1 bindings) (PTuple _ts2 vs)) =
    in if length bindings /= length evaledValues
         then throw $ EvalException "Destructuring failed. Mismatched parameter count"
         else (TupleVal evaledValues, newEnv)
-evalIn env (Binop Concat e1 e2) =
-  let (ListVal xs, _) = evalIn env e1
-      (ListVal ys, _) = evalIn env e2
-      _ = error "Invalid"
-   in (ListVal $ xs ++ ys, env)
+evalIn env (Binop Concat e1 e2) = evalIn env (App (App (lambda 2 "concat") e1) e2)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
-evalIn env (Binop Cons e1 e2) =
-  let (v1, _) = evalIn env e1
-   in case fst $ evalIn env e2 of
-        ListVal xs -> (ListVal (v1 : xs), env)
+evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e2) e1)
+evalIn env (Binop Cons e1 e2) = evalIn env (App (App (lambda 2 "cons") e1) e2)
 evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
       value = fst $ evalIn env (Lambda ts' args e)
@@ -146,8 +140,13 @@ evalIn env (Cmp op e1 e2) =
 evalIn env PNoop = (Undefined, env)
 evalIn _ a = error $ "failed to find match in evalIn: " ++ show a
 
+lambda :: Int -> Id -> Expr
+lambda argCount name = Lambda anyTypeSig args $ HFI name $ PList anyTypeSig args
+  where
+    args = take argCount $ map (Atom anyTypeSig . (: [])) ['a' ..]
+
 extendWithDataDefinition :: Env -> String -> [ConstructorWithArgs] -> Env
-extendWithDataDefinition env typeCons = foldl foldFun env
+extendWithDataDefinition env typeCons = foldl' foldFun env
   where
     foldFun :: Env -> ConstructorWithArgs -> Env
     foldFun accEnv (vc, args) = extend accEnv (Atom anyTypeSig vc) (DataConstructorDefinitionVal typeCons args)
@@ -155,13 +154,13 @@ extendWithDataDefinition env typeCons = foldl foldFun env
 extendWithTuple :: Env -> [Expr] -> [Val] -> Env
 extendWithTuple env bindings vs =
   let foldFun accEnv (binding, val) = extend accEnv binding val
-   in foldl foldFun env (zip bindings vs)
+   in foldl' foldFun env (zip bindings vs)
 
 extendWithTrait :: Env -> String -> [Expr] -> Env
 extendWithTrait env name defs = extend env (Atom anyTypeSig name) $ TraitVal name defs
 
 extendWithImplementation :: Env -> Trait -> [Expr] -> Env
-extendWithImplementation env trait = foldl foldFun env
+extendWithImplementation env trait = foldl' foldFun env
   where
     foldFun accEnv def = case def of
       (Binop Assign atom@(Atom _ts funName) (Lambda ts args e)) ->
@@ -180,7 +179,7 @@ extendWithImplementation env trait = foldl foldFun env
 -- let {a: 1, b: c} = {a: 1, b: 2} in
 -- let {a: b, ...} = {a: 1, b: 2, c: 2} in
 extendWithDict :: Env -> [(Expr, Expr)] -> Map.Map Val Val -> Env
-extendWithDict env exprPairs valMap = foldl foldFun env exprPairs
+extendWithDict env exprPairs valMap = foldl' foldFun env exprPairs
   where
     foldFun :: Env -> (Expr, Expr) -> Env
     foldFun accEnv expr = case expr of
@@ -205,7 +204,7 @@ extendWithConsList env bindings vs
     foldFun (binding, val) accEnv = extend accEnv (Atom anyTypeSig binding) val
 
 extendWithDataConstructor :: Env -> [Expr] -> [Val] -> Env
-extendWithDataConstructor env exprs vals = foldl foldFun env (zip exprs vals)
+extendWithDataConstructor env exprs vals = foldl' foldFun env (zip exprs vals)
   where
     foldFun :: Env -> (Expr, Val) -> Env
     foldFun accEnv (expr, val) = extend accEnv expr val
@@ -247,9 +246,17 @@ hfiFun env f argsList = case evaledArgsList of
   _ -> error "Got non-list"
   where
     evaledArgsList = fst $ evalIn env $ toExpr argsList
+    fun "cons" (a : b : _) = case (a, b) of
+      (a', ListVal bs) -> ListVal $ a' : bs
+      (StringVal a', StringVal bs) -> StringVal $ a' ++ bs -- NOTE: this concats instead of conses
+      s -> error $ show s
+    fun "concat" (a : b : _) = case (a, b) of
+      (ListVal a', ListVal bs) -> ListVal $ a' ++ bs
+      (StringVal a', StringVal bs) -> StringVal $ a' ++ bs
+      s -> error $ show s
     fun "fold" (fun : init : ListVal xs : _) =
       let foldFun acc x = fst $ evalIn env $ App (App (funToExpr fun) acc) x
-       in List.foldl' foldFun init xs
+       in foldl' foldFun init xs
     fun "zipWith" (fun : ListVal xs : ListVal ys : _) =
       let zipFun :: Evaluatable e => e -> e -> Val
           zipFun x y = fst $ evalIn env $ App (App (funToExpr fun) x) y
@@ -281,7 +288,7 @@ apply env e1 e2 =
           if functionFullyApplied args
             then callFullyApplied env' ts args e2 e3
             else
-              let (appliedFuns, accEnv) = foldl toFunVal ([], env') (f : fs)
+              let (appliedFuns, accEnv) = foldl' toFunVal ([], env') (f : fs)
                   toFunVal (accFuns, accEnv) fun =
                     case fun of
                       FunctionVal ts _ args e3 ->
@@ -314,7 +321,7 @@ eval :: Expr -> Val
 eval = fst . evalIn emptyEnv
 
 evalsIn :: Env -> [Expr] -> (Val, Env)
-evalsIn env = List.foldl' fl (Undefined, env)
+evalsIn env = foldl' fl (Undefined, env)
   where
     fl (!_val, env) ex = evalIn (resetScope env) ex
 

@@ -158,30 +158,30 @@ spec = describe "Parser" $ do
 
   describe "Type definition" $ do
     it "Binding definition" $
-      show (parseExpr "a => Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType})
+      show (parseExpr "a => Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})
 
     it "Function definition" $
-      show (parseExpr "a Integer => Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType})
+      show (parseExpr "a Integer => Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [IntType], typeSigReturn = IntType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})
 
   it "Type definition contains function" $
     s (parseExpr "a (Integer: Integer) => Integer")
-      `shouldBe` s (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [IntType] IntType], typeSigReturn = IntType})
+      `shouldBe` s (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [IntType] IntType], typeSigReturn = IntType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})
 
   it "Type definition contains multi-param function" $
     s (parseExpr "a (b, c: b) => b") -- HACK => to have to comma-separate function arguments here is a hack?
-      `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [AnyType, AnyType] AnyType], typeSigReturn = AnyType}))
+      `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "a", typeSigIn = [FunctionType [AnyType, AnyType] AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))
 
   it "Containing type variables" $
-    s (parseExpr "at a => Boolean") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [AnyType], typeSigReturn = BooleanType}))
+    s (parseExpr "at a => Boolean") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [AnyType], typeSigReturn = BooleanType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))
 
   it "Containing list" $
-    s (parseExpr "at [a] => a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [ListType AnyType], typeSigReturn = AnyType}))
+    s (parseExpr "at [a] => a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [ListType AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))
 
   it "Containing list of concrete type" $
-    s (parseExpr "at [Integer] => a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [ListType IntType], typeSigReturn = AnyType}))
+    s (parseExpr "at [Integer] => a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [ListType IntType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))
 
   it "Containing type constructor with type variable" $
-    s (parseExpr "at Integer => Maybe a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [IntType], typeSigReturn = TypeConstructorType "Maybe" AnyType}))
+    s (parseExpr "at Integer => Maybe a") `shouldBe` s (PTypeSig (TypeSig {typeSigName = Just "at", typeSigIn = [IntType], typeSigReturn = TypeConstructorType "Maybe" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))
 
   describe "Pattern matching" $ do
     it "value constructor in function definition" $
@@ -271,13 +271,13 @@ spec = describe "Parser" $ do
 
   describe "Trait" $ do
     it "can create trait" $
-      s (parseExpr "trait Mappable { map (a: b): a => b }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType})] [])
+      s (parseExpr "trait Mappable { map (a: b): a => b }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
 
     it "function definition in trait" $
-      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
+      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f { fmap (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType}))] [])
+      s (parseExpr "trait Functor f { fmap (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))] [])
 
   describe "Implementation" $ do
     it "can create implementation" $

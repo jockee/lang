@@ -38,8 +38,8 @@ library
   hs-source-dirs:
       src
   default-extensions:
-      LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
-  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns
+      LambdaCase GeneralizedNewtypeDeriving StrictData ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
+  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns -fwrite-ide-info -hiedir=.hie
   build-depends:
       aeson
     , base >=4.14 && <5
@@ -74,8 +74,8 @@ executable langc
   hs-source-dirs:
       app
   default-extensions:
-      LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+      LambdaCase GeneralizedNewtypeDeriving StrictData ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fwrite-ide-info -hiedir=.hie
   build-depends:
       aeson
     , base >=4.14 && <5
@@ -116,7 +116,7 @@ test-suite lang-test
   hs-source-dirs:
       test
   default-extensions:
-      LambdaCase GeneralizedNewtypeDeriving ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
+      LambdaCase GeneralizedNewtypeDeriving StrictData ScopedTypeVariables DerivingStrategies ImportQualifiedPost OverloadedStrings TemplateHaskell QuasiQuotes TypeFamilies MultiParamTypeClasses
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson

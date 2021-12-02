@@ -8,7 +8,6 @@ import Data.Map qualified as Map
 import Data.String.Interpolate (i, __i)
 import Debug.Trace
 import Eval
-import Exceptions
 import Lang
 import Parser
 import Test.Hspec
@@ -167,6 +166,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "pipes as last argument" $ \stdLibEnv ->
         eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+
+      it "fmap pipe" $ \stdLibEnv -> do
+        let (val, _) = evalsIn stdLibEnv (parseExprs "(Some 1) ||> (n: n * 2)")
+        val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
     describe "Stdlib" $ do
       it "fold function" $ \stdLibEnv -> do
@@ -329,7 +332,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "moves back up to global" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
-        (length (envScopes env)) `shouldBe` 1
+        length (envScopes env) `shouldBe` 1
 
       it "does not leak state" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
@@ -362,6 +365,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         evals (parseExprs "1 :: []") `shouldBe` ListVal [IntVal 1]
 
       xit "nested functions can use the same variable name" $ \stdLibEnv -> do
+        -- here `x`
         let (val, env) = evalsIn stdLibEnv $ parseExprs "filter' f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs; s x = filter' (a: a <= x) [1,2,3]; s 2"
         val `shouldBe` ListVal [IntVal 1, IntVal 2]
 
@@ -553,9 +557,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "function destructuring falls to cons list" $ \stdLibEnv ->
         evals (parseExprs "a [] = 1; a (x :: xs) = x; a [2]") `shouldBe` IntVal 2
 
-    describe "Recursion" $
+    describe "Recursion" $ do
       it "recurs" $ \stdLibEnv ->
         evals (parseExprs "a b = (b == 0) ? [] : (a (b-1)); a 1") `shouldBe` ListVal []
+
+      it "recursive map" $ \stdLibEnv ->
+        evals (parseExprs "xmap _ [] = []; xmap f (x::xs) = (f x) :: (xmap f xs); xmap (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     describe "Data" $ do
       it "Defines and constructs zero-argument value" $ \stdLibEnv ->

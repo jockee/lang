@@ -15,6 +15,11 @@ trait Monad m {
   bind m a, (a: m b) => m b
 }
 
+implement Functor for List {
+  fmap _ [] = []
+  fmap f (x::xs) = (f x) :: (fmap f xs)
+}
+
 implement Functor for Maybe {
   fmap _ None = None
   fmap f (Some x) = Some (f x)
@@ -68,7 +73,7 @@ trait Foldable f { // ok
   min xs = sort xs |> head
   all? f xs = length (filter f xs) == length xs
   any? f xs = length (filter f xs) > 0
-  take n xs = fold (acc (o, i): (i < n) ? (acc ++ [o]) : acc) [] (zip xs (0 .. (length xs)))
+  take n xs = fold (acc o: ((length acc) < n) ? (acc ++ [o]) : acc) [] xs
   drop n xs = reverse xs |> take ((length xs) - n) |> reverse
   toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 }
@@ -80,6 +85,20 @@ implement Foldable for List {
 implement Foldable for String {
   fold x init s = (HFI fold [x, init, (HFI toChars [s])])
 }
+
+
+// trait Monoid t {
+//   concat [a] => a
+// }
+
+// instance Monoid for String {
+//   concat (x::xs) = x
+// }
+
+// module String {
+//   join m xs = fold (acc x: (x :: m :: acc)) "" xs
+//   split m xs = fold (acc c: (x == m) ? acc ++ [c] : acc) [] xs
+// }
 
 implement Foldable for Dictionary {
   fold x init kvs = (HFI fold [x, init, (HFI dictToList [kvs])])
