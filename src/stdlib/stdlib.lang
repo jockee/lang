@@ -1,6 +1,7 @@
 import "src/stdlib/types.lang"
 
 print a = (HFI print [a])
+debugEnv a = (HFI debugEnv [a])
 getArgs = (HFI getArgs [])
 debug debugString outVal = (HFI debug [debugString, outVal])
 
@@ -10,7 +11,9 @@ empty? "" = true
 empty? s = false
 head [] = None
 head (x::_) = Some x
-zipWith f xs ys = (HFI zipWith [f, xs, ys])
+zipWith f (x::xs) (y::ys) = (f x y) :: zipWith f xs ys
+zipWith _ [] _ = []
+zipWith _ _ [] = []
 zip xs ys = zipWith (x y: (x, y)) xs ys
 
 sort [] = []

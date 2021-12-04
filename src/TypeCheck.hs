@@ -65,7 +65,7 @@ typeCheck env _ (PTypeSig ts) = Right (typeSigToEnv env ts)
 --  `a :: String -> Integer
 --  `b :: Integer -> Integer
 --  `b y = let x = a 1 in 2` --
-typeCheck env expects (Binop Assign (Atom _ a) (Lambda ts args e)) = typeCheck env expects $ toExpr e
+typeCheck env expects (Binop Assign (Atom _ a) (Lambda _ ts args e)) = typeCheck env expects $ toExpr e
 typeCheck env StringType (PString n) = Right env
 typeCheck env FloatType (PFloat n) = Right env
 typeCheck env IntType (PInteger n) = Right env
@@ -120,11 +120,12 @@ typeSigToEnv env ts =
     Nothing -> env
 
 inScope :: Env -> String -> [Val]
-inScope env rawLookupKey = inScope' (envScopes env)
+inScope env rawLookupKey = inScope' $ allBindings
   where
-    inScope' [] = []
-    inScope' scopes = case Map.lookup key (last scopes) of
-      Nothing -> inScope' (init scopes)
+    allBindings = foldl' (Map.unionWith (++)) Map.empty $ envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
+    inScope' :: Map.Map String [EnvEntry] -> [Val]
+    inScope' scopeMap = case Map.lookup key scopeMap of
+      Nothing -> []
       Just eEs -> map envEntryValue $ filter matchesModules eEs
     key = last namespaced
     calledWithModules = init namespaced
@@ -134,22 +135,5 @@ inScope env rawLookupKey = inScope' (envScopes env)
         || module' `elem` includedModules env && module' `elem` calledWithModules
     matchesModules _ = True
 
-setScope :: Env -> Maybe Module -> Env
-setScope env mbModule =
-  env
-    { envScopes = envScopes',
-      inModule = inModule'
-    }
-  where
-    envScopes' = envScopes env ++ [Map.empty]
-    inModule' = mbModule
-
-unsetScope :: Env -> Maybe Module -> Env
-unsetScope env inModule' =
-  env
-    { envScopes = init $ envScopes env,
-      inModule = inModule'
-    }
-
 resetScope :: Env -> Env
-resetScope env = env {envScopes = [last (envScopes env)]}
+resetScope env = env {envLambdaEnvs = []}

@@ -51,4 +51,4 @@ replWithEnv env = runInputT haskelineSettings $ loop env
                   loop env
                 Right (val, newEnv) -> do
                   outputStrLn $ prettyVal val ++ " : " ++ prettyLangType (toLangType val)
-                  loop (extend (resetScope newEnv) (Atom anyTypeSig "@") val)
+                  loop (extend (resetScope newEnv) (resetScope newEnv) (Atom anyTypeSig "@") val)

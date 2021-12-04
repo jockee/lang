@@ -17,7 +17,7 @@ trait Monad m {
 
 implement Functor for List {
   fmap _ [] = []
-  fmap f (x::xs) = (f x) :: (fmap f xs)
+  fmap i (h::hs) = f h :: fmap i hs
 }
 
 implement Functor for Maybe {

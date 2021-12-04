@@ -17,6 +17,48 @@ import Types
 spec :: Spec
 spec = beforeAll (let !std = evaledStdLibEnv in std) $
   describe "Eval" $ do
+    describe "Functions/scoping" $ do
+      it "a named function can take one argument and return it" $ \stdLibEnv -> do
+        evals (parseExprs "fn x = x; fn 1") `shouldBe` IntVal 1
+
+      it "lambda partially applied" $ \stdLibEnv -> do
+        eval (parseExpr "(x b: x + b) 2")
+          `shouldSatisfy` ( \case
+                              FunctionVal _ lambdaEnv _ _ -> lambdaEnv == LambdaEnv {lambdaEnvBindings = Map.fromList [("x", [EnvEntry {envEntryModule = Nothing, envEntryValue = (IntVal 2)}])]}
+                              _ -> False
+                          )
+    describe "Modules" $ do
+      it "pushes to env" $ \stdLibEnv -> do
+        let (_, env) = evalsIn emptyEnv (parseExprs "module A { a = 1 }")
+        case inScope env "A.a" of
+          [] -> expectationFailure "No"
+          _ -> return ()
+
+      it "evals module" $ \stdLibEnv ->
+        evals (parseExprs "module A { 1 }") `shouldBe` IntVal 1
+
+      it "can't call without namespacing outside of module" $ \stdLibEnv ->
+        evaluate (evals (parseExprs "module A { s = 1 }; s")) `shouldThrow` anyException
+
+      it "can call with namespacing outside of module" $ \stdLibEnv ->
+        evals (parseExprs "module A { s = 1 }; A.s") `shouldBe` IntVal 1
+
+      it "can call with nested namespacing outside of module" $ \stdLibEnv ->
+        evals (parseExprs "module A { module B { s = 1 } }; A.B.s") `shouldBe` IntVal 1
+
+      it "can call without namespacing inside module" $ \stdLibEnv ->
+        evals (parseExprs "module A { s = 1; p x = x + 1; p 1 }") `shouldBe` IntVal 2
+
+      it "can call another function without namespacing inside module" $ \stdLibEnv ->
+        evals (parseExprs "module A { s f = 1; p x = (s 2) + x; p 1 }") `shouldBe` IntVal 2
+
+      it "can call without namespacing inside module" $ \stdLibEnv ->
+        evals (parseExprs "module A { a x = 1; b i = a i }; A.b 1") `shouldBe` IntVal 1
+
+      it "can call without namespacing inside module [STDLIB]" $ \stdLibEnv -> do
+        let (val, _) = evalsIn stdLibEnv (parseExprs "module Dict2 { toList2 xs = (HFI dictToList [xs]); keys dict = map ((a, b): a) (toList2 dict) }; Dict2.keys {a:1}")
+        val `shouldBe` ListVal [StringVal "a"]
+
     describe "Boolean" $ do
       it "negation of bool" $ \stdLibEnv ->
         eval (parseExpr "!true") `shouldBe` BoolVal False
@@ -165,14 +207,18 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "pipes as last argument" $ \stdLibEnv ->
         eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
-      it "fmap pipe" $ \stdLibEnv -> do
+      it "fmap pipe [STDLIB]" $ \stdLibEnv -> do
         let (val, _) = evalsIn stdLibEnv (parseExprs "(Some 1) ||> (n: n * 2)")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
-    describe "Stdlib" $ do
+    describe "STDLIB" $ do
       it "fold function" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
         val `shouldBe` IntVal 6
+
+      it "zip" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "zip [1,2] [3,4]")
+        val `shouldBe` ListVal [TupleVal [IntVal 1, IntVal 3], TupleVal [IntVal 2, IntVal 4]]
 
       it "inline partially applied mapping fold function" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)")
@@ -316,35 +362,35 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2}: b")) `shouldThrow` anyException
 
     describe "General" $ do
-      it "adds to global scope" $ \stdLibEnv -> do
+      it "adds to global scope [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "folder = 1"
         case inScope env "folder" of
           [] -> expectationFailure "No"
           _ -> return ()
 
-      it "assignment in lambda does not leak" $ \stdLibEnv -> do
+      it "assignment in lambda does not leak [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (x: f = 1); fn 1"
         case inScope env "f" of
           [] -> return ()
           _ -> expectationFailure "No"
 
-      it "moves back up to global" $ \stdLibEnv -> do
-        let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
-        length (envScopes env) `shouldBe` 1
+      -- it "moves back up to global" $ \stdLibEnv -> do
+      --   let (val, env) = evalsIn emptyEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
+      --   length (envBindings env) `shouldBe` 1
 
-      it "does not leak state" $ \stdLibEnv -> do
+      it "does not leak state [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fn = (f: f); fn 1; a = 1"
         case inScope env "f" of
           [] -> return ()
           _ -> expectationFailure "No"
 
-      it "let-in does not leak state" $ \stdLibEnv -> do
+      it "let-in does not leak state [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "let x = 2: x"
         case inScope env "x" of
           [] -> return ()
           _ -> expectationFailure "No"
 
-      it "fold does not leak state" $ \stdLibEnv -> do
+      it "fold does not leak state [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "fold (acc g: acc) 1 [1]"
         case inScope env "g" of
           [] -> return ()
@@ -354,7 +400,18 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           _ -> expectationFailure "acc"
 
       it "does not leak nested scope" $ \stdLibEnv ->
-        evaluate (evals (parseExprs "fn (x: (let b = 1 in b) b)")) `shouldThrow` anyException
+        evaluate (evals (parseExprs "(x: (let b = 1: b)) 1; b")) `shouldThrow` anyException
+
+      it "does not leak variable local to lambda in the calling function" $ \stdLibEnv ->
+        evaluate (evals (parseExprs "a f = offender; b offender = a 1; b 2")) `shouldThrow` anyException
+      it "does not leak let binding to other function. doesn't leak downward" $ \stdLibEnv ->
+        evaluate (evals (parseExprs "a f = offender; b = let offender = 2: (a 1); b")) `shouldThrow` anyException
+
+      it "does not leak let binding to other function. doesn't leak upward" $ \stdLibEnv ->
+        evaluate (evals (parseExprs "a f = b + offender; b = let offender = 2: 1; a 1")) `shouldThrow` anyException
+
+      it "local scope can be passed into lambda" $ \stdLibEnv ->
+        evals (parseExprs "b y = (x: x + y) 1; b 1") `shouldBe` IntVal 2
 
       it "multiple assignments" $ \stdLibEnv ->
         evals (parseExprs "a [] = 1; a b = 2; a []") `shouldBe` IntVal 1
@@ -362,10 +419,16 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "cons" $ \stdLibEnv ->
         evals (parseExprs "1 :: []") `shouldBe` ListVal [IntVal 1]
 
-      xit "nested functions can use the same variable name" $ \stdLibEnv -> do
-        -- here `x`
-        let (val, env) = evalsIn stdLibEnv $ parseExprs "filter' f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs; s x = filter' (a: a <= x) [1,2,3]; s 2"
-        val `shouldBe` ListVal [IntVal 1, IntVal 2]
+      it "nested functions can use the same variable name" $ \stdLibEnv -> do
+        let fold = "jfold _ initOrAcc [] = initOrAcc; jfold b initOrAcc (k::ks) = let val = (b initOrAcc k): jfold b val ks;"
+        let args = "[1,2,3]; s 3"
+        let notOverlapping = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [uU]) : acc) [] xs; s x = filter' (a: a < x)" ++ args -- `uU` is unique
+        let overlapping = fold ++ "filter' f xs = jfold (acc xX: (f xX) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` is not unique
+        let accessingVarNotInScope = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` accessed where it shouldn't be found
+        let accessingVarNotInScope = "filter' f xs = (f xX); s xX = filter' (a: a < xX); s 1" -- `xX` accessed where it shouldn't be found
+        evals (parseExprs notOverlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
+        evals (parseExprs overlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
+        evaluate (evals (parseExprs accessingVarNotInScope)) `shouldThrow` anyException
 
     describe "Tuple" $ do
       it "destructuring tuple returns itself" $ \stdLibEnv ->
@@ -413,10 +476,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "range on atom" $ \stdLibEnv ->
         evals (parseExprs "a = 3; (1..a)") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
-
-    describe "Internal functions" $
-      it "zipWith" $ \stdLibEnv ->
-        eval (parseExpr "(HFI zipWith [(x y: [x, y]), [1,2, 3], [3, 2]])") `shouldBe` ListVal [ListVal [IntVal 1, IntVal 3], ListVal [IntVal 2, IntVal 2]]
 
     describe "Runtime type system" $ do
       xit "Can't declare Integer as String" $ \stdLibEnv ->
@@ -471,19 +530,19 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "falls through non-matching integer value" $ \stdLibEnv ->
         evals (parseExprs "f 1 = 2; f s = 3; f 2") `shouldBe` IntVal 3
 
-      it "value constructor" $ \stdLibEnv -> do
+      it "value constructor [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "a None = 1; a (Some 1) = 2; a None"
         val `shouldBe` IntVal 1
 
-      it "value constructor call fall through" $ \stdLibEnv -> do
+      it "value constructor call fall through [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "a None = 1; a (Some b) = b; a (Some 2)"
         val `shouldBe` IntVal 2
 
-      it "value constructor non-first" $ \stdLibEnv -> do
+      it "value constructor non-first [STDLIB]" $ \stdLibEnv -> do
         let (val, env) = evalsIn stdLibEnv $ parseExprs "maybe2 default f None = default; maybe2 1 1 None"
         val `shouldBe` IntVal 1
 
-      it "value constructor non-first, multiple definitions" $ \stdLibEnv -> do
+      it "value constructor non-first, multiple definitions [STDLIB]" $ \stdLibEnv -> do
         let expr =
               [__i|
               maybe2 default f None = default
@@ -493,7 +552,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
         val `shouldBe` IntVal 2
 
-      it "value constructor non-first, multiple definitions" $ \stdLibEnv -> do
+      it "value constructor non-first, multiple definitions [STDLIB]" $ \stdLibEnv -> do
         let expr =
               [__i|
               maybe2 default f None = default
@@ -502,36 +561,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             |]
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
         val `shouldBe` IntVal 1
-
-    describe "Modules" $ do
-      it "pushes to env" $ \stdLibEnv -> do
-        let (_, env) = evalsIn emptyEnv (parseExprs "module A { a = 1 }")
-        case inScope env "A.a" of
-          [] -> expectationFailure "No"
-          _ -> return ()
-
-      it "evals module" $ \stdLibEnv ->
-        evals (parseExprs "module A { 1 }") `shouldBe` IntVal 1
-
-      it "can't call without namespacing outside of module" $ \stdLibEnv ->
-        evaluate (evals (parseExprs "module A { s = 1 }; s")) `shouldThrow` anyException
-
-      it "can call with namespacing outside of module" $ \stdLibEnv ->
-        evals (parseExprs "module A { s = 1 }; A.s") `shouldBe` IntVal 1
-
-      it "can call with nested namespacing outside of module" $ \stdLibEnv ->
-        evals (parseExprs "module A { module B { s = 1 } }; A.B.s") `shouldBe` IntVal 1
-
-      it "can call without namespacing inside module" $ \stdLibEnv ->
-        evals (parseExprs "module A { s = 1; p x = x + 1; p 1 }") `shouldBe` IntVal 2
-
-      it "can call without namespacing inside module" $ \stdLibEnv ->
-        evals (parseExprs "module A { a x = 1; b i = a i }; A.b 1") `shouldBe` IntVal 1
-
-      it "can call without namespacing inside module" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv (parseExprs "module Dict2 { toList2 xs = (HFI dictToList [xs]); keys dict = map ((a, b): a) (toList2 dict) }; Dict2.keys {a:1}")
-        val `shouldBe` ListVal [StringVal "a"]
-
     describe "String interpolation" $
       it "atoms and integer" $ \stdLibEnv ->
         evals (parseExprs "a=1; \"before#{a+1}after\"") `shouldBe` StringVal "before2after"
@@ -578,7 +607,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "Can't provide too many arguments" $ \stdLibEnv ->
         evaluate (evals (parseExprs "data Point = Point Float Float; Point 1.0 1.0 1.0")) `shouldThrow` anyException
 
-      it "destructures" $ \stdLibEnv -> do
+      it "destructures [STDLIB]" $ \stdLibEnv -> do
         let (val, _) = evalsIn stdLibEnv (parseExprs "a (Some b) = b; a (Some 1)")
         val `shouldBe` IntVal 1
 
@@ -586,7 +615,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "two boolean cases" $ \stdLibEnv ->
         evals (parseExprs "case true { true: 1; false: 0 }") `shouldBe` IntVal 1
 
-      it "handles more difficult expressions" $ \stdLibEnv -> do
+      it "handles more difficult expressions [STDLIB]" $ \stdLibEnv -> do
         let (val, _) = evalsIn stdLibEnv (parseExprs "case (Some 1) { (Some x): x; None: 0 }")
         val `shouldBe` IntVal 1
 
@@ -616,7 +645,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             [] -> expectationFailure "No"
             _ -> return ()
 
-        it "Uses the right function - last argument" $ \stdLibEnv -> do
+        it "Uses the right function - last argument [STDLIB]" $ \stdLibEnv -> do
           let baseExpr =
                 [i|
               trait Foldable2 f {
@@ -643,7 +672,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
           val `shouldBe` IntVal 2
 
-        it "Uses the right function - non-last argument" $ \stdLibEnv -> do
+        it "Uses the right function - non-last argument [STDLIB]" $ \stdLibEnv -> do
           let baseExpr =
                 [i|
                   trait Foldable2 f {
@@ -664,7 +693,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (val, !env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
 
-        it "Uses the right function - return value" $ \stdLibEnv -> do
+        it "Uses the right function - return value [STDLIB]" $ \stdLibEnv -> do
           let baseExpr =
                 [i|
               trait Applicative2 f {
@@ -685,7 +714,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "maybe ")
           val `shouldBe` IntVal 3
 
-        it "uses trait functions if implements" $ \stdLibEnv -> do
+        it "uses trait functions if implements [STDLIB]" $ \stdLibEnv -> do
           let expr =
                 [__i|
               trait Applicative2 f {
@@ -699,7 +728,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (val, env) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` IntVal 1
 
-      it "passes trait function type definition" $ \stdLibEnv -> do
+      it "passes trait function type definition [STDLIB]" $ \stdLibEnv -> do
         let expr =
               [__i|
             trait Applicative2 f { ap2 f (a: b), f a => f b }
@@ -713,15 +742,15 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
               `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigModule = Nothing, typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
 
       describe "JSON" $ do
-        it "parseJSON" $ \stdLibEnv -> do
+        it "parseJSON [STDLIB]" $ \stdLibEnv -> do
           let expr = "JSON.parse \"[1, null, 2.3]\""
           let (val, _) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 
-        it "toJSON" $ \stdLibEnv -> do
+        it "toJSON [STDLIB]" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.encode {a: 1, b: 2, c: None}"
           val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
 
-        it "idempotent" $ \stdLibEnv -> do
+        it "idempotent [STDLIB]" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.parse (JSON.encode {a: 1, b: 2, c: None})"
           val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])

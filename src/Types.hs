@@ -25,12 +25,36 @@ import GHC.Real
 data Env where
   Env ::
     { inModule :: Maybe Module,
+      envLambdaEnvs :: [LambdaEnv],
       includedModules :: [Module],
-      envScopes :: [VarMap],
+      envBindings :: VarMap,
       typeSigs :: Map.Map String TypeSig,
       envLangPath :: String
     } ->
     Env
+  deriving stock (Show)
+
+data LambdaEnv where
+  LambdaEnv ::
+    { lambdaEnvBindings :: VarMap
+    } ->
+    LambdaEnv
+  deriving stock (Show)
+
+class HasBindings e where
+  setBindings :: e -> VarMap -> e
+  getBindings :: e -> VarMap
+  bindingsType :: e -> String
+
+instance HasBindings Env where
+  setBindings env v = env {envBindings = v}
+  getBindings env = envBindings env
+  bindingsType _ = "Env"
+
+instance HasBindings LambdaEnv where
+  setBindings lambdaEnv v = lambdaEnv {lambdaEnvBindings = v}
+  getBindings lambdaEnv = lambdaEnvBindings lambdaEnv
+  bindingsType _ = "LambdaEnv"
 
 type VarMap = Map.Map String [EnvEntry]
 
@@ -42,17 +66,23 @@ data EnvEntry = EnvEntry
   }
   deriving stock (Show, Eq)
 
-instance Show Env where
-  show Env {typeSigs = t, envScopes = s} = show s ++ show t
+-- instance Show Env where
+--   show Env {typeSigs = t, envBindings = s} = show s ++ show t
 
 instance Eq Env where
-  Env {typeSigs = t1, envScopes = s1} == Env {typeSigs = t2, envScopes = s2} = t1 == t2 && s1 == s2
+  Env {typeSigs = t1, envBindings = s1} == Env {typeSigs = t2, envBindings = s2} = t1 == t2 && s1 == s2
 
-defaultEnvScopes :: [VarMap]
-defaultEnvScopes = [Map.empty]
+instance Eq LambdaEnv where
+  LambdaEnv {lambdaEnvBindings = b1} == LambdaEnv {lambdaEnvBindings = b2} = b1 == b2
+
+defaultEnvScopes :: VarMap
+defaultEnvScopes = Map.empty
 
 emptyEnv :: Env
-emptyEnv = Env {envScopes = defaultEnvScopes, inModule = Nothing, typeSigs = Map.empty, envLangPath = "", includedModules = []}
+emptyEnv = Env {envBindings = defaultEnvScopes, envLambdaEnvs = [], inModule = Nothing, typeSigs = Map.empty, envLangPath = "", includedModules = []}
+
+emptyLambdaEnv :: LambdaEnv
+emptyLambdaEnv = LambdaEnv {lambdaEnvBindings = defaultEnvScopes}
 
 -- Evaluatable
 
@@ -92,7 +122,7 @@ data Expr where
   PString :: T.Text -> Expr
   PBool :: Bool -> Expr
   HFI :: Id -> Expr -> Expr
-  Lambda :: (Show e, Evaluatable e) => TypeSig -> ArgsList -> e -> Expr
+  Lambda :: (Show e, Evaluatable e) => LambdaEnv -> TypeSig -> ArgsList -> e -> Expr
   App :: (Show e, Evaluatable e) => Expr -> e -> Expr
   Binop :: Op -> Expr -> Expr -> Expr
   Unaryop :: UnOp -> Expr -> Expr
@@ -141,7 +171,7 @@ showWithTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithTypes argLis
 showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
 showWithTypes (PCase _ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
-showWithTypes (Lambda ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
+showWithTypes (Lambda lambdaEnv ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
 showWithTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (PatternExpr defs) = "PatternExpr"
@@ -157,7 +187,7 @@ showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep co
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showWithoutTypes (Lambda _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
+showWithoutTypes (Lambda _ _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes s = showWithTypes s
@@ -166,7 +196,7 @@ showWithoutTypes s = showWithTypes s
 
 data Val where
   ModuleVal :: String -> Val
-  FunctionVal :: (Show e, Evaluatable e) => TypeSig -> Env -> ArgsList -> e -> Val
+  FunctionVal :: (Show e, Evaluatable e) => TypeSig -> LambdaEnv -> ArgsList -> e -> Val
   DataVal :: DataConstructor -> Name -> [Val] -> Val
   DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
   Pattern :: [Val] -> Val
@@ -219,7 +249,7 @@ type ConstructorWithArgs = (String, [String])
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal ts _env remainingArgs _) = "(FunctionVal " ++ show ts ++ " " ++ show remainingArgs ++ ")\n"
+  show (FunctionVal ts _lambdaEnv remainingArgs _) = "(FunctionVal " ++ show ts ++ " " ++ show remainingArgs ++ ")\n"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"
@@ -236,7 +266,7 @@ instance Show Val where
 
 prettyVal :: Val -> String
 prettyVal (ModuleVal name) = "<module " ++ show name ++ ">"
-prettyVal (FunctionVal _ts _env _remainingArgs _) = "<fun>"
+prettyVal (FunctionVal _ts _lambdaEnv _remainingArgs _) = "<fun>"
 prettyVal (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
 prettyVal (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
 prettyVal (DataVal _dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
@@ -291,8 +321,8 @@ instance Eq Val where
   (ListVal xs) == (ListVal ys) = xs == ys
   (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (FunctionVal ts1 env1 _ids1 _e1) == (FunctionVal ts2 env2 _ids2 _e2) =
-    ts1 == ts2 && envScopes env1 == envScopes env2 -- for testing purposes. lambda function equality is probably not very useful envScopes env1 == envScopes env2 -- for testing purposes. lambda function equality is probably not very useful
+  (FunctionVal ts1 lambdaEnv1 _ids1 _e1) == (FunctionVal ts2 lambdaEnv2 _ids2 _e2) =
+    ts1 == ts2 && lambdaEnvBindings lambdaEnv1 == lambdaEnvBindings lambdaEnv2 -- for testing purposes. lambda function equality is probably not very useful.
   _ == _ = False
 
 instance Real Val where

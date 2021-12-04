@@ -272,7 +272,7 @@ let' = do
   return $ foldr foldFun body pairs
   where
     foldFun (pairKey, pairVal) acc =
-      App (Lambda (sig [AnyType] AnyType) [pairKey] acc) pairVal
+      App (Lambda emptyLambdaEnv (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
       key <- spaceC *> ((try consList <|> term) <* string "=") <* spaceC
       val <- term <|> formula
@@ -347,14 +347,14 @@ function traitBinding implementationBinding = do
   if null args
     then return $ Binop Assign name body
     else case name of
-      (Atom _ _) -> return $ Binop Assign name (Lambda funSig args body)
+      (Atom _ _) -> return $ Binop Assign name (Lambda emptyLambdaEnv funSig args body)
       destructureObject -> return $ Binop Assign destructureObject body
 
 lambda :: Parser Expr
 lambda = do
   identifiers <- (try consList <|> variable <|> tuple) `sepBy` hspace
   string ":" <* notFollowedBy (string ":")
-  Lambda (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
+  Lambda emptyLambdaEnv (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
 
 import' :: Parser Expr
 import' = do
