@@ -54,6 +54,7 @@ evalIn env (PDataConstructor name exprArgs) =
               Just (i, ex, val) -> error $ "Mismatched types. Wanted " ++ show (toLangType val) ++ ", got: " ++ show (toLangType ex) ++ " in position " ++ show (i + 1)
               Nothing -> (DataVal dtype name evaledArgs, env)
         [] -> error $ "No such constructor found: " ++ show name
+        s -> error $ "Constructor not implemented: " ++ show s
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
 evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
@@ -70,7 +71,7 @@ evalIn env (HFI f args) = hfiFun env f args
 evalIn env (App e1 e2) = apply env e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
   [definition] -> (definition, env)
-  [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope" -- ++ show (envBindings env) ++ " or in lambda scope " ++ show (envLambdaEnvs env)
+  [] -> throw . EvalException $ "Atom " ++ atomId ++ " does not exist in scope"
   definitions -> case last definitions of
     FunctionVal {} -> (Pattern definitions, env)
     lastDef -> (lastDef, env)

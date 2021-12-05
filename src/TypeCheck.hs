@@ -122,7 +122,7 @@ typeSigToEnv env ts =
 inScope :: Env -> String -> [Val]
 inScope env rawLookupKey = inScope' $ allBindings
   where
-    allBindings = foldl' (Map.unionWith (++)) Map.empty $ envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
+    allBindings = foldl' (Map.unionWith (++)) Map.empty $ stdLibBindings env : envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
     inScope' scopeMap = case Map.lookup key scopeMap of
       Nothing -> []
       Just eEs -> map envEntryValue $ filter matchesModules eEs

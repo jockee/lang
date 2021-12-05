@@ -28,7 +28,7 @@ evaledStdLibEnv :: IO Env
 evaledStdLibEnv = do
   langPath <- lookupEnv "LANG_PATH"
   let path = maybe "" (\p -> if last p == '/' then p else p ++ "/") langPath
-  snd . evalsIn (emptyEnv {envLangPath = path}) . parseExprs <$> rawStdLib
+  snd . evalsIn (emptyEnv {envInStdLib = True, envLangPath = path}) . parseExprs <$> rawStdLib
 
 rawStdLib :: IO String
 rawStdLib = do

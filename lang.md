@@ -132,6 +132,8 @@ SCOPING:
 
 # REFACTORING
 
+* slowness from pushing env into lambda (and doing so inefficiently). avoid storing 'stdlib' module?
+  would have to make it a module that can be called without prefixing `Stdlib.`
 * ReaderT, StateT? MTL
 
 # NOTES

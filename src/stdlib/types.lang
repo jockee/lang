@@ -84,10 +84,9 @@ implement Foldable for List {
 }
 
 implement Foldable for String {
-  foldString _ initOrAcc [] = initOrAcc
-  foldString b initOrAcc (o::os) = foldString (b initOrAcc o) os
   fold _ initOrAcc [] = initOrAcc
   fold c initOrAcc cs = foldString c initOrAcc (HFI toChars [cs])
+  foldString _ initOrAcc [] = initOrAcc; foldString f initOrAcc (o::os) = foldString f (f initOrAcc o) os
 }
 
 implement Foldable for Dict {

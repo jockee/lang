@@ -27,6 +27,8 @@ data Env where
     { inModule :: Maybe Module,
       envLambdaEnvs :: [LambdaEnv],
       includedModules :: [Module],
+      stdLibBindings :: VarMap,
+      envInStdLib :: Bool,
       envBindings :: VarMap,
       typeSigs :: Map.Map String TypeSig,
       envLangPath :: String
@@ -47,8 +49,14 @@ class HasBindings e where
   bindingsType :: e -> String
 
 instance HasBindings Env where
-  setBindings env v = env {envBindings = v}
-  getBindings env = envBindings env
+  setBindings env v =
+    if envInStdLib env
+      then env {stdLibBindings = v}
+      else env {envBindings = v}
+  getBindings env =
+    if envInStdLib env
+      then stdLibBindings env
+      else envBindings env
   bindingsType _ = "Env"
 
 instance HasBindings LambdaEnv where
@@ -66,23 +74,17 @@ data EnvEntry = EnvEntry
   }
   deriving stock (Show, Eq)
 
--- instance Show Env where
---   show Env {typeSigs = t, envBindings = s} = show s ++ show t
-
 instance Eq Env where
   Env {typeSigs = t1, envBindings = s1} == Env {typeSigs = t2, envBindings = s2} = t1 == t2 && s1 == s2
 
 instance Eq LambdaEnv where
   LambdaEnv {lambdaEnvBindings = b1} == LambdaEnv {lambdaEnvBindings = b2} = b1 == b2
 
-defaultEnvScopes :: VarMap
-defaultEnvScopes = Map.empty
-
 emptyEnv :: Env
-emptyEnv = Env {envBindings = defaultEnvScopes, envLambdaEnvs = [], inModule = Nothing, typeSigs = Map.empty, envLangPath = "", includedModules = []}
+emptyEnv = Env {envBindings = Map.empty, envLambdaEnvs = [], inModule = Nothing, typeSigs = Map.empty, envLangPath = "", stdLibBindings = Map.empty, includedModules = [], envInStdLib = False}
 
 emptyLambdaEnv :: LambdaEnv
-emptyLambdaEnv = LambdaEnv {lambdaEnvBindings = defaultEnvScopes}
+emptyLambdaEnv = LambdaEnv {lambdaEnvBindings = Map.empty}
 
 -- Evaluatable
 
