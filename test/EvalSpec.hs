@@ -22,11 +22,31 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         evals (parseExprs "fn x = x; fn 1") `shouldBe` IntVal 1
 
       it "lambda partially applied" $ \stdLibEnv -> do
-        eval (parseExpr "(x b: x + b) 2")
+        evals (parseExprs "c = 2; (x b: x + b) 2")
           `shouldSatisfy` ( \case
-                              FunctionVal _ lambdaEnv _ _ -> lambdaEnv == LambdaEnv {lambdaEnvBindings = Map.fromList [("x", [EnvEntry {envEntryModule = Nothing, envEntryValue = (IntVal 2)}])]}
+                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["c", "x"]
                               _ -> False
                           )
+
+      it "lambda partially applied" $ \stdLibEnv -> do
+        evals (parseExprs "a b = c (x b: x + b); c f y = 1; a 2")
+          `shouldSatisfy` ( \case
+                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["f"]
+                              _ -> False
+                          )
+      it "funtion that receives a lambda doesn't have access the lambdas scope" $ \stdLibEnv -> do
+        evals (parseExprs "a = (x b: x + b); c y x = y 1; c a")
+          `shouldSatisfy` ( \case
+                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["y"]
+                              _ -> False
+                          )
+
+      it "a lambda contains its env" $ \stdLibEnv -> do
+        evals (parseExprs "a b = let c = 1: d (x: x+c); d f = f 1; a 999") `shouldBe` IntVal 2
+
+      it "only functions from lambda-spawn site are available on application within lambda" $ \stdLibEnv -> do
+        evals (parseExprs "module A { c _ = 2; a f = f 3 }; c _ = 1; A.a (x: x + (c 2))") `shouldBe` IntVal 4
+
     describe "Modules" $ do
       it "pushes to env" $ \stdLibEnv -> do
         let (_, env) = evalsIn emptyEnv (parseExprs "module A { a = 1 }")
@@ -424,10 +444,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let args = "[1,2,3]; s 3"
         let notOverlapping = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [uU]) : acc) [] xs; s x = filter' (a: a < x)" ++ args -- `uU` is unique
         let overlapping = fold ++ "filter' f xs = jfold (acc xX: (f xX) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` is not unique
-        let accessingVarNotInScope = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` accessed where it shouldn't be found
-        let accessingVarNotInScope = "filter' f xs = (f xX); s xX = filter' (a: a < xX); s 1" -- `xX` accessed where it shouldn't be found
         evals (parseExprs notOverlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
         evals (parseExprs overlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
+
+      it "variable accesses where it shouldn't be available" $ \stdLibEnv -> do
+        let accessingVarNotInScope = "filter' f xs = f offender; s offender = filter' (a: a < offender) 2; s 1"
         evaluate (evals (parseExprs accessingVarNotInScope)) `shouldThrow` anyException
 
     describe "Tuple" $ do

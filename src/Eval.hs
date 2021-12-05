@@ -61,7 +61,11 @@ evalIn env (PCase ts cond cases) =
    in case List.find findFun cases of
         Just (pred, predDo) -> evalIn (extend env env pred cond) predDo
 evalIn env (Lambda lambdaEnv ts args e) =
-  (FunctionVal (ts {typeSigModule = inModule env}) lambdaEnv args e, env)
+  let lambdaEnv' =
+        if null (typeSigName ts)
+          then LambdaEnv {lambdaEnvBindings = Map.unionWith (++) (availableBindings env) (lambdaEnvBindings lambdaEnv)}
+          else lambdaEnv
+   in (FunctionVal (ts {typeSigModule = inModule env}) lambdaEnv' args e, env)
 evalIn env (HFI f args) = hfiFun env f args
 evalIn env (App e1 e2) = apply env e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
@@ -215,7 +219,7 @@ extendWithDataConstructor env bindable exprs vals = foldl' foldFun bindable (zip
     foldFun accEnv (expr, val) = extend env accEnv expr val
 
 extend :: (Evaluatable e, HasBindings h) => Env -> h -> Expr -> e -> h
-extend env bindable argExpr e = trace ("extending " ++ show argExpr) $ case argExpr of
+extend env bindable argExpr e = case argExpr of
   (Atom _ id) -> extendAtom env bindable id val
   (PDataConstructor _consName exprs) -> case val of
     (DataVal _dtype _name vals) -> extendWithDataConstructor env bindable exprs vals
@@ -236,7 +240,6 @@ extend env bindable argExpr e = trace ("extending " ++ show argExpr) $ case argE
 extendAtom :: (Evaluatable e, HasBindings h) => Env -> h -> String -> e -> h
 extendAtom _ bindable "_" _ = bindable
 extendAtom env bindable id e =
-  -- trace ("extending " ++ show (bindingsType bindable) ++ "with " ++ show id ++ "settin value " ++ show e) $
   setBindings bindable withUpdatedScope
   where
     withUpdatedScope = Map.insertWith insertFun id [envEntry] (getBindings bindable)
@@ -311,7 +314,11 @@ apply env e1 e2 =
 
 callFullyAppliedFunction :: (Evaluatable e1, Evaluatable e2) => Env -> LambdaEnv -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
 callFullyAppliedFunction env lambdaEnv ts argsList e2 e3 =
-  let withLastArgExtended = extend env lambdaEnv arg e2
+  let envInCorrectModule =
+        if null (typeSigName ts)
+          then (env {inModule = typeSigModule ts})
+          else env
+      withLastArgExtended = extend envInCorrectModule lambdaEnv arg e2
       callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
       (arg : remainingargs') = argsList
       (val, env'') = evalIn callWithScope (toExpr e3)

@@ -45,16 +45,16 @@ implementationBindingMatches (Just (TraitVariableType _trait _)) implBinding pas
 implementationBindingMatches _ _ _ = True
 
 patternMatch :: Expr -> Val -> Bool
-patternMatch (PList _ []) (ListVal []) = True
+patternMatch (PList _ []) (ListVal []) = trace ("calling f with x = ") $ True
 patternMatch (PString str) (StringVal val) = str == val
-patternMatch (PList _ [_]) (ListVal [_]) = True
+patternMatch (PList _ [_]) s@ (ListVal [_]) = trace ("calling f with x = " ++ show s) $ True
 patternMatch (PList _ _) _ = False
 patternMatch (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
 patternMatch (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
 patternMatch (PBool a) (BoolVal b) = a == b
 patternMatch (PInteger e) (IntVal v) = e == v
 patternMatch (PFloat e) (FloatVal v) = e == v
-patternMatch _ _ = True
+patternMatch a b = trace ("calling f with " ++ show a ++ ", " ++ show b) $ True
 
 typeCheck :: Env -> LangType -> Expr -> Either String Env
 typeCheck env _ (PTypeSig ts) = Right (typeSigToEnv env ts)
@@ -123,7 +123,6 @@ inScope :: Env -> String -> [Val]
 inScope env rawLookupKey = inScope' $ allBindings
   where
     allBindings = foldl' (Map.unionWith (++)) Map.empty $ envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
-    inScope' :: Map.Map String [EnvEntry] -> [Val]
     inScope' scopeMap = case Map.lookup key scopeMap of
       Nothing -> []
       Just eEs -> map envEntryValue $ filter matchesModules eEs
@@ -133,6 +132,16 @@ inScope env rawLookupKey = inScope' $ allBindings
     matchesModules EnvEntry {envEntryModule = Just module'} =
       Just module' == inModule env
         || module' `elem` includedModules env && module' `elem` calledWithModules
+    matchesModules _ = True
+
+availableBindings :: Env -> Map.Map String [EnvEntry]
+availableBindings env = Map.foldlWithKey foldFun Map.empty allBindings
+  where
+    foldFun acc k vs = case filter matchesModules vs of
+      [] -> acc
+      matches -> Map.insert k matches acc
+    allBindings = foldl' (Map.unionWith (++)) Map.empty $ envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
+    matchesModules EnvEntry {envEntryModule = Just module'} = Just module' == inModule env
     matchesModules _ = True
 
 resetScope :: Env -> Env

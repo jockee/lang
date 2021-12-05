@@ -23,8 +23,26 @@
 
 * write good tests and solve one at a time
   - a function can get an arg and return it
+  - test that funtion that executes a lambda within it doesn't have access to a lambas scope
+  XXX: * lambda module needs to be spawn site module
   * a lambda in a function has access to both its own lambda env and function lambda env
 
+
+
+what happens when matching function definition can be found in destination module as well?
+* only function `c` from lambda-spawn site should be available
+
+module A {
+  c [] = 2
+  c (x::xs) = x
+  a f = f 3
+}
+
+module B {
+  c [] = 1
+  c (x::xs) = x
+  A.a (x: x + (c []))
+}
 
 
 qs:
