@@ -120,7 +120,7 @@ typeSigToEnv env ts =
     Nothing -> env
 
 inScope :: Env -> String -> [Val]
-inScope env rawLookupKey = inScope' $ allBindings
+inScope env rawLookupKey = inScope' allBindings
   where
     allBindings = foldl' (Map.unionWith (++)) Map.empty $ stdLibBindings env : envBindings env : map lambdaEnvBindings (envLambdaEnvs env)
     inScope' scopeMap = case Map.lookup key scopeMap of
@@ -134,8 +134,8 @@ inScope env rawLookupKey = inScope' $ allBindings
         || module' `elem` includedModules env && module' `elem` calledWithModules
     matchesModules _ = True
 
-availableBindings :: Env -> Map.Map String [EnvEntry]
-availableBindings env = Map.foldlWithKey foldFun Map.empty allBindings
+localEnvBindings :: Env -> Map.Map String [EnvEntry]
+localEnvBindings env = Map.foldlWithKey foldFun Map.empty allBindings
   where
     foldFun acc k vs = case filter matchesModules vs of
       [] -> acc

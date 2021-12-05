@@ -18,6 +18,7 @@ import Data.Text qualified as T
 import Debug.Pretty.Simple
 import Debug.Trace
 import Exceptions
+import Http qualified as HTTP
 import Parser (parseExprs)
 import System.Environment
 import System.IO.Extra (readFile')
@@ -64,7 +65,7 @@ evalIn env (PCase ts cond cases) =
 evalIn env (Lambda lambdaEnv ts args e) =
   let lambdaEnv' =
         if null (typeSigName ts)
-          then LambdaEnv {lambdaEnvBindings = Map.unionWith (++) (availableBindings env) (lambdaEnvBindings lambdaEnv)}
+          then LambdaEnv {lambdaEnvBindings = Map.unionWith (++) (localEnvBindings env) (lambdaEnvBindings lambdaEnv)}
           else lambdaEnv
    in (FunctionVal (ts {typeSigModule = inModule env}) lambdaEnv' args e, env)
 evalIn env (HFI f args) = hfiFun env f args
@@ -274,12 +275,13 @@ hfiFun env f argsList = case evaledArgsList of
     fun "readFile" (StringVal path : _) = StringVal $ unsafePerformIO $ T.pack <$> readFile' (envLangPath env ++ T.unpack path)
     fun "writeFile" (StringVal path : StringVal body : _) = let !file = (unsafePerformIO $ writeFile (T.unpack path) (T.unpack body)) in StringVal body
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
+    fun "httpRequest" (StringVal url : StringVal method : StringVal body : _) = unsafePerformIO $ HTTP.request (T.unpack method) (T.unpack url) [] (T.unpack body)
     fun "getArgs" _ = ListVal $ map (StringVal . T.pack) $ unsafePerformIO getArgs
     fun "print" (a : _) = unsafePerformIO (putStrLn (prettyVal a) >> pure a)
     fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack $ T.unpack s
     fun "encodeJSON" (a : _) = StringVal . T.pack . BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
-    fun "debugEnv" (a : _) = pTrace (show env) $ a
+    fun "debugEnv" (a : _) = pTrace (show env) a
     fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal ts lambdaEnv args e) = Lambda lambdaEnv ts args e
     funToExpr (Pattern defs) = PatternExpr defs

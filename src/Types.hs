@@ -220,10 +220,12 @@ jsonToVal json = toVal (decode json :: Maybe Value)
     toVal (Just AT.Null) = DataVal "Maybe" "None" []
     toVal (Just (AT.Object xs)) = DictVal $ Map.fromList $ map (\(k, v) -> (DictKey $ T.unpack k, (toVal . Just) v)) (HM.toList xs)
     toVal (Just (AT.Array xs)) = ListVal $ map (toVal . Just) $ V.toList xs
+    toVal (Just (Bool b)) = BoolVal b
     toVal (Just (AT.Number s)) = case S.floatingOrInteger s of
       Left f -> FloatVal f
       Right i -> IntVal i
     toVal Nothing = DataVal "Maybe" "None" []
+    toVal s = error $ show s
 
 instance ToJSON Val where
   toJSON (BoolVal b) = AT.Bool b
@@ -309,6 +311,7 @@ instance Ord Val where
   compare (FloatVal i1) (FloatVal i2) = compare i1 i2
   compare (FloatVal i1) (IntVal i2) = compare i1 (fromIntegral i2)
   compare (IntVal i1) (FloatVal i2) = compare (fromIntegral i1) i2
+  compare (StringVal i1) (StringVal i2) = compare i1 i2
   compare (IntVal i1) (IntVal i2) = compare i1 i2
   compare a b = error ("not implemented" ++ show a ++ " " ++ show b)
 

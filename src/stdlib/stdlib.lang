@@ -58,3 +58,8 @@ module Dict {
   values dict = toList dict |> map ((a, b): b)
   merge d1 d2 = { d1 | d2 }
 }
+
+module HTTP {
+  get url = (HFI httpRequest [url, "GET", ""])
+  post url body = (HFI httpRequest [url, "POST", body])
+}

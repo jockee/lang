@@ -27,6 +27,7 @@ library
   exposed-modules:
       Eval
       Exceptions
+      Http
       Lang
       Parser
       Repl
@@ -44,12 +45,16 @@ library
       aeson
     , base >=4.14 && <5
     , bytestring
+    , case-insensitive
     , containers
     , exceptions
     , extra
     , haskeline
     , hspec
     , hspec-discover
+    , http-client
+    , http-client-tls
+    , http-types
     , indents
     , megaparsec
     , mtl
@@ -80,12 +85,16 @@ executable langc
       aeson
     , base >=4.14 && <5
     , bytestring
+    , case-insensitive
     , containers
     , exceptions
     , extra
     , haskeline
     , hspec
     , hspec-discover
+    , http-client
+    , http-client-tls
+    , http-types
     , indents
     , lang
     , megaparsec
@@ -122,12 +131,16 @@ test-suite lang-test
       aeson
     , base >=4.14 && <5
     , bytestring
+    , case-insensitive
     , containers
     , exceptions
     , extra
     , haskeline
     , hspec
     , hspec-discover
+    , http-client
+    , http-client-tls
+    , http-types
     , indents
     , lang
     , megaparsec
