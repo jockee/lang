@@ -59,6 +59,12 @@ spec = describe "Parser" $ do
   it "pipe to lambda" $
     s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
 
+  it "fully applied pipe" $
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
+
+  it "partially applied pipe (function composition)" $
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
+
   it "lambda application" $
     s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 

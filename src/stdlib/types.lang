@@ -104,14 +104,25 @@ trait Monoid t {
 }
 
 implement Monoid for String {
-  concat (x::xs) = x :: (concat xs)
+  // concat (x::xs) = x :: (concat xs)
   append a b = a :: b
   empty = ""
 }
 
+implement Monoid for List {
+  // concat (x::xs) = x :: (concat xs)
+  append a b = a :: b
+  empty = []
+}
+
+implement Monoid for Dict {
+  // concat (x::xs) = x :: (concat xs)
+  append a b = { a | b}
+  empty = {}
+}
 
 module String {
-  // join m xs = fold (acc x: (length acc > 0) ? (acc :: m :: x) : x) "" xs
+  join m xs = fold (acc x: (length acc > 0) ? (acc :: m :: x) : x) "" xs
   // * om match första: do nothing
   // * om inte match, lägg till i senaste strängen
   // * om match senare: ny sträng

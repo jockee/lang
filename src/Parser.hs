@@ -95,8 +95,8 @@ formula = makeExprParser juxta table <?> "formula"
     orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
     concatOp = InfixL (try $ spaceC *> string "++" <* spaceC >> return (Binop Concat))
     consOp = InfixL (try $ spaceC *> string "::" <* spaceC >> return (Binop Cons))
-    pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return (Binop Pipe))
     fmapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop FmapPipe))
+    pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return pipe)
 
 lexeme = L.lexeme hspace
 
@@ -355,6 +355,9 @@ function traitBinding implementationBinding = do
     else case name of
       (Atom _ _) -> return $ Binop Assign name (Lambda emptyLambdaEnv funSig args body)
       destructureObject -> return $ Binop Assign destructureObject body
+
+pipe :: Expr -> Expr -> Expr
+pipe e1 e2 = Binop Pipe e1 e2
 
 lambda :: Parser Expr
 lambda = do

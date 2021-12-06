@@ -2,11 +2,12 @@
 
 # MID
 
-  - http request - slime by using haskell package?
-    - some sort of struct?
-  - monoid, empty, concat?
+  - monoid for use with `join` for instance
+  - function composition
+    - pipes (maybe only for pipes?)
+    - pipe always constructs new lambda?
   - string split
-  - function from implementation overrides trait function
+  - function from implementation overrides trait function (efficient `length` for strings, for instance)
 
   ## USABILITY
   - TODO: sockets
@@ -45,6 +46,7 @@
 # REFACTORING
 
 * ReaderT, StateT? MTL
+* Boolean could be defined as `data Boolean = True | False`
 
 # NOTES
 

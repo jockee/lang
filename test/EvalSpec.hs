@@ -18,33 +18,33 @@ spec :: Spec
 spec = beforeAll (let !std = evaledStdLibEnv in std) $
   describe "Eval" $ do
     describe "Functions/scoping" $ do
-      it "a named function can take one argument and return it" $ \stdLibEnv -> do
+      it "a named function can take one argument and return it" $ \stdLibEnv ->
         evals (parseExprs "fn x = x; fn 1") `shouldBe` IntVal 1
 
-      it "lambda partially applied" $ \stdLibEnv -> do
+      it "lambda partially applied" $ \stdLibEnv ->
         evals (parseExprs "c = 2; (x b: x + b) 2")
           `shouldSatisfy` ( \case
-                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["c", "x"]
+                              FunctionVal lambdaEnv _ _ _ -> Map.keys (lambdaEnvBindings lambdaEnv) == ["c", "x"]
                               _ -> False
                           )
 
-      it "lambda partially applied" $ \stdLibEnv -> do
+      it "lambda partially applied" $ \stdLibEnv ->
         evals (parseExprs "a b = c (x b: x + b); c f y = 1; a 2")
           `shouldSatisfy` ( \case
-                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["f"]
+                              FunctionVal lambdaEnv _ _ _ -> Map.keys (lambdaEnvBindings lambdaEnv) == ["f"]
                               _ -> False
                           )
-      it "funtion that receives a lambda doesn't have access the lambdas scope" $ \stdLibEnv -> do
+      it "funtion that receives a lambda doesn't have access the lambdas scope" $ \stdLibEnv ->
         evals (parseExprs "a = (x b: x + b); c y x = y 1; c a")
           `shouldSatisfy` ( \case
-                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["y"]
+                              FunctionVal lambdaEnv _ _ _ -> Map.keys (lambdaEnvBindings lambdaEnv) == ["y"]
                               _ -> False
                           )
 
-      it "a lambda contains its env" $ \stdLibEnv -> do
+      it "a lambda contains its env" $ \stdLibEnv ->
         evals (parseExprs "a b = let c = 1: d (x: x+c); d f = f 1; a 999") `shouldBe` IntVal 2
 
-      it "only functions from lambda-spawn site are available on application within lambda" $ \stdLibEnv -> do
+      it "only functions from lambda-spawn site are available on application within lambda" $ \stdLibEnv ->
         evals (parseExprs "module A { c _ = 2; a f = f 3 }; c _ = 1; A.a (x: x + (c 2))") `shouldBe` IntVal 4
 
     describe "Modules" $ do
@@ -228,7 +228,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
       it "fmap pipe [STDLIB]" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv (parseExprs "(Some 1) ||> (n: n * 2)")
+        let (val, _) = evalsIn stdLibEnv (parseExprs "(n: n * 2) ||> (Some 1)")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
       it "dict key as function in fmap [STDLIB]" $ \stdLibEnv -> do
@@ -332,6 +332,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         it "bind" $ \stdLibEnv -> do
           let (val, _) = evalIn stdLibEnv (parseExpr "bind (Some 1) (x: (Some (x * 2)))")
           val `shouldBe` DataVal "Maybe" "Some" [2]
+
+    describe "Function composition" $ do
+      it "using pipe" $ \stdLibEnv ->
+        evals (parseExprs "length s f= f; (.body |> length) {body: \"asd\"}") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
     describe "Multiple expressions" $ do
       it "evals works for one expression" $ \stdLibEnv ->

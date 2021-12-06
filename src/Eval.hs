@@ -127,10 +127,10 @@ evalIn env (Binop Assign (PTuple _ts1 bindings) (PTuple _ts2 vs)) =
    in if length bindings /= length evaledValues
         then throw $ EvalException "Destructuring failed. Mismatched parameter count"
         else (TupleVal evaledValues, newEnv)
-evalIn env (Binop Concat e1 e2) = evalIn env (App (App (hfiLambda 2 "concat") e1) e2)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
-evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e2) e1)
+evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e1) e2)
 evalIn env (Binop Cons e1 e2) = evalIn env (App (App (hfiLambda 2 "cons") e1) e2)
+evalIn env (Binop Concat e1 e2) = evalIn env (App (App (hfiLambda 2 "concat") e1) e2)
 evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
       value = fst $ evalIn (mergeLambdaEnvIntoEnv env ts' lambdaEnv) (Lambda lambdaEnv ts' args e)
