@@ -320,18 +320,18 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "toDict [(\"a\", 1)]")
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
-    --       describe "Stdlib Types" $ do
-    --         it "fmap" $ \stdLibEnv -> do
-    --           let (val, _) = evalIn stdLibEnv (parseExpr "fmap (x: x*2) (Some 1)")
-    --           val `shouldBe` DataVal "Maybe" "Some" [2]
+      describe "Stdlib Types" $ do
+        it "fmap" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "fmap (x: x*2) (Some 1)")
+          val `shouldBe` DataVal "Maybe" "Some" [2]
 
-    --         it "ap" $ \stdLibEnv -> do
-    --           let (val, _) = evalIn stdLibEnv (parseExpr "ap (Some (x: x*2)) (Some 1)")
-    --           val `shouldBe` DataVal "Maybe" "Some" [2]
+        it "ap" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "ap (Some (x: x*2)) (Some 1)")
+          val `shouldBe` DataVal "Maybe" "Some" [2]
 
-    --         it "bind" $ \stdLibEnv -> do
-    --           let (val, _) = evalIn stdLibEnv (parseExpr "bind (Some 1) (x: (Some (x * 2)))")
-    --           val `shouldBe` DataVal "Maybe" "Some" [2]
+        it "bind" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "bind (Some 1) (x: (Some (x * 2)))")
+          val `shouldBe` DataVal "Maybe" "Some" [2]
 
     describe "Multiple expressions" $ do
       it "evals works for one expression" $ \stdLibEnv ->
