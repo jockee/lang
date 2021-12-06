@@ -108,14 +108,15 @@ data Expr where
   PTuple :: TypeSig -> [Expr] -> Expr
   PList :: TypeSig -> [Expr] -> Expr
   PDict :: TypeSig -> [(Expr, Expr)] -> Expr
+  PDictKey :: String -> Expr
+  PDictUpdate :: Expr -> Expr -> Expr
+  PDictKeyLookup :: String -> Expr
+  DictAccess :: Expr -> Expr -> Expr
   PDataDefinition :: DataConstructor -> [ConstructorWithArgs] -> Expr
   PDataConstructor :: Name -> [Expr] -> Expr
   PTrait :: Name -> [Expr] -> [Expr] -> Expr
   PImplementation :: Name -> DataConstructor -> [Expr] -> Expr
-  PDictUpdate :: Expr -> Expr -> Expr
-  DictAccess :: Expr -> Expr -> Expr
   PCase :: TypeSig -> Expr -> [Case] -> Expr
-  PDictKey :: String -> Expr
   ConsList :: [String] -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Double -> Expr
@@ -167,13 +168,15 @@ showWithTypes (PBool False) = "(PBool False)"
 showWithTypes (PDict ts pairs) = "(PDict " ++ showTypeSig ts ++ "\") [" ++ joinCommaSep pairs ++ "])"
 showWithTypes (PTuple ts contents) = "(PTuple " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
 showWithTypes (PList ts contents) = "(PList " ++ showTypeSig ts ++ " [" ++ joinCommaSep contents ++ "])"
-showWithTypes (PDictKey key) = "(PDictKey" ++ show key ++ ")"
+showWithTypes (DictAccess key dict) = "(DictAccess " ++ show key ++ " " ++ show dict ++ ")"
+showWithTypes (PDictKey key) = "(PDictKey " ++ show key ++ ")"
+showWithTypes (PDictKeyLookup key) = "(PDictKeyLookup " ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithTypes argList ++ ")"
 showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
 showWithTypes (PCase _ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
-showWithTypes (Lambda lambdaEnv ts remainingArgs e) = "(Lambda " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
+showWithTypes (Lambda lambdaEnv ts remainingArgs e) = "(Lambda " ++ show lambdaEnv ++ " " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
 showWithTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (PatternExpr defs) = "PatternExpr"
@@ -189,7 +192,7 @@ showWithoutTypes (PList _ts contents) = "(PList anyTypeSig [" ++ joinCommaSep co
 showWithoutTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithoutTypes dict ++ " " ++ showWithoutTypes update ++ ")"
 showWithoutTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithoutTypes argList ++ ")"
 showWithoutTypes (App e1 e2) = "(App " ++ show e1 ++ " " ++ show e2 ++ ")"
-showWithoutTypes (Lambda _ _ remainingArgs e) = "(Lambda anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
+showWithoutTypes (Lambda _ _ remainingArgs e) = "(Lambda emptyLambdaEnv anyTypeSig ([" ++ joinCommaSep remainingArgs ++ "]) " ++ show e ++ ")"
 showWithoutTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithoutTypes s ++ " " ++ showWithoutTypes d ++ ")"
 showWithoutTypes s = showWithTypes s
@@ -198,7 +201,7 @@ showWithoutTypes s = showWithTypes s
 
 data Val where
   ModuleVal :: String -> Val
-  FunctionVal :: (Show e, Evaluatable e) => TypeSig -> LambdaEnv -> ArgsList -> e -> Val
+  FunctionVal :: (Show e, Evaluatable e) => LambdaEnv -> TypeSig -> ArgsList -> e -> Val
   DataVal :: DataConstructor -> Name -> [Val] -> Val
   DataConstructorDefinitionVal :: DataConstructor -> [String] -> Val
   Pattern :: [Val] -> Val
@@ -326,7 +329,7 @@ instance Eq Val where
   (ListVal xs) == (ListVal ys) = xs == ys
   (DictVal m1) == (DictVal m2) = m1 == m2
   (DictKey a) == (DictKey b) = a == b
-  (FunctionVal ts1 lambdaEnv1 _ids1 _e1) == (FunctionVal ts2 lambdaEnv2 _ids2 _e2) =
+  (FunctionVal lambdaEnv1 ts1 _ids1 _e1) == (FunctionVal lambdaEnv2 ts2 _ids2 _e2) =
     ts1 == ts2 && lambdaEnvBindings lambdaEnv1 == lambdaEnvBindings lambdaEnv2 -- for testing purposes. lambda function equality is probably not very useful.
   _ == _ = False
 
@@ -472,7 +475,7 @@ instance LangTypeable Expr where
     s -> error (show s)
 
 instance LangTypeable Val where
-  toLangType (FunctionVal ts _ _ _) = FunctionType (typeSigIn ts) (typeSigReturn ts)
+  toLangType (FunctionVal _ ts _ _) = FunctionType (typeSigIn ts) (typeSigReturn ts)
   toLangType val = case val of
     IntVal {} -> IntType
     FloatVal {} -> FloatType

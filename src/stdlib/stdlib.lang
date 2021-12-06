@@ -6,6 +6,7 @@ getArgs = (HFI getArgs [])
 debug debugString outVal = (HFI debug [debugString, outVal])
 
 not b = !b
+const b _ = b
 empty? [] = true
 empty? "" = true // empty for lists. monoid empty?
 empty? s = false

@@ -10,7 +10,7 @@ import Debug.Trace
 import Types
 
 matchingDefinition :: Env -> Val -> Val -> Bool
-matchingDefinition env passedArg (FunctionVal ts _ args@(expectedArgExp : _) _) =
+matchingDefinition env passedArg (FunctionVal _ ts  args@(expectedArgExp : _) _) =
   typesMatch env (Right (ts, Just $ length args)) passedArg
     && patternMatch expectedArgExp passedArg
 matchingDefinition _ _ _ = False
@@ -38,7 +38,7 @@ implementationBindingMatches (Just (TraitVariableType _trait _)) implBinding pas
   maybe True (`matcher` passedArg) implBinding
   where
     matcher binding (DataVal dConsFromPassed _ _) = dConsFromPassed == binding
-    matcher binding (FunctionVal TypeSig {typeSigImplementationBinding = tsib} _ _ _) = tsib == Just binding
+    matcher binding (FunctionVal _ TypeSig {typeSigImplementationBinding = tsib}  _ _) = tsib == Just binding
     matcher s t
       | toLangType s == toLangType t = True
       | otherwise = False

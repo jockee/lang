@@ -1,6 +1,5 @@
 module ParserSpec where
 
-import Data.String.Interpolate (i)
 import Parser
 import Test.Hspec
 import Types
@@ -118,10 +117,10 @@ spec = describe "Parser" $ do
     s (parseExpr "{}") `shouldBe` s (PDict anyTypeSig [])
 
   it "dict access on atom dot key" $
-    s (parseExpr ".key exampledict") `shouldBe` s (DictAccess (Atom anyTypeSig "key") (Atom anyTypeSig "exampledict"))
+    s (parseExpr ".key exampledict") `shouldBe` s (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "key")) (Atom anyTypeSig "exampledict"))
 
   it "dict access on inline dot key" $
-    s (parseExpr ".key {a: 1}") `shouldBe` s (DictAccess (PDictKey "key") (PDict anyTypeSig [(PDictKey "a", PInteger 1)]))
+    s (parseExpr ".key {a: 1}") `shouldBe` s (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "key")) (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]))
 
   it "dict access" $
     s (parseExpr "exampledict.key") `shouldBe` s (DictAccess (PDictKey "key") (Atom anyTypeSig "exampledict"))
@@ -224,7 +223,7 @@ spec = describe "Parser" $ do
 
   describe "Expression separation" $ do
     it "can end on semicolon" $
-      show (parseExprs "1;") `shouldBe` show [(PInteger 1)]
+      show (parseExprs "1;") `shouldBe` show [PInteger 1]
 
     it "semicolon splits" $
       show (parseExprs "1;a=2") `shouldBe` show [PInteger 1, Binop Assign (Atom anyTypeSig "a") (PInteger 2)]
@@ -274,10 +273,10 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable { map (a: b): a => b }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
 
     it "function definition in trait" $
-      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [(PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))] [(Binop Assign (Atom anyTypeSig "bap") (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1)))])
+      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [Binop Assign (Atom anyTypeSig "bap") (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1))])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f { fmap (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [(PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing}))] [])
+      s (parseExpr "trait Functor f { fmap (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
 
   describe "Implementation" $ do
     it "can create implementation" $

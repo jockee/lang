@@ -190,15 +190,21 @@ dictAccess = dotKey <|> try dictDotKey
   where
     dotKey = do
       string "."
-      x <- dictKey
-      dct <- variable <|> dict
-      return (DictAccess x dct)
+      App
+        ( Lambda
+            emptyLambdaEnv
+            (sig [AnyType] AnyType)
+            [Atom anyTypeSig "keyInPDictKeyLookup", Atom anyTypeSig "dictInPDictKeyLookup"]
+            (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))
+        )
+        . PDictKey
+        <$> identifier
     dictDotKey = do
       first <- lowerChar
-      rest <- option [] identifier
+      rest <- many (letterChar <|> digitChar)
       char '.'
-      x <- dictKey
-      return (DictAccess x (Atom (sig [DictType] DictType) (first : rest)))
+      key <- dictKey
+      return (DictAccess key (Atom (sig [DictType] DictType) (first : rest)))
 
 tupleContents :: Parser [Expr]
 tupleContents = juxta `sepBy2` many (spaceChar <|> char ',')
@@ -290,7 +296,7 @@ variable :: Parser Expr
 variable = Atom (sig [] AnyType) `fmap` identifier
 
 dictKey :: Parser Expr
-dictKey = PDictKey `fmap` identifier
+dictKey = PDictKey <$> identifier
 
 typeDef :: [(String, String)] -> Parser Expr
 typeDef typeConstructors = do

@@ -24,20 +24,20 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "lambda partially applied" $ \stdLibEnv -> do
         evals (parseExprs "c = 2; (x b: x + b) 2")
           `shouldSatisfy` ( \case
-                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["c", "x"]
+                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["c", "x"]
                               _ -> False
                           )
 
       it "lambda partially applied" $ \stdLibEnv -> do
         evals (parseExprs "a b = c (x b: x + b); c f y = 1; a 2")
           `shouldSatisfy` ( \case
-                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["f"]
+                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["f"]
                               _ -> False
                           )
       it "funtion that receives a lambda doesn't have access the lambdas scope" $ \stdLibEnv -> do
         evals (parseExprs "a = (x b: x + b); c y x = y 1; c a")
           `shouldSatisfy` ( \case
-                              FunctionVal _ lambdaEnv _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["y"]
+                              FunctionVal lambdaEnv _ _ _ -> (Map.keys $ lambdaEnvBindings lambdaEnv) == ["y"]
                               _ -> False
                           )
 
@@ -231,6 +231,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalsIn stdLibEnv (parseExprs "(Some 1) ||> (n: n * 2)")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
+      it "dict key as function in fmap [STDLIB]" $ \stdLibEnv -> do
+        let (val, _) = evalsIn stdLibEnv (parseExprs "fmap .body (Some {body: 1})")
+        val `shouldBe` DataVal "Maybe" "Some" [IntVal 1]
+
     describe "STDLIB" $ do
       it "fold function" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
@@ -349,9 +353,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "dict" $ \stdLibEnv ->
         eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
-      it "dict lookup using . on atom" $ \stdLibEnv ->
+      it "dict lookup using dotkey on atom" $ \stdLibEnv ->
         evals [parseExpr "dict = {a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
-      it "dict lookup using . on dict" $ \stdLibEnv ->
+
+      it "dict lookup using dotkey on dict" $ \stdLibEnv ->
         eval (parseExpr ".a {a: 1, b: 2}") `shouldBe` IntVal 1
 
       it "dict lookup using dict.key on atom" $ \stdLibEnv ->
@@ -758,7 +763,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
         case inScope env "ap2" of
           [] -> expectationFailure "No"
-          [FunctionVal ts _ _ _] ->
+          [FunctionVal _ ts _ _] ->
             ts
               `shouldBe` (TypeSig {typeSigName = Just "ap2", typeSigModule = Nothing, typeSigTraitBinding = Just "Applicative2", typeSigImplementationBinding = Just "Maybe", typeSigIn = [TraitVariableType "Applicative2" (FunctionType [AnyType] AnyType), TraitVariableType "Applicative2" AnyType], typeSigReturn = TraitVariableType "Applicative2" AnyType})
 

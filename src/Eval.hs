@@ -8,7 +8,6 @@ module Eval where
 import Control.Concurrent
 import Control.Exception
 import Data.Aeson
-import Data.Bifunctor
 import Data.ByteString.Lazy.Char8 qualified as BS
 import Data.List (foldl')
 import Data.List qualified as List
@@ -23,7 +22,6 @@ import Parser (parseExprs)
 import System.Environment
 import System.IO.Extra (readFile')
 import System.IO.Unsafe
-import Text.Pretty.Simple
 import TypeCheck
 import Types
 import Util
@@ -59,7 +57,7 @@ evalIn env (PDataConstructor name exprArgs) =
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
 evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
-      findFun (pred, predDo) = matchingDefinition env condVal (FunctionVal ts emptyLambdaEnv [pred] predDo)
+      findFun (pred, predDo) = matchingDefinition env condVal (FunctionVal emptyLambdaEnv ts [pred] predDo)
    in case List.find findFun cases of
         Just (pred, predDo) -> evalIn (extend env env pred cond) predDo
 evalIn env (Lambda lambdaEnv ts args e) =
@@ -67,7 +65,7 @@ evalIn env (Lambda lambdaEnv ts args e) =
         if null (typeSigName ts)
           then LambdaEnv {lambdaEnvBindings = Map.unionWith (++) (localEnvBindings env) (lambdaEnvBindings lambdaEnv)}
           else lambdaEnv
-   in (FunctionVal (ts {typeSigModule = inModule env}) lambdaEnv' args e, env)
+   in (FunctionVal lambdaEnv' (ts {typeSigModule = inModule env}) args e, env)
 evalIn env (HFI f args) = hfiFun env f args
 evalIn env (App e1 e2) = apply env e1 e2
 evalIn env (Atom _ts atomId) = case inScope env atomId of
@@ -89,9 +87,21 @@ evalIn env (PDictUpdate baseDict updateDict) =
       (DictVal d2) = fst $ evalIn env updateDict
    in (DictVal $ Map.union d2 d1, env)
 evalIn env (DictAccess k dict) =
-  let (DictVal m) = fst $ evalIn env dict
-      kv = fst $ evalIn env k
-   in (fromJust (Map.lookup kv m), env)
+  case fst $ evalIn env dict of
+    (DictVal m) ->
+      let kv = fst $ evalIn env k
+       in (fromJust (Map.lookup kv m), env)
+    s -> error $ show s
+-- evalIn env (PDictKeyLookup k) =
+--   evalIn env $
+--     App
+--       ( Lambda
+--           emptyLambdaEnv
+--           anyTypeSig
+--           [Atom anyTypeSig "keyInPDictKeyLookup", Atom anyTypeSig "dictInPDictKeyLookup"]
+--           (DictAccess (Atom anyTypeSig "InPDictKeyLookupkey") (Atom anyTypeSig "dictInPDictKeyLookup"))
+--       )
+--       (DictKey k)
 evalIn env (PDictKey k) = (DictKey k, env)
 evalIn env (PDict _ts pairs) =
   let fn (k, v) =
@@ -283,7 +293,7 @@ hfiFun env f argsList = case evaledArgsList of
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "debugEnv" (a : _) = pTrace (show env) a
     fun x r = error ("No such HFI " ++ show x ++ show r)
-    funToExpr (FunctionVal ts lambdaEnv args e) = Lambda lambdaEnv ts args e
+    funToExpr (FunctionVal lambdaEnv ts args e) = Lambda lambdaEnv ts args e
     funToExpr (Pattern defs) = PatternExpr defs
     funToExpr r = error $ show r
     evaledArgsList = fst $ evalIn env $ toExpr argsList
@@ -293,19 +303,19 @@ apply env e1 e2 =
   case evalIn env e1 of
     (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
       [] -> error "Could not find matching function definition - none matched criteria"
-      [FunctionVal ts lambdaEnv args e3] -> callFunction env' lambdaEnv ts args e2 e3
-      funs@((FunctionVal ts lambdaEnv args e3) : _) ->
+      [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args e2 e3
+      funs@((FunctionVal lambdaEnv ts args e3) : _) ->
         if functionFullyApplied args
           then callFullyAppliedFunction env' lambdaEnv ts args e2 e3
           else
             let (appliedFuns, accEnv) = foldl' toFunVal ([], env') funs
                 toFunVal (accFuns, accEnv) fun = case fun of
-                  FunctionVal ts lambdaEnv' args e3 ->
+                  FunctionVal lambdaEnv' ts args e3 ->
                     let (val, env'') = callPartiallyAppliedFunction accEnv lambdaEnv' ts args e2 e3
                      in (accFuns ++ [val], env'')
                   _ -> error "Non-function application"
              in (Pattern appliedFuns, accEnv)
-    (FunctionVal ts lambdaEnv args e3, env') -> callFunction env' lambdaEnv ts args e2 e3
+    (FunctionVal lambdaEnv ts args e3, env') -> callFunction env' lambdaEnv ts args e2 e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
     (passedArg, _) = evalIn env $ toExpr e2
