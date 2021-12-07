@@ -74,7 +74,10 @@ trait Foldable f { // ok
   all? f xs = length (filter f xs) == length xs
   any? f xs = length (filter f xs) > 0
   take n xs = fold (acc o: ((length acc) < n) ? (acc ++ [o]) : acc) [] xs
-  drop n xs = reverse xs |> take ((length xs) - n) |> reverse
+  drop n xs = reverse xs |> take (length xs - n) |> reverse
+  span f xs = fold ([accA, accB] x: (f x && empty? accB) ? [accA ++ [x], accB] : [accA, accB ++ [x]] ) [[], []] xs
+  dropWhile f xs = let [_, d] = span f xs: d
+  takeWhile f xs = let [t, _] = span f xs: t
   toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 }
 
@@ -122,7 +125,7 @@ implement Monoid for Dict {
 }
 
 module String {
-  join m xs = fold (acc x: (length acc > 0) ? (acc :: m :: x) : x) "" xs
+  join m xs = fold (acc x: length acc > 0 ? (acc :: m :: x) : x) "" xs
   // * om match första: do nothing
   // * om inte match, lägg till i senaste strängen
   // * om match senare: ny sträng

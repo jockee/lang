@@ -7,6 +7,7 @@
     - pipes (maybe only for pipes?)
     - pipe always constructs new lambda?
   - string split
+  - dropwhile, takewhile, span
   - function from implementation overrides trait function (efficient `length` for strings, for instance)
 
   ## USABILITY

@@ -121,12 +121,6 @@ evalIn env (PRange _ts lBoundExp uBoundExp) =
 evalIn env (PList _ts es) = (ListVal $ map (fst . evalIn env) es, env)
 evalIn env (PTuple _ts es) = (TupleVal $ map (fst . evalIn env) es, env)
 evalIn env (PBool n) = (BoolVal n, env)
-evalIn env (Binop Assign (PTuple _ts1 bindings) (PTuple _ts2 vs)) =
-  let evaledValues = map (fst . evalIn env) vs
-      newEnv = extendWithTuple env env bindings evaledValues
-   in if length bindings /= length evaledValues
-        then throw $ EvalException "Destructuring failed. Mismatched parameter count"
-        else (TupleVal evaledValues, newEnv)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
 evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e1) e2)
 evalIn env (Binop Cons e1 e2) = evalIn env (App (App (hfiLambda 2 "cons") e1) e2)
@@ -139,7 +133,7 @@ evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) =
         then error $ "Function definition argument count differs from typesig argument count for function " ++ show funName
         else (value, env')
 evalIn env (Binop Assign expr v) =
-  let env' = extend env env expr v
+  let !env' = extend env env expr v
       (value, _) = evalIn env v
    in (value, env')
 evalIn env (Unaryop Not e) =
@@ -172,10 +166,12 @@ extendWithDataDefinition env bindable typeCons = foldl' foldFun bindable
   where
     foldFun accBindable (vc, args) = extend env accBindable (Atom anyTypeSig vc) (DataConstructorDefinitionVal typeCons args)
 
-extendWithTuple :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
-extendWithTuple env bindable bindings vs =
-  let foldFun accBindable (binding, val) = extend env accBindable binding val
-   in foldl' foldFun bindable (zip bindings vs)
+extendWithListable :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
+extendWithListable env bindable bindings vs
+  | length bindings /= length vs = throw $ EvalException "Destructuring failed. Mismatched parameter count"
+  | otherwise = foldl' foldFun bindable (zip bindings vs)
+  where
+    foldFun accBindable (binding, val) = extend env accBindable binding val
 
 extendWithTrait :: HasBindings h => Env -> h -> String -> [Expr] -> h
 extendWithTrait env bindable name defs = extend env bindable (Atom anyTypeSig name) $ TraitVal name defs
@@ -241,10 +237,13 @@ extend env bindable argExpr e = case argExpr of
     _ -> error "Non-dict value received for dict destructuring"
   (ConsList bindings) -> case val of
     (ListVal vals) -> extendWithConsList env bindable bindings vals
-    _ -> error "Non-list value received for list destructuring"
+    _ -> error "Non-list value received for cons destructuring"
   (PTuple _ts bindings) -> case val of
-    (TupleVal vals) -> extendWithTuple env bindable bindings vals
+    (TupleVal vals) -> extendWithListable env bindable bindings vals
     s -> error $ "Non-tuple value " ++ show s ++ " received for tuple destructuring"
+  (PList _ts bindings) -> case val of
+    (ListVal vals) -> extendWithListable env bindable bindings vals
+    _ -> error "Non-list value received for list destructuring"
   _ -> bindable
   where
     !val = fst $ evalIn env $ toExpr e
@@ -287,7 +286,7 @@ hfiFun env f argsList = case evaledArgsList of
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "httpRequest" (StringVal url : StringVal method : StringVal body : _) = unsafePerformIO $ HTTP.request (T.unpack method) (T.unpack url) [] (T.unpack body)
     fun "getArgs" _ = ListVal $ map (StringVal . T.pack) $ unsafePerformIO getArgs
-    fun "print" (a : _) = unsafePerformIO (putStrLn (prettyVal a) >> pure a)
+    fun "print" (a : _) = unsafePerformIO (putStrLn (showRaw a) >> pure a)
     fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack $ T.unpack s
     fun "encodeJSON" (a : _) = StringVal . T.pack . BS.unpack $ encode a
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)

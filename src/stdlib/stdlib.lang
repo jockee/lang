@@ -8,20 +8,19 @@ debug debugString outVal = (HFI debug [debugString, outVal])
 not b = !b
 const b _ = b
 empty? [] = true
-empty? "" = true // empty for lists. monoid empty?
 empty? s = false
+notEmpty? s = !(empty? s)
 head [] = None
 head (x::_) = Some x
-zipWith f (x::xs) (y::ys) = (f x y) :: zipWith f xs ys
+zipWith f (x::xs) (y::ys) = f x y :: zipWith f xs ys
 zipWith _ [] _ = []
 zipWith _ _ [] = []
 zip xs ys = zipWith (x y: (x, y)) xs ys
 
 sort [] = []
-sort (y::xs) = let smaller = (filter (a: a <= y) xs),
-                    larger = (filter (a: a > y) xs):
+sort (y::xs) = let smaller = filter (a: a <= y) xs,
+                    larger = filter (a: a > y) xs:
                   sort smaller ++ [y] ++ sort larger
-
 
 maybe default f None = default
 maybe default f (Some x) = Some (f x)
@@ -33,7 +32,7 @@ either ef of e = case e {
 
 at Integer, [a] => Maybe a
 at i xs =
-  zip xs (0 .. (length xs))
+  zip xs (0 .. length xs)
   |> find ((a, b): b == i)
 at i [] = None
 

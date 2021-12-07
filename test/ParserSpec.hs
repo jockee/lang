@@ -161,6 +161,9 @@ spec = describe "Parser" $ do
   it "destructuring tuple" $
     s (parseExpr "(a, b) = (1, 2)") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
 
+  it "destructuring list" $
+    s (parseExpr "[a] = [1]") `shouldBe` s (Binop Assign (PList anyTypeSig [(Atom anyTypeSig "a")]) (PList anyTypeSig [(PInteger 1)]))
+
   describe "Type definition" $ do
     it "Binding definition" $
       show (parseExpr "a => Integer") `shouldBe` show (PTypeSig TypeSig {typeSigName = Just "a", typeSigIn = [], typeSigReturn = IntType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})
@@ -226,6 +229,13 @@ spec = describe "Parser" $ do
 
     it "comment line" $
       show (parseExpr "// comment") `shouldBe` show PNoop
+
+  describe "Presedence" $ do
+    it "no parens needed in value expression of let" $
+      show (parseExpr "let a = span f xs: d") `shouldBe` show (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "a")]) (Atom anyTypeSig "d")) (App (App (Atom anyTypeSig "span") (Atom anyTypeSig "f")) (Atom anyTypeSig "xs")))
+
+    it "no parens needed in operator expression in list" $
+      show (parseExpr "[a ++ b]") `shouldBe` show (PList anyTypeSig [(Binop Concat (Atom anyTypeSig "a") (Atom anyTypeSig "b"))])
 
   describe "Expression separation" $ do
     it "can end on semicolon" $

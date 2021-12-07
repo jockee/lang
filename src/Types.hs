@@ -265,12 +265,13 @@ instance Show Val where
   show (TupleVal ns) = "(TupleVal (" ++ joinCommaSep ns ++ "))"
   show (ListVal ns) = "(ListVal [" ++ joinCommaSep ns ++ "])"
   show (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
-  show (DictKey n) = show n
-  show (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
+  show (DictKey n) = "(DictKey " ++ show n ++ ")"
+  show (TraitVal name defs) = "(TraitVal " ++ show name ++ " " ++ joinCommaSep defs ++ ")"
   show (StringVal n) = "(StringVal " ++ show n ++ ")"
   show (BoolVal n) = "(BoolVal " ++ show n ++ ")"
   show Undefined = "Undefined"
 
+-- for use in repl, for instance
 prettyVal :: Val -> String
 prettyVal (ModuleVal name) = "<module " ++ show name ++ ">"
 prettyVal (FunctionVal _ts _lambdaEnv _remainingArgs _) = "<fun>"
@@ -282,13 +283,18 @@ prettyVal (FloatVal n) = show n
 prettyVal (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
 prettyVal (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
 prettyVal (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> prettyVal k ++ ": " ++ prettyVal v) (Map.toList m)) ++ "}"
-prettyVal (DictKey n) = n
+prettyVal (DictKey n) = show n
 prettyVal (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
-prettyVal (StringVal n) = T.unpack n
+prettyVal (StringVal n) = show $ T.unpack n
 prettyVal (BoolVal n)
   | n = "true"
   | otherwise = "false"
 prettyVal Undefined = "Undefined"
+
+-- for use in stdout, for instance
+showRaw :: Val -> String
+showRaw (StringVal n) = T.unpack n
+showRaw s = prettyVal s
 
 class Num a => Arith a where
   cmpOp :: String -> (a -> a -> Val)

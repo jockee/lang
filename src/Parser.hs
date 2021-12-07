@@ -107,7 +107,7 @@ parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
 rws :: [String]
-rws = ["module", "case", "let"]
+rws = ["module", "case", "let", "else"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -133,13 +133,13 @@ term =
         <|> try dict
         <|> try dictUpdate
         <|> try range
-        <|> list
         <|> true
         <|> false
         <|> try interpolatedString
         <|> parseString
         <|> variable
         <|> try tuple
+        <|> list
         <|> parens expr
     )
     <?> "term"
@@ -163,9 +163,9 @@ dictContents = do
 consList :: Parser Expr
 consList = lexeme $ do
   char '(' <* space
-  listContents <- identifier `sepBy2` (hspace *> string "::" <* hspace)
+  consContents <- identifier `sepBy2` (hspace *> string "::" <* hspace)
   space *> char ')'
-  return $ ConsList listContents
+  return $ ConsList consContents
 
 dict :: Parser Expr
 dict = do
@@ -207,20 +207,22 @@ dictAccess = dotKey <|> try dictDotKey
       return (DictAccess key (Atom (sig [DictType] DictType) (first : rest)))
 
 tupleContents :: Parser [Expr]
-tupleContents = juxta `sepBy2` many (spaceChar <|> char ',')
+tupleContents = juxtaFormula `sepBy2` many (spaceChar <|> char ',')
 
 sepBy2 :: MonadPlus m => m a -> m sep -> m [a]
 sepBy2 p sep = liftM2 (:) p (some (sep >> p))
 
 listContents :: Parser [Expr]
-listContents = (juxta <|> formula) `sepBy` many (spaceChar <|> char ',')
+listContents = juxtaFormula `sepBy` many (spaceChar <|> char ',')
+
+juxtaFormula = formula <|> juxta
 
 range :: Parser Expr
 range = do
   char '(' <* space
-  lBound <- term
+  lBound <- term -- FIXME: we want juxta here too
   string ".." <* space
-  uBound <- term
+  uBound <- juxtaFormula
   char ')'
   return (PRange (sig [AnyType] AnyType) lBound uBound)
 
@@ -228,7 +230,7 @@ tuple :: Parser Expr
 tuple = do
   char '(' <* space
   x <- try tupleContents
-  space *> char ')'
+  spaceC *> char ')'
   return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
 
 list :: Parser Expr
@@ -266,7 +268,7 @@ case' = do
   where
     singleCase = do
       casePred <- try (term <* string ":") <* spaceC
-      caseDo <- term <|> formula
+      caseDo <- juxtaFormula
       return (casePred, caseDo)
 
 let' :: Parser Expr
@@ -281,7 +283,7 @@ let' = do
       App (Lambda emptyLambdaEnv (sig [AnyType] AnyType) [pairKey] acc) pairVal
     pair = do
       key <- spaceC *> ((try consList <|> term) <* string "=") <* spaceC
-      val <- term <|> formula
+      val <- juxtaFormula
       return (key, val)
 
 moduleAccess :: Parser Expr
@@ -345,7 +347,7 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
 function :: Maybe TypeConstructor -> Maybe String -> Parser Expr
 function traitBinding implementationBinding = do
   name <- term
-  args <- (try consList <|> term) `sepBy` hspace
+  args <- (try consList <|> term <|> list) `sepBy` hspace
   string "=" <* space
   body <- expr
   let Atom _ nameStr = name
@@ -361,7 +363,7 @@ pipe e1 e2 = Binop Pipe e1 e2
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (try consList <|> variable <|> tuple) `sepBy` hspace
+  identifiers <- (try consList <|> variable <|> list <|> tuple) `sepBy` hspace
   string ":" <* notFollowedBy (string ":")
   Lambda emptyLambdaEnv (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
 
@@ -373,11 +375,20 @@ import' = do
 ifelse :: Parser Expr
 ifelse = do
   string "if" <* hspace
-  cond <- term
+  cond <- juxtaFormula
   space *> string ":" <* spaceC
-  tr <- term
-  space *> string "else" <* spaceC
-  tr2 <- term
+  tr <- juxtaFormula
+  -- space *> string "else" <* spaceC
+  string "else" <* hspace
+  tr2 <- juxtaFormula
+  return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
+
+ternary :: Parser Expr
+ternary = do
+  cond <- juxtaFormula <* string "?" <* spaceC
+  tr <- juxtaFormula
+  string ":" <* hspace
+  tr2 <- juxtaFormula
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 dataDefinition :: Parser Expr
@@ -428,14 +439,6 @@ dataConstructor = do
   rest <- many (letterChar <|> digitChar) <* notFollowedBy (char '.') <* hspace
   args <- many term
   return (PDataConstructor (first : rest) args)
-
-ternary :: Parser Expr
-ternary = do
-  cond <- term <* string "?" <* spaceC
-  tr <- term
-  string ":" <* hspace
-  tr2 <- term
-  return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 parseFloat :: Parser Expr
 parseFloat = do

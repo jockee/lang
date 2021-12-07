@@ -2,6 +2,6 @@
 passedArgs = drop 1 getArgs
 
 case head passedArgs {
-  Some x: (debug "hello #{x}" 1)
-  None: (print "no args - can't say hello" 1)
+  Some x: print "hello #{x}"
+  None: print "no args - can't say hello" 1
 }

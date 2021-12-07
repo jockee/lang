@@ -10,7 +10,7 @@ import Debug.Trace
 import Types
 
 matchingDefinition :: Env -> Val -> Val -> Bool
-matchingDefinition env passedArg (FunctionVal _ ts  args@(expectedArgExp : _) _) =
+matchingDefinition env passedArg (FunctionVal _ ts args@(expectedArgExp : _) _) =
   typesMatch env (Right (ts, Just $ length args)) passedArg
     && patternMatch expectedArgExp passedArg
 matchingDefinition _ _ _ = False
@@ -38,23 +38,22 @@ implementationBindingMatches (Just (TraitVariableType _trait _)) implBinding pas
   maybe True (`matcher` passedArg) implBinding
   where
     matcher binding (DataVal dConsFromPassed _ _) = dConsFromPassed == binding
-    matcher binding (FunctionVal _ TypeSig {typeSigImplementationBinding = tsib}  _ _) = tsib == Just binding
+    matcher binding (FunctionVal _ TypeSig {typeSigImplementationBinding = tsib} _ _) = tsib == Just binding
     matcher s t
       | toLangType s == toLangType t = True
       | otherwise = False
 implementationBindingMatches _ _ _ = True
 
 patternMatch :: Expr -> Val -> Bool
-patternMatch (PList _ []) (ListVal []) =  True
-patternMatch (PString str) (StringVal val) = str == val
-patternMatch (PList _ [_]) s@ (ListVal [_]) =  True
+patternMatch (PList _ ls) (ListVal ls') = length ls == length ls'
 patternMatch (PList _ _) _ = False
+patternMatch (PString str) (StringVal val) = str == val
 patternMatch (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
 patternMatch (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
 patternMatch (PBool a) (BoolVal b) = a == b
 patternMatch (PInteger e) (IntVal v) = e == v
 patternMatch (PFloat e) (FloatVal v) = e == v
-patternMatch a b =  True
+patternMatch a b = True
 
 typeCheck :: Env -> LangType -> Expr -> Either String Env
 typeCheck env _ (PTypeSig ts) = Right (typeSigToEnv env ts)
