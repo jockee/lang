@@ -64,7 +64,7 @@ formula = makeExprParser juxta table <?> "formula"
         [orOp],
         [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
         [consOp],
-        [pipeOp, fmapPipe]
+        [pipeOp, mapPipe]
       ]
     prefix name fun = Prefix (do string name; return fun)
     neg n = case n of
@@ -93,7 +93,7 @@ formula = makeExprParser juxta table <?> "formula"
     lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
     orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
     consOp = InfixL (try $ spaceC *> string "|" <* notFollowedBy (char '>' <|> char '|') <* spaceC >> return (Binop Cons))
-    fmapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop FmapPipe))
+    mapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop MapPipe))
     pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return pipe)
 
 lexeme = L.lexeme hspace
@@ -229,7 +229,7 @@ tuple = do
   char '(' <* space
   x <- try tupleContents
   spaceC *> char ')'
-  return (PTuple (sig [ListType AnyType] (ListType AnyType)) x)
+  return (PTuple (sig [TupleType AnyType] (TupleType AnyType)) x)
 
 list :: Parser Expr
 list = do

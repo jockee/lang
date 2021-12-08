@@ -45,6 +45,8 @@ implementationBindingMatches (Just (TraitVariableType _trait _)) implBinding pas
 implementationBindingMatches _ _ _ = True
 
 patternMatch :: Expr -> Val -> Bool
+patternMatch (PTuple _ ls) (TupleVal ls') = length ls == length ls'
+patternMatch (PTuple _ _) _ = False
 patternMatch (PList _ ls) (ListVal ls') = length ls == length ls'
 patternMatch (PList _ _) _ = False
 patternMatch (PString str) (StringVal val) = str == val
@@ -71,19 +73,24 @@ typeCheck env IntType (PInteger n) = Right env
 typeCheck env AnyType (PInteger n) = Right env
 typeCheck env expects got = error ("Expected " ++ show expects ++ ", but got " ++ show got)
 
--- XXX: shouldn't be using env, as this can't statically typecheck? maybe typechecking creates its
--- XXX: own env which has the same information for types
+-- FIXME: shouldn't be using env, as this can't statically typecheck? maybe typechecking creates its
+-- FIXME: own env which has the same information for types
 concreteTypesMatch :: Env -> LangType -> LangType -> Bool
 concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) =
   case inScope env dcons of
     [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
     _ -> error $ "Got fewer or more than one definition for " ++ show dcons
-concreteTypesMatch env (FunctionType expInArgs expRtrn) (FunctionType gotInArgs gotRtrn) =
+concreteTypesMatch env f1@FunctionType {} (PatternType defs) = any (functionMatches env f1) defs
+concreteTypesMatch env f1@FunctionType {} f2@FunctionType {} = functionMatches env f1 f2
+concreteTypesMatch _ AnyType _ = True
+concreteTypesMatch _ a b = a == b
+
+functionMatches :: Env -> LangType -> LangType -> Bool
+functionMatches env (FunctionType expInArgs expRtrn) (FunctionType gotInArgs gotRtrn) =
   all (uncurry (concreteTypesMatch env)) (zip expInArgs gotInArgs)
     && length expInArgs == length gotInArgs
     && concreteTypesMatch env expRtrn gotRtrn
-concreteTypesMatch _ AnyType _ = True
-concreteTypesMatch _ a b = a == b
+functionMatches _ _ _ = False
 
 expectedType :: Env -> TypeSig -> Int -> LangType
 expectedType env ts argsRemaining =

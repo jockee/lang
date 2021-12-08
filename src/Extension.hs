@@ -1,12 +1,12 @@
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
+
 module Extension where
 
 import Control.Exception
 import Data.List (foldl')
-import Data.List qualified as List
 import Data.Map qualified as Map
-import Data.Maybe
 import Exceptions
-import TypeCheck
 import Types
 
 extend' :: HasBindings h => Env -> h -> Expr -> Val -> h
@@ -51,11 +51,8 @@ extendWithDict :: HasBindings h => Env -> h -> [(Expr, Expr)] -> Map.Map Val Val
 extendWithDict env bindable exprPairs valMap = foldl' foldFun bindable exprPairs
   where
     foldFun accBindable expr = case expr of
-      (PDictKey a, atom@(Atom _ts atomId)) -> case Map.lookup (DictKey a) valMap of
-        Just val -> extend' env bindable atom val
-        Nothing -> error "Dictionary doesn't contain key"
-      (PDictKey a, expr) -> case Map.lookup (DictKey a) valMap of
-        Just val -> accBindable
+      (PDictKey a, ex) -> case Map.lookup (DictKey a) valMap of
+        Just val -> extend' env bindable ex val
         Nothing -> error "Dictionary doesn't contain key"
 
 extendWithConsList :: HasBindings h => Env -> h -> [String] -> [Val] -> h

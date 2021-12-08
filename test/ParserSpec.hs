@@ -292,7 +292,7 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [Binop Assign (Atom anyTypeSig "bap") (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1))])
 
     it "handles type variables" $
-      s (parseExpr "trait Functor f { fmap (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "fmap", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
+      s (parseExpr "trait Functor f { map (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
 
   describe "Implementation" $ do
     it "can create implementation" $

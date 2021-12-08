@@ -7,11 +7,12 @@ debug debugString outVal = (HFI debug [debugString, outVal])
 
 not b = !b
 const b _ = b
+identity a = a
 empty? [] = true
 empty? s = false
 present? s = !(empty? s)
-first! [] = false // undefined
-first! (x | _) = x
+first (a, _) = a
+second (_, b) = b
 first [] = None
 first (x | _) = Some x
 zipWith f (x | xs) (y | ys) = f x y | zipWith f xs ys
@@ -32,18 +33,12 @@ either ef of e = case e {
   Ok x: Ok (of x)
 }
 
-at Integer, [a] => Maybe a
+// at Integer, [a] => Maybe a
+at _ [] = None
 at i xs =
   zip xs [0 .. length xs]
   |> find ((a, b): b == i)
   ||> first
-at i [] = None
-
-// at! Integer, [a] => a
-// at! i xs =
-//   zip xs [0 .. length xs]
-//   |> find ((a, b): b == i)
-//   ||> first!
 
 even? n = n % 2 == 0
 odd? n = not (odd? n)

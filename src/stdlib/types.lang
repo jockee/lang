@@ -2,8 +2,8 @@ data Maybe = Some a | None
 data Result = Ok a | Err b
 
 trait Functor f {
-  fmap (a: b), f a => f b
-  fmap => (a: b)
+  map (a: b), f a => f b
+  map => (a: b)
 }
 
 trait Applicative f {
@@ -16,17 +16,17 @@ trait Monad m {
 }
 
 implement Functor for List {
-  fmap _ [] = []
-  fmap i (h | hs) = f h | fmap i hs
+  map _ [] = []
+  map fl (h | hs) = fl h | map fl hs
 }
 
 implement Functor for Maybe {
-  fmap _ None = None
-  fmap f (Some x) = Some (f x)
+  map _ None = None
+  map fm (Some x) = Some (fm x)
 }
 
 implement Applicative for Maybe {
-  ap (Some f) m = fmap f m
+  ap (Some f) m = map f m
   ap _ _ = None
   pure a = Some a
 }
@@ -37,12 +37,12 @@ implement Monad for Maybe {
 }
 
 implement Functor for Result {
-  fmap f (Ok a) = Ok (f a)
-  fmap _ (Err b) = Err b
+  map fr (Ok a) = Ok (fr a)
+  map _ (Err b) = Err b
 }
 
 implement Applicative for Result {
-  ap (Ok f) a = fmap f a
+  ap (Ok f) a = map f a
   ap _ (Err b) = Err b
   pure a = Ok a
 }
@@ -60,14 +60,12 @@ trait Foldable f { // ok
   fold (a, b: a), a, f b => a // comm
   length xs = fold (acc x: acc + 1) 0 xs
   sum xs = fold (acc n: n + acc) 0 xs
-  map l xs = fold (acc x: (acc + [l x])) [] xs
   filter f xs = fold (acc x: (f x) ? (acc + [x]) : acc) [] xs
   reject f xs = fold (acc x: (f x) ? acc : (acc + [x])) [] xs
   product xs = fold (acc n: n * acc) 1 xs
   includes? x xs = fold (acc p: (p == x) ? true : false) false xs
   unique xs = fold (acc x: (includes? x acc) ? acc : (acc + [x])) [] xs
   last xs = reverse xs |> first
-  last! xs = reverse xs |> first!
   find f xs = filter f xs |> first
   reverse xs = fold (acc x: x | acc) [] xs
   max xs = sort xs |> reverse |> first

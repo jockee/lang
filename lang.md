@@ -1,15 +1,12 @@
 # WIP
 
- - why are functions applied multiple times? fold break span. `evalIn`s spread out without keeping evaled value? `toExpr`?
- - nothing is ever executed more than once
- - replace map with fmap
-
 # KEY
 
+ - fmap using function with multiple definitions
  - throw error on empty in `head!`
  - import module "non-qualified"
-  * read in functions from HFI straight into std lib?
-    * difficult to do into modules?
+  - read in functions from HFI straight into std lib?
+    - difficult to do into modules?
 
 # MID
 
@@ -42,8 +39,8 @@
 
 # BACKLOG
 
+  - flatMap, flatten
   - pin operator
-  - `+` for concatenation as well?
   - TODO: sets
   - TODO: where clause
   - TODO: guard clause

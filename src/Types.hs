@@ -140,7 +140,7 @@ type Id = String
 
 type Case = (Expr, Expr)
 
-data Op = AddOrConcat | Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | FmapPipe | Assign | Cons | Pow
+data Op = AddOrConcat | Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | MapPipe | Assign | Cons | Pow
   deriving stock (Show, Data)
 
 data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs
@@ -409,6 +409,7 @@ anyTypeSig = TypeSig {typeSigName = Nothing, typeSigModule = Nothing, typeSigTra
 
 data LangType
   = ListType LangType
+  | TupleType LangType
   | IntType
   | FloatType
   | StringType
@@ -419,6 +420,7 @@ data LangType
   | TraitVariableType String LangType
   | DataConstructorType String
   | TypeConstructorType String LangType
+  | PatternType [LangType]
   | UndefinedType
   | AnyType
   deriving stock (Show, Eq, Data)
@@ -453,7 +455,7 @@ instance LangTypeable String where
 
 instance LangTypeable Expr where
   toLangType e = case e of
-    PTuple {} -> ListType AnyType
+    PTuple {} -> TupleType AnyType
     PList {} -> ListType AnyType
     PDict {} -> DictType
     PInteger {} -> IntType
@@ -482,6 +484,7 @@ instance LangTypeable Expr where
 
 instance LangTypeable Val where
   toLangType (FunctionVal _ ts _ _) = FunctionType (typeSigIn ts) (typeSigReturn ts)
+  toLangType (Pattern defs) = PatternType $ map (\case (FunctionVal _ ts _ _) -> FunctionType (typeSigIn ts) (typeSigReturn ts)) defs
   toLangType val = case val of
     IntVal {} -> IntType
     FloatVal {} -> FloatType
@@ -490,10 +493,9 @@ instance LangTypeable Val where
     DictVal {} -> DictType
     DictKey {} -> DictKeyType
     Undefined {} -> UndefinedType
-    TupleVal {} -> ListType AnyType
+    TupleVal {} -> TupleType AnyType
     ListVal {} -> ListType AnyType
     DataVal cons name _ -> TypeConstructorType cons (toLangType name)
-    Pattern defs -> error $ "Patterns can't be matched with " ++ show defs
     s -> error $ "Not implemented" ++ show s
 
 showTypeSig :: TypeSig -> String

@@ -113,7 +113,7 @@ evalIn env (PList _ts es) = (ListVal $ map (fst . evalIn env) es, env)
 evalIn env (PTuple _ts es) = (TupleVal $ map (fst . evalIn env) es, env)
 evalIn env (PBool n) = (BoolVal n, env)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
-evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e1) e2)
+evalIn env (Binop MapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "map") e1) e2)
 evalIn env (Binop Cons e1 e2) = evalIn env (App (App (hfiLambda 2 "cons") e1) e2)
 evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
@@ -210,14 +210,14 @@ apply env e1 e2 =
             let (partiallyAppliedFuns, accEnv) = foldl' toFunVal ([], env') funs
                 toFunVal (accFuns, accEnv) fun = case fun of
                   FunctionVal lambdaEnv' ts args e3 ->
-                    let (val, env'') = callPartiallyAppliedFunction accEnv lambdaEnv' ts args e2 e3
+                    let (val, env'') = callPartiallyAppliedFunction accEnv lambdaEnv' ts args passedArg e3
                      in (accFuns ++ [val], env'')
                   _ -> error "Non-function application"
              in (Pattern partiallyAppliedFuns, accEnv)
     (FunctionVal lambdaEnv ts args e3, env') -> callFunction env' lambdaEnv ts args passedArg e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
-    (passedArg, _) = trace ("passedarg" ++ show e2) $ evalIn env $ toExpr e2
+    (passedArg, _) = evalIn env $ toExpr e2
     functionFullyApplied remainingArgs = length remainingArgs == 1
     callFunction env lambdaEnv ts args passedArg e3 =
       if functionFullyApplied args
@@ -226,16 +226,15 @@ apply env e1 e2 =
 
 callFullyAppliedFunction :: Evaluatable e => Env -> LambdaEnv -> TypeSig -> ArgsList -> Val -> e -> (Val, Env)
 callFullyAppliedFunction env lambdaEnv ts argsList val1 e3 =
-  traceUnlessStdLib env ("calling " ++ show (typeSigName ts)) $
-    let envInCorrectModule =
-          if null (typeSigName ts)
-            then (env {inModule = typeSigModule ts})
-            else env
-        withLastArgExtended = extend envInCorrectModule lambdaEnv arg val1
-        callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
-        (arg : remainingargs') = argsList
-        (val, env'') = evalIn callWithScope (toExpr e3)
-     in (val, env)
+  let envInCorrectModule =
+        if null (typeSigName ts)
+          then (env {inModule = typeSigModule ts})
+          else env
+      withLastArgExtended = extend envInCorrectModule lambdaEnv arg val1
+      callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
+      (arg : remainingargs') = argsList
+      (val, env'') = evalIn callWithScope (toExpr e3)
+   in (val, env)
 
 mergeLambdaEnvIntoEnv :: Env -> TypeSig -> LambdaEnv -> Env
 mergeLambdaEnvIntoEnv env ts lambdaEnv =

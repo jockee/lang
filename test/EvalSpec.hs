@@ -266,12 +266,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "pipes as last argument" $ \stdLibEnv ->
         eval (parseExpr "[1,2] |> (x: x + [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
-      it "fmap pipe [STDLIB]" $ \stdLibEnv -> do
+      it "map pipe [STDLIB]" $ \stdLibEnv -> do
         let (val, _) = evalsIn stdLibEnv (parseExprs "(n: n * 2) ||> (Some 1)")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
-      it "dict key as function in fmap [STDLIB]" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv (parseExprs "fmap .body (Some {body: 1})")
+      it "dict key as function in map [STDLIB]" $ \stdLibEnv -> do
+        let (val, _) = evalsIn stdLibEnv (parseExprs "map .body (Some {body: 1})")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 1]
 
     describe "STDLIB" $ do
@@ -322,10 +322,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "max" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "max [1, 2]")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
-
-      it "first!" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "first! [1]")
-        val `shouldBe` IntVal 1
 
       it "first" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "first [1]")
@@ -392,13 +388,13 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
       describe "Stdlib Types" $ do
-        it "fmap" $ \stdLibEnv -> do
-          let (val, _) = evalIn stdLibEnv (parseExpr "fmap (x: x*2) (Some 1)")
+        it "map" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "map (x: x*2) (Some 1)")
           val `shouldBe` DataVal "Maybe" "Some" [2]
 
-        it "fmap with stdlib function on maybe" $ \stdLibEnv -> do
-          let (val, _) = evalIn stdLibEnv (parseExpr "fmap first (Some [1])")
-          val `shouldBe` DataVal "Maybe" "Some" [2]
+        it "map multi-definition-function over maybe" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "map first (Some (1, 2))")
+          val `shouldBe` DataVal "Maybe" "Some" [1]
 
         it "ap" $ \stdLibEnv -> do
           let (val, _) = evalIn stdLibEnv (parseExpr "ap (Some (x: x*2)) (Some 1)")
@@ -604,7 +600,6 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         evaluate (evals (parseExprs "a Integer => Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
       xit "Called with wrong type second argument" $ \stdLibEnv ->
-        -- XXX: it's not decorating functions with their type defs on call?
         evaluate (evals (parseExprs "a Integer, Integer => Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
       it "Correct types, two different" $ \stdLibEnv ->
@@ -732,7 +727,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           _ -> return ()
 
       it "handles type variables" $ \stdLibEnv -> do
-        let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f { fmap (a: b), f a => f b }")
+        let (_, env) = evalsIn emptyEnv (parseExprs "trait Functor f { map (a: b), f a => f b }")
         case inScope env "Functor" of
           [] -> expectationFailure "No"
           _ -> return ()
