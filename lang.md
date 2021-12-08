@@ -6,8 +6,10 @@
 
 # KEY
 
- - throw error in `head!`
+ - throw error on empty in `head!`
  - import module "non-qualified"
+  * read in functions from HFI straight into std lib?
+    * difficult to do into modules?
 
 # MID
 
@@ -51,8 +53,6 @@
 # IDEAS
 
 * should data definitions use `type` instead of `data`? mixes up what a 'type constructor' is
-* read in functions from HFI straight into std lib?
-  * difficult to do into modules?
 
 # REFACTORING
 

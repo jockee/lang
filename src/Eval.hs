@@ -17,6 +17,7 @@ import Data.Text qualified as T
 import Debug.Pretty.Simple
 import Debug.Trace
 import Exceptions
+import Extension
 import Http qualified as HTTP
 import Parser (parseExprs)
 import System.Environment
@@ -159,105 +160,10 @@ hfiLambda argCount name = Lambda emptyLambdaEnv ts args $ HFI name $ PList anyTy
     ts = anyTypeSig {typeSigIn = replicate argCount AnyType}
     args = take argCount $ map (\x -> Atom anyTypeSig (x : (name ++ "LambdaArg"))) ['a' ..]
 
-extendWithDataDefinition :: HasBindings h => Env -> h -> String -> [ConstructorWithArgs] -> h
-extendWithDataDefinition env bindable typeCons = foldl' foldFun bindable
-  where
-    foldFun accBindable (vc, args) = extend env accBindable (Atom anyTypeSig vc) (DataConstructorDefinitionVal typeCons args)
-
-extendWithListable :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
-extendWithListable env bindable bindings vs
-  | length bindings /= length vs = throw $ EvalException "Destructuring failed. Mismatched parameter count"
-  | otherwise = foldl' foldFun bindable (zip bindings vs)
-  where
-    foldFun accBindable (binding, val) = extend env accBindable binding val
-
-extendWithTrait :: HasBindings h => Env -> h -> String -> [Expr] -> h
-extendWithTrait env bindable name defs = extend env bindable (Atom anyTypeSig name) $ TraitVal name defs
-
-extendWithImplementation :: HasBindings h => Env -> h -> Trait -> [Expr] -> h
-extendWithImplementation env bindable trait = foldl' foldFun bindable
-  where
-    foldFun accBindable def = case def of
-      (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) ->
-        let newTS = updateTS ts funName
-         in extend env accBindable atom (Lambda lambdaEnv newTS args e)
-      (Binop Assign atom val) -> extend env accBindable atom val
-    updateTS oldTS funName =
-      let ts = fromMaybe oldTS (tsFromTraitDef funName)
-       in ts {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
-    tsFromTraitDef funName = case inScope env trait of
-      [TraitVal _ defs] -> case List.find (findDef funName) defs of
-        Just (PTypeSig ts) -> Just ts
-        _ -> Nothing
-      _ -> error $ "Got more than one trait definition for " ++ show trait
-    findDef funName (PTypeSig ts) = typeSigName ts == Just funName
-
--- let {a: b} = {a: 1} in
--- let {a: 1, b: c} = {a: 1, b: 2} in
--- let {a: b, ...} = {a: 1, b: 2, c: 2} in
-extendWithDict :: HasBindings h => Env -> h -> [(Expr, Expr)] -> Map.Map Val Val -> h
-extendWithDict env bindable exprPairs valMap = trace ("extending dict") $ foldl' foldFun bindable exprPairs
-  where
-    foldFun accBindable expr = case expr of
-      (PDictKey a, atom@(Atom _ts atomId)) -> case Map.lookup (DictKey a) valMap of
-        Just val -> extend env bindable atom val
-        Nothing -> error "Dictionary doesn't contain key"
-      (PDictKey a, expr) ->
-        let evaledExpr = fst $ evalIn env expr
-         in ( case Map.lookup (DictKey a) valMap of
-                Just val -> if val == evaledExpr then accBindable else error "Dictionary not matching pattern"
-                Nothing -> error "Dictionary doesn't contain key"
-            )
-
-extendWithConsList :: HasBindings h => Env -> h -> [String] -> [Val] -> h
-extendWithConsList env bindable bindings vs
-  | length bindings - 1 > length vs = error $ "Too many bindings. Wanted " ++ show (length bindings) ++ ", but got " ++ show (length vs)
-  | otherwise =
-    let llast = (last bindings, ListVal $ drop (length bindings - 1) vs)
-        linit = zip (take (length bindings - 1) bindings) vs
-     in foldFun llast (foldr foldFun bindable linit)
-  where
-    foldFun (binding, val) accBindable = extend env accBindable (Atom anyTypeSig binding) val
-
-extendWithDataConstructor :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
-extendWithDataConstructor env bindable exprs vals = foldl' foldFun bindable (zip exprs vals)
-  where
-    foldFun accEnv (expr, val) = extend env accEnv expr val
-
 extend :: (Evaluatable e, HasBindings h) => Env -> h -> Expr -> e -> h
-extend env bindable argExpr e = case argExpr of
-  (Atom _ id) -> traceUnlessStdLib env ("extending " ++ show id ++ show val) $ extendAtom env bindable id val
-  (PDataConstructor _consName exprs) -> case val of
-    (DataVal _dtype _name vals) -> extendWithDataConstructor env bindable exprs vals
-    s -> error $ "Non-value-cons value received for value cons destructuring" ++ show s
-  (PDict _ts exprPairs) -> case val of
-    (DictVal valMap) -> extendWithDict env bindable exprPairs valMap
-    _ -> error "Non-dict value received for dict destructuring"
-  (ConsList bindings) -> case val of
-    (ListVal vals) -> extendWithConsList env bindable bindings vals
-    _ -> error "Non-list value received for cons destructuring"
-  (PTuple _ts bindings) -> case val of
-    (TupleVal vals) -> extendWithListable env bindable bindings vals
-    s -> error $ "Non-tuple value " ++ show s ++ " received for tuple destructuring"
-  (PList _ts bindings) -> case val of
-    (ListVal vals) -> extendWithListable env bindable bindings vals
-    _ -> error "Non-list value received for list destructuring"
-  _ -> bindable
+extend env bindable argExpr e = extend' env bindable argExpr val
   where
     !val = fst . evalIn env $ toExpr e
-
-extendAtom :: HasBindings h => Env -> h -> String -> Val -> h
-extendAtom _ bindable "_" _ = bindable
-extendAtom env bindable id val =
-  setBindings bindable withUpdatedScope
-  where
-    withUpdatedScope = Map.insertWith insertFun id [envEntry] (getBindings bindable)
-    insertFun = if id == "@" then const else flip (++)
-    envEntry =
-      EnvEntry
-        { envEntryValue = val,
-          envEntryModule = inModule env
-        }
 
 hfiFun :: Env -> Id -> Expr -> (Val, Env)
 hfiFun env f argsList = case evaledArgsList of
@@ -343,6 +249,24 @@ callPartiallyAppliedFunction env lambdaEnv ts argsList expr funExpr =
   where
     lambdaEnv' = extend env lambdaEnv arg expr
     (arg : remainingArgs') = argsList
+
+extendWithImplementation :: HasBindings h => Env -> h -> Trait -> [Expr] -> h
+extendWithImplementation env bindable trait = foldl' foldFun bindable
+  where
+    foldFun accBindable def = case def of
+      (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) ->
+        let newTS = updateTS ts funName
+         in extend env accBindable atom (Lambda lambdaEnv newTS args e)
+      (Binop Assign atom val) -> extend env accBindable atom val
+    updateTS oldTS funName =
+      let ts = fromMaybe oldTS (tsFromTraitDef funName)
+       in ts {typeSigTraitBinding = typeSigTraitBinding oldTS, typeSigImplementationBinding = typeSigImplementationBinding oldTS}
+    tsFromTraitDef funName = case inScope env trait of
+      [TraitVal _ defs] -> case List.find (findDef funName) defs of
+        Just (PTypeSig ts) -> Just ts
+        _ -> Nothing
+      _ -> error $ "Got more than one trait definition for " ++ show trait
+    findDef funName (PTypeSig ts) = typeSigName ts == Just funName
 
 eval :: Expr -> Val
 eval = fst . evalIn emptyEnv
