@@ -60,10 +60,10 @@ spec = describe "Parser" $ do
     s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))))
 
   it "fully applied pipe" $
-    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
 
   it "partially applied pipe (function composition)" $
-    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
 
   it "lambda application" $
     s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
@@ -123,10 +123,10 @@ spec = describe "Parser" $ do
     s (parseExpr "{}") `shouldBe` s (PDict anyTypeSig [])
 
   it "dict access on atom dot key" $
-    s (parseExpr ".key exampledict") `shouldBe` s (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "key")) (Atom anyTypeSig "exampledict"))
+    s (parseExpr ".key exampledict") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (Atom anyTypeSig "exampledict"))
 
   it "dict access on inline dot key" $
-    s (parseExpr ".key {a: 1}") `shouldBe` s (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "key")) (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]))
+    s (parseExpr ".key {a: 1}") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]))
 
   it "dict access" $
     s (parseExpr "exampledict.key") `shouldBe` s (DictAccess (PDictKey "key") (Atom anyTypeSig "exampledict"))

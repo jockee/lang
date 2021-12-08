@@ -188,15 +188,14 @@ dictAccess = dotKey <|> try dictDotKey
   where
     dotKey = do
       string "."
-      App
+      dictKey <- identifier
+      pure $
         ( Lambda
             emptyLambdaEnv
             (sig [AnyType] AnyType)
-            [Atom anyTypeSig "keyInPDictKeyLookup", Atom anyTypeSig "dictInPDictKeyLookup"]
-            (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))
+            [Atom anyTypeSig "dictInPDictKeyLookup"]
+            (DictAccess (PDictKey dictKey) (Atom anyTypeSig "dictInPDictKeyLookup"))
         )
-        . PDictKey
-        <$> identifier
     dictDotKey = do
       first <- lowerChar
       rest <- many (letterChar <|> digitChar)
