@@ -12,7 +12,7 @@ trait Applicative f {
 }
 
 trait Monad m {
-  bind m a, (a: m b) => m b
+  bind m a, (a: b) => m b // m a, (a: m b) => m b
 }
 
 implement Functor for List {

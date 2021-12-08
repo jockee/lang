@@ -55,6 +55,13 @@ patternMatch (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
 patternMatch (PBool a) (BoolVal b) = a == b
 patternMatch (PInteger e) (IntVal v) = e == v
 patternMatch (PFloat e) (FloatVal v) = e == v
+patternMatch (PDict _ pairs) (DictVal valMap) = all pairMatches pairs
+  where
+    pairMatches pair = case pair of
+      (_, Atom {}) -> True
+      (PDictKey id, expr) -> case Map.lookup (DictKey id) valMap of
+        Just x -> patternMatch expr x
+        Nothing -> error $ "Could not find " ++ show id
 patternMatch a b = True
 
 typeCheck :: Env -> LangType -> Expr -> Either String Env

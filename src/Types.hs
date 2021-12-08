@@ -43,7 +43,7 @@ data LambdaEnv where
     LambdaEnv
   deriving stock (Show)
 
-class HasBindings e where
+class Show e => HasBindings e where
   setBindings :: e -> VarMap -> e
   getBindings :: e -> VarMap
   bindingsType :: e -> String
@@ -256,7 +256,7 @@ type ConstructorWithArgs = (String, [String])
 
 instance Show Val where
   show (ModuleVal name) = "<module " ++ show name ++ ">"
-  show (FunctionVal ts _lambdaEnv remainingArgs _) = "(FunctionVal " ++ show ts ++ " " ++ show remainingArgs ++ ")\n"
+  show (FunctionVal _lambdaEnv ts remainingArgs _) = "(FunctionVal " ++ show ts ++ " " ++ show remainingArgs ++ ")\n"
   show (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
   show (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
   show (DataVal dtype n args) = "(DataVal " ++ show dtype ++ " " ++ show n ++ " [" ++ joinCommaSep args ++ "])"

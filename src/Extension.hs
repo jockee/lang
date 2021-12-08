@@ -6,6 +6,7 @@ module Extension where
 import Control.Exception
 import Data.List (foldl')
 import Data.Map qualified as Map
+import Debug.Trace
 import Exceptions
 import Types
 
@@ -44,16 +45,14 @@ extendWithListable env bindable bindings vs
 extendWithTrait :: HasBindings h => Env -> h -> String -> [Expr] -> h
 extendWithTrait env bindable name defs = extend' env bindable (Atom anyTypeSig name) $ TraitVal name defs
 
--- let {a: b} = {a: 1} in
--- let {a: 1, b: c} = {a: 1, b: 2} in
--- let {a: b, ...} = {a: 1, b: 2, c: 2} in
 extendWithDict :: HasBindings h => Env -> h -> [(Expr, Expr)] -> Map.Map Val Val -> h
 extendWithDict env bindable exprPairs valMap = foldl' foldFun bindable exprPairs
   where
     foldFun accBindable expr = case expr of
-      (PDictKey a, ex) -> case Map.lookup (DictKey a) valMap of
-        Just val -> extend' env bindable ex val
-        Nothing -> error "Dictionary doesn't contain key"
+      (PDictKey a, ex) -> case (ex, Map.lookup (DictKey a) valMap) of
+        (Atom {}, Just val) -> extend' env bindable ex val
+        (_, Just _) -> accBindable
+        (_, Nothing) -> error "Dictionary doesn't contain key"
 
 extendWithConsList :: HasBindings h => Env -> h -> [String] -> [Val] -> h
 extendWithConsList env bindable bindings vs

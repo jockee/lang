@@ -200,7 +200,7 @@ hfiFun env f argsList = case evaledArgsList of
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> trace ("calling f with x = " ++ show passedArg ++ show definitions) $ case List.filter (matchingDefinition env' passedArg) definitions of
+    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
       [] -> error "Could not find matching function definition - none matched criteria"
       [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args passedArg e3
       funs@((FunctionVal lambdaEnv ts args e3) : _) ->
@@ -215,10 +215,9 @@ apply env e1 e2 =
                   _ -> error "Non-function application"
              in (Pattern partiallyAppliedFuns, accEnv)
     (fun@(FunctionVal lambdaEnv ts args e3), env') ->
-      callFunction env' lambdaEnv ts args passedArg e3
-    -- if matchingDefinition env' passedArg fun
-    --   then callFunction env' lambdaEnv ts args passedArg e3
-    --   else error "Found no matching definition"
+      if matchingDefinition env' passedArg fun
+        then callFunction env' lambdaEnv ts args passedArg e3
+        else error "Found no matching definition"
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
     (passedArg, _) = evalIn env $ toExpr e2

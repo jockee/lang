@@ -189,7 +189,7 @@ dictAccess = dotKey <|> try dictDotKey
     dotKey = do
       string "."
       dictKey <- identifier
-      pure $
+      pure
         ( Lambda
             emptyLambdaEnv
             (sig [AnyType] AnyType)
@@ -356,7 +356,7 @@ function traitBinding implementationBinding = do
       destructureObject -> return $ Binop Assign destructureObject body
 
 pipe :: Expr -> Expr -> Expr
-pipe e1 e2 = Binop Pipe e1 e2
+pipe = Binop Pipe
 
 lambda :: Parser Expr
 lambda = do
