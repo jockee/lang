@@ -1,6 +1,11 @@
+# WIP
+
+ - why are functions applied multiple times? fold break span. `evalIn`s spread out without keeping evaled value? `toExpr`?
+ - nothing is ever executed more than once
+ - replace map with fmap
+
 # KEY
 
- - why are functions applied multiple times? fold break span
  - throw error in `head!`
  - import module "non-qualified"
 
@@ -45,7 +50,6 @@
 
 # IDEAS
 
-* replace map with fmap
 * should data definitions use `type` instead of `data`? mixes up what a 'type constructor' is
 * read in functions from HFI straight into std lib?
   * difficult to do into modules?

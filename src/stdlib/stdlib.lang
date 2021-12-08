@@ -22,7 +22,7 @@ zip xs ys = zipWith (x y: (x, y)) xs ys
 sort [] = []
 sort (y | xs) = let smaller = filter (a: a <= y) xs,
                     larger = filter (a: a > y) xs:
-                  sort smaller ++ [y] ++ sort larger
+                  sort smaller + [y] + sort larger
 
 maybe default f None = default
 maybe default f (Some x) = Some (f x)

@@ -57,9 +57,9 @@ evalIn env (PDataConstructor name exprArgs) =
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
 evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
-      findFun (pred, predDo) = trace ("O:") $ matchingDefinition env condVal (FunctionVal emptyLambdaEnv ts [pred] predDo)
+      findFun (pred, predDo) = matchingDefinition env condVal (FunctionVal emptyLambdaEnv ts [pred] predDo)
    in case List.find findFun cases of
-        Just (pred, predDo) -> evalIn (extend env env pred cond) predDo
+        Just (pred, predDo) -> evalIn (extend env env pred condVal) predDo
 evalIn env (Lambda lambdaEnv ts args e) =
   let lambdaEnv' =
         if null (typeSigName ts)
@@ -92,16 +92,6 @@ evalIn env (DictAccess k dict) =
       let kv = fst $ evalIn env k
        in (fromJust (Map.lookup kv m), env)
     s -> error $ "DictAccess: " ++ show s
--- evalIn env (PDictKeyLookup k) =
---   evalIn env $
---     App
---       ( Lambda
---           emptyLambdaEnv
---           anyTypeSig
---           [Atom anyTypeSig "keyInPDictKeyLookup", Atom anyTypeSig "dictInPDictKeyLookup"]
---           (DictAccess (Atom anyTypeSig "InPDictKeyLookupkey") (Atom anyTypeSig "dictInPDictKeyLookup"))
---       )
---       (DictKey k)
 evalIn env (PDictKey k) = (DictKey k, env)
 evalIn env (PDict _ts pairs) =
   let fn (k, v) =
@@ -124,7 +114,6 @@ evalIn env (PBool n) = (BoolVal n, env)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
 evalIn env (Binop FmapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "fmap") e1) e2)
 evalIn env (Binop Cons e1 e2) = evalIn env (App (App (hfiLambda 2 "cons") e1) e2)
-evalIn env (Binop Concat e1 e2) = evalIn env (App (App (hfiLambda 2 "concat") e1) e2)
 evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
       value = fst $ evalIn (mergeLambdaEnvIntoEnv env ts' lambdaEnv) (Lambda lambdaEnv ts' args e)
@@ -142,6 +131,15 @@ evalIn env (Unaryop Not e) =
 evalIn env (Unaryop op e) =
   let (v, _) = evalIn env e
    in (evalUnOp op v, env)
+evalIn env (Binop AddOrConcat e1 e2) =
+  let (v2, _) = evalIn env e2
+   in case v2 of
+        FloatVal {} -> (v1 `plus` v2, env)
+        IntVal {} -> (v1 `plus` v2, env)
+        _ -> evalIn env (App (App (hfiLambda 2 "concat") v1) v2)
+  where
+    (v1, _) = evalIn env e1
+    plus = evalOp Add
 evalIn env (Binop op e1 e2) =
   let (v1, _) = evalIn env e1
       (v2, _) = evalIn env e2
@@ -198,7 +196,7 @@ extendWithImplementation env bindable trait = foldl' foldFun bindable
 -- let {a: 1, b: c} = {a: 1, b: 2} in
 -- let {a: b, ...} = {a: 1, b: 2, c: 2} in
 extendWithDict :: HasBindings h => Env -> h -> [(Expr, Expr)] -> Map.Map Val Val -> h
-extendWithDict env bindable exprPairs valMap = foldl' foldFun bindable exprPairs
+extendWithDict env bindable exprPairs valMap = trace ("extending dict") $ foldl' foldFun bindable exprPairs
   where
     foldFun accBindable expr = case expr of
       (PDictKey a, atom@(Atom _ts atomId)) -> case Map.lookup (DictKey a) valMap of
@@ -228,7 +226,7 @@ extendWithDataConstructor env bindable exprs vals = foldl' foldFun bindable (zip
 
 extend :: (Evaluatable e, HasBindings h) => Env -> h -> Expr -> e -> h
 extend env bindable argExpr e = case argExpr of
-  (Atom _ id) -> extendAtom env bindable id val
+  (Atom _ id) -> traceUnlessStdLib env ("extending " ++ show id ++ show val) $ extendAtom env bindable id val
   (PDataConstructor _consName exprs) -> case val of
     (DataVal _dtype _name vals) -> extendWithDataConstructor env bindable exprs vals
     s -> error $ "Non-value-cons value received for value cons destructuring" ++ show s
@@ -246,22 +244,22 @@ extend env bindable argExpr e = case argExpr of
     _ -> error "Non-list value received for list destructuring"
   _ -> bindable
   where
-    !val = fst $ evalIn env $ toExpr e
+    !val = fst . evalIn env $ toExpr e
 
-extendAtom :: (Evaluatable e, HasBindings h) => Env -> h -> String -> e -> h
+extendAtom :: HasBindings h => Env -> h -> String -> Val -> h
 extendAtom _ bindable "_" _ = bindable
-extendAtom env bindable id e =
+extendAtom env bindable id val =
   setBindings bindable withUpdatedScope
   where
     withUpdatedScope = Map.insertWith insertFun id [envEntry] (getBindings bindable)
     insertFun = if id == "@" then const else flip (++)
     envEntry =
       EnvEntry
-        { envEntryValue = fst $ evalIn env $ toExpr e,
+        { envEntryValue = val,
           envEntryModule = inModule env
         }
 
-hfiFun :: Evaluatable e => Env -> Id -> e -> (Val, Env)
+hfiFun :: Env -> Id -> Expr -> (Val, Env)
 hfiFun env f argsList = case evaledArgsList of
   ListVal evaledArgs -> (fun f evaledArgs, env)
   _ -> error "Got non-list"
@@ -271,9 +269,6 @@ hfiFun env f argsList = case evaledArgsList of
       (a', ListVal bs) -> ListVal $ a' : bs
       (StringVal a', StringVal bs) -> StringVal $ T.append a' bs -- NOTE: this concats instead of conses
       s -> error $ "HFI cons" ++ show s
-      (a', ListVal bs) -> ListVal $ a' : bs
-      (StringVal a', StringVal bs) -> StringVal $ T.append a' bs -- NOTE: this concats instead of conses
-      s -> error $ "HFI cons 2?" ++ show s
     fun "concat" (a : b : _) = case (a, b) of
       (ListVal a', ListVal bs) -> ListVal $ a' ++ bs
       (StringVal a', StringVal bs) -> StringVal $ T.append a' bs
@@ -294,20 +289,17 @@ hfiFun env f argsList = case evaledArgsList of
     fun "debug" (a : b : _) = unsafePerformIO (print a >> pure b)
     fun "debugEnv" (a : _) = pTrace (show env) a
     fun x r = error ("No such HFI " ++ show x ++ show r)
-    funToExpr (FunctionVal lambdaEnv ts args e) = Lambda lambdaEnv ts args e
-    funToExpr (Pattern defs) = PatternExpr defs
-    funToExpr r = error $ "FuntoExpr : " ++ show r
     evaledArgsList = fst $ evalIn env $ toExpr argsList
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> trace ("X:" ++ show e1 ++ show passedArg) $ case List.filter (matchingDefinition env' passedArg) definitions of
+    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
       [] -> error "Could not find matching function definition - none matched criteria"
-      [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args e2 e3
+      [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args passedArg e3
       funs@((FunctionVal lambdaEnv ts args e3) : _) ->
         if functionFullyApplied args
-          then callFullyAppliedFunction env' lambdaEnv ts args e2 e3 -- if many matches, fully apply first
+          then callFullyAppliedFunction env' lambdaEnv ts args passedArg e3 -- if many matches, fully apply first
           else
             let (partiallyAppliedFuns, accEnv) = foldl' toFunVal ([], env') funs
                 toFunVal (accFuns, accEnv) fun = case fun of
@@ -316,27 +308,28 @@ apply env e1 e2 =
                      in (accFuns ++ [val], env'')
                   _ -> error "Non-function application"
              in (Pattern partiallyAppliedFuns, accEnv)
-    (FunctionVal lambdaEnv ts args e3, env') -> callFunction env' lambdaEnv ts args e2 e3
+    (FunctionVal lambdaEnv ts args e3, env') -> callFunction env' lambdaEnv ts args passedArg e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
-    (passedArg, _) = evalIn env $ toExpr e2
+    (passedArg, _) = trace ("passedarg" ++ show e2) $ evalIn env $ toExpr e2
     functionFullyApplied remainingArgs = length remainingArgs == 1
-    callFunction env lambdaEnv ts args e2 e3 =
+    callFunction env lambdaEnv ts args passedArg e3 =
       if functionFullyApplied args
-        then callFullyAppliedFunction env lambdaEnv ts args e2 e3
-        else callPartiallyAppliedFunction env lambdaEnv ts args e2 e3
+        then callFullyAppliedFunction env lambdaEnv ts args passedArg e3
+        else callPartiallyAppliedFunction env lambdaEnv ts args passedArg e3
 
-callFullyAppliedFunction :: (Evaluatable e1, Evaluatable e2) => Env -> LambdaEnv -> TypeSig -> ArgsList -> e1 -> e2 -> (Val, Env)
-callFullyAppliedFunction env lambdaEnv ts argsList e2 e3 =
-  let envInCorrectModule =
-        if null (typeSigName ts)
-          then (env {inModule = typeSigModule ts})
-          else env
-      withLastArgExtended = extend envInCorrectModule lambdaEnv arg e2
-      callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
-      (arg : remainingargs') = argsList
-      (val, env'') = evalIn callWithScope (toExpr e3)
-   in (val, env)
+callFullyAppliedFunction :: Evaluatable e => Env -> LambdaEnv -> TypeSig -> ArgsList -> Val -> e -> (Val, Env)
+callFullyAppliedFunction env lambdaEnv ts argsList val1 e3 =
+  traceUnlessStdLib env ("calling " ++ show (typeSigName ts)) $
+    let envInCorrectModule =
+          if null (typeSigName ts)
+            then (env {inModule = typeSigModule ts})
+            else env
+        withLastArgExtended = extend envInCorrectModule lambdaEnv arg val1
+        callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
+        (arg : remainingargs') = argsList
+        (val, env'') = evalIn callWithScope (toExpr e3)
+     in (val, env)
 
 mergeLambdaEnvIntoEnv :: Env -> TypeSig -> LambdaEnv -> Env
 mergeLambdaEnvIntoEnv env ts lambdaEnv =

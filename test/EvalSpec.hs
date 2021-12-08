@@ -141,7 +141,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           eval (parseExpr "[1]") `shouldBe` ListVal [IntVal 1]
 
         it "concatenation" $ \stdLibEnv ->
-          eval (parseExpr "[1] ++ [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
+          eval (parseExpr "[1] + [2]") `shouldBe` ListVal [IntVal 1, IntVal 2]
 
         it "let-in binding list" $ \stdLibEnv ->
           eval (parseExpr "let x = [5]: x") `shouldBe` ListVal [IntVal 5]
@@ -264,7 +264,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         eval (parseExpr "let k = 1: (let v = 2: v + k)") `shouldBe` IntVal 3
 
       it "pipes as last argument" $ \stdLibEnv ->
-        eval (parseExpr "[1,2] |> (x: x ++ [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+        eval (parseExpr "[1,2] |> (x: x + [3])") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
       it "fmap pipe [STDLIB]" $ \stdLibEnv -> do
         let (val, _) = evalsIn stdLibEnv (parseExprs "(n: n * 2) ||> (Some 1)")
@@ -284,11 +284,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         val `shouldBe` ListVal [TupleVal [IntVal 1, IntVal 3], TupleVal [IntVal 2, IntVal 4]]
 
       it "inline partially applied mapping fold function" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "(f: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2)")
+        let (val, _) = evalIn stdLibEnv (parseExpr "(f: fold (acc x: acc + [f x]) [] [1,2]) (x: x*2)")
         val `shouldBe` ListVal [IntVal 2, IntVal 4]
 
       it "inline fully applied mapping fold function" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "(f xs: fold (acc x: acc ++ [f x]) [] [1,2]) (x: x*2) [1,2]")
+        let (val, _) = evalIn stdLibEnv (parseExpr "(f xs: fold (acc x: acc + [f x]) [] [1,2]) (x: x*2) [1,2]")
         val `shouldBe` ListVal [IntVal 2, IntVal 4]
 
       it "reverse" $ \stdLibEnv -> do
@@ -526,8 +526,8 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "nested functions can use the same variable name" $ \stdLibEnv -> do
         let fold = "jfold _ initOrAcc [] = initOrAcc; jfold b initOrAcc (k | ks) = let val = (b initOrAcc k): jfold b val ks;"
         let args = "[1,2,3]; s 3"
-        let notOverlapping = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [uU]) : acc) [] xs; s x = filter' (a: a < x)" ++ args -- `uU` is unique
-        let overlapping = fold ++ "filter' f xs = jfold (acc xX: (f xX) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` is not unique
+        let notOverlapping = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc + [uU]) : acc) [] xs; s x = filter' (a: a < x)" ++ args -- `uU` is unique
+        let overlapping = fold ++ "filter' f xs = jfold (acc xX: (f xX) ? (acc + [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` is not unique
         evals (parseExprs notOverlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
         evals (parseExprs overlapping) `shouldBe` ListVal [IntVal 1, IntVal 2]
 

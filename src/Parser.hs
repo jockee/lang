@@ -57,12 +57,11 @@ formula = makeExprParser juxta table <?> "formula"
       [ [prefix "-" neg, not'],
         [pow],
         [mulOp, divOp, modOp],
-        [addOp, subOp],
+        [addOrConcatOp, subOp],
         [gteOp, lteOp, gtOp, ltOp],
         [eqOp, notEqOp],
         [andOp],
         [orOp],
-        [concatOp],
         [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
         [consOp],
         [pipeOp, fmapPipe]
@@ -83,7 +82,7 @@ formula = makeExprParser juxta table <?> "formula"
     notEqOp = InfixL (try $ spaceC *> string "!=" <* spaceC >> return (Binop NotEql))
     eqOp = InfixR (try $ spaceC *> string "==" <* spaceC >> return (Binop Eql))
     subOp = InfixL (try $ spaceC *> string "-" <* spaceC >> return (Binop Sub))
-    addOp = InfixL (try $ (spaceC >> string "+") <* notFollowedBy (char '+') <* spaceC >> return (Binop Add))
+    addOrConcatOp = InfixL (try $ (spaceC >> string "+") <* notFollowedBy (char '+') <* spaceC >> return (Binop AddOrConcat))
     divOp = InfixL (try $ spaceC *> string "/" <* notFollowedBy (char '/') <* spaceC >> return (Binop Div))
     modOp = InfixL (try $ spaceC *> string "%" <* spaceC >> return (Binop Mod))
     mulOp = InfixL (try $ spaceC *> string "*" <* spaceC >> return (Binop Mul))
@@ -93,7 +92,6 @@ formula = makeExprParser juxta table <?> "formula"
     gteOp = InfixL (try $ spaceC *> string ">=" <* spaceC >> return (Cmp ">="))
     lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
     orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
-    concatOp = InfixL (try $ spaceC *> string "++" <* spaceC >> return (Binop Concat))
     consOp = InfixL (try $ spaceC *> string "|" <* notFollowedBy (char '>' <|> char '|') <* spaceC >> return (Binop Cons))
     fmapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop FmapPipe))
     pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return pipe)

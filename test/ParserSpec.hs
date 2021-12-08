@@ -33,7 +33,7 @@ spec = describe "Parser" $ do
     s (parseExpr "1 != 1") `shouldBe` s (Binop NotEql (PInteger 1) (PInteger 1))
 
   it "plus" $
-    s (parseExpr "1 + 1") `shouldBe` s (Binop Add (PInteger 1) (PInteger 1))
+    s (parseExpr "1 + 1") `shouldBe` s (Binop AddOrConcat (PInteger 1) (PInteger 1))
 
   it "and" $
     s (parseExpr "1 && 1") `shouldBe` s (Binop And (PInteger 1) (PInteger 1))
@@ -51,13 +51,13 @@ spec = describe "Parser" $ do
     s (parseExpr "if true: 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "let-in" $
-    s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
+    s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
   it "lambda" $
-    s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1)))
+    s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1)))
 
   it "pipe to lambda" $
-    s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+    s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))))
 
   it "fully applied pipe" $
     s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
@@ -66,28 +66,28 @@ spec = describe "Parser" $ do
     s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "keyInPDictKeyLookup"), (Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (Atom anyTypeSig "keyInPDictKeyLookup") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDictKey "body")) (PInteger 1)) (Atom anyTypeSig "length"))
 
   it "lambda application" $
-    s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
+    s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
   it "pipe to pipe" $
-    s (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` s (Binop Pipe (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1)))) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 2))))
+    s (parseExpr "5 |> (y: y + 1) |> (x: x + 2)") `shouldBe` s (Binop Pipe (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop AddOrConcat (Atom anyTypeSig "y") (PInteger 1)))) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 2))))
 
   it "pipe partial application" $
     s (parseExpr "[1,2] |> map (x: x * 2)") `shouldBe` s (Binop Pipe (PList anyTypeSig [PInteger 1, PInteger 2]) (App (Atom anyTypeSig "map") (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2)))))
 
   it "nested lambda application" $
-    s (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1))) (Atom anyTypeSig "x")) (PInteger 2))) (PInteger 5))
+    s (parseExpr "(x: ((y: y + 1) x) + 2) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop AddOrConcat (Atom anyTypeSig "y") (PInteger 1))) (Atom anyTypeSig "x")) (PInteger 2))) (PInteger 5))
 
   it "nested lambda application 2" $
-    s (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "y") (PInteger 1))) (PInteger 2)))) (PInteger 5))
+    s (parseExpr "(x: x + (y: y + 1) 2) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "y"] (Binop AddOrConcat (Atom anyTypeSig "y") (PInteger 1))) (PInteger 2)))) (PInteger 5))
 
   it "bind function to name in let-in" $
-    s (parseExpr "let k = (x: x + 1): k 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "k"] (App (Atom anyTypeSig "k") (PInteger 1))) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+    s (parseExpr "let k = (x: x + 1): k 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "k"] (App (Atom anyTypeSig "k") (PInteger 1))) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))))
 
   it "partially applied lambda" $
-    s (parseExpr "(x y: x + y) 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x", Atom anyTypeSig "y"] (Binop Add (Atom anyTypeSig "x") (Atom anyTypeSig "y"))) (PInteger 1))
+    s (parseExpr "(x y: x + y) 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x", Atom anyTypeSig "y"] (Binop AddOrConcat (Atom anyTypeSig "x") (Atom anyTypeSig "y"))) (PInteger 1))
 
   it "multiple argument lambda" $
-    s (parseExpr "(x y: x + y + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x", Atom anyTypeSig "y"] (Binop Add (Binop Add (Atom anyTypeSig "x") (Atom anyTypeSig "y")) (PInteger 1)))
+    s (parseExpr "(x y: x + y + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x", Atom anyTypeSig "y"] (Binop AddOrConcat (Binop AddOrConcat (Atom anyTypeSig "x") (Atom anyTypeSig "y")) (PInteger 1)))
 
   it "bind name" $
     s (parseExpr "a = 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (PInteger 2))
@@ -111,7 +111,7 @@ spec = describe "Parser" $ do
     s (parseExpr "map (n: n * 2)") `shouldBe` s (App (Atom anyTypeSig "map") (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "n"] (Binop Mul (Atom anyTypeSig "n") (PInteger 2))))
 
   it "list concatenation" $
-    s (parseExpr "[1] ++ [2]") `shouldBe` s (Binop Concat (PList anyTypeSig [PInteger 1]) (PList anyTypeSig [PInteger 2]))
+    s (parseExpr "[1] + [2]") `shouldBe` s (Binop AddOrConcat (PList anyTypeSig [PInteger 1]) (PList anyTypeSig [PInteger 2]))
 
   it "greater than" $
     s (parseExpr "1 > 0") `shouldBe` s (Cmp ">" (PInteger 1) (PInteger 0))
@@ -235,7 +235,7 @@ spec = describe "Parser" $ do
       show (parseExpr "let a = span f xs: d") `shouldBe` show (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "a")]) (Atom anyTypeSig "d")) (App (App (Atom anyTypeSig "span") (Atom anyTypeSig "f")) (Atom anyTypeSig "xs")))
 
     it "no parens needed in operator expression in list" $
-      show (parseExpr "[a ++ b]") `shouldBe` show (PList anyTypeSig [(Binop Concat (Atom anyTypeSig "a") (Atom anyTypeSig "b"))])
+      show (parseExpr "[a + b]") `shouldBe` show (PList anyTypeSig [(Binop AddOrConcat (Atom anyTypeSig "a") (Atom anyTypeSig "b"))])
 
   describe "Expression separation" $ do
     it "can end on semicolon" $
@@ -251,14 +251,14 @@ spec = describe "Parser" $ do
       show (parseExpr "a =\n 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (PInteger 1))
 
     it "avoids split before pipe" $
-      s (parseExpr "5 \n |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Add (Atom anyTypeSig "x") (PInteger 1))))
+      s (parseExpr "5 \n |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))))
 
   describe "String interpolation" $ do
     it "just an integer" $
       show (parseExpr "\"a#{1}b\"") `shouldBe` show (PInterpolatedString [PString "a", PInteger 1, PString "b"])
 
     it "addition" $
-      show (parseExpr "\"a#{1+1}b\"") `shouldBe` show (PInterpolatedString [PString "a", Binop Add (PInteger 1) (PInteger 1), PString "b"])
+      show (parseExpr "\"a#{1+1}b\"") `shouldBe` show (PInterpolatedString [PString "a", Binop AddOrConcat (PInteger 1) (PInteger 1), PString "b"])
 
   describe "Cons list" $
     it "function definition" $

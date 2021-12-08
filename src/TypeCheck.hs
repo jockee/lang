@@ -11,9 +11,8 @@ import Types
 
 matchingDefinition :: Env -> Val -> Val -> Bool
 matchingDefinition env passedArg (FunctionVal _ ts args@(expectedArgExp : _) _) =
-  trace ("Y:" ++ show passedArg) $
-    typesMatch env (Right (ts, Just $ length args)) passedArg
-      && patternMatch expectedArgExp passedArg
+  typesMatch env (Right (ts, Just $ length args)) passedArg
+    && patternMatch expectedArgExp passedArg
 matchingDefinition _ _ _ = False
 
 typesMatch :: Env -> Either LangType (TypeSig, Maybe Int) -> Val -> Bool

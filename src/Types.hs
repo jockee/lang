@@ -140,7 +140,7 @@ type Id = String
 
 type Case = (Expr, Expr)
 
-data Op = Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | FmapPipe | Assign | Concat | Cons | Pow
+data Op = AddOrConcat | Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | FmapPipe | Assign | Cons | Pow
   deriving stock (Show, Data)
 
 data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs

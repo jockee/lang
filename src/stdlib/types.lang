@@ -60,12 +60,12 @@ trait Foldable f { // ok
   fold (a, b: a), a, f b => a // comm
   length xs = fold (acc x: acc + 1) 0 xs
   sum xs = fold (acc n: n + acc) 0 xs
-  map l xs = fold (acc x: (acc ++ [l x])) [] xs
-  filter f xs = fold (acc x: (f x) ? (acc ++ [x]) : acc) [] xs
-  reject f xs = fold (acc x: (f x) ? acc : (acc ++ [x])) [] xs
+  map l xs = fold (acc x: (acc + [l x])) [] xs
+  filter f xs = fold (acc x: (f x) ? (acc + [x]) : acc) [] xs
+  reject f xs = fold (acc x: (f x) ? acc : (acc + [x])) [] xs
   product xs = fold (acc n: n * acc) 1 xs
   includes? x xs = fold (acc p: (p == x) ? true : false) false xs
-  unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
+  unique xs = fold (acc x: (includes? x acc) ? acc : (acc + [x])) [] xs
   last xs = reverse xs |> first
   last! xs = reverse xs |> first!
   find f xs = filter f xs |> first
@@ -74,10 +74,10 @@ trait Foldable f { // ok
   min xs = sort xs |> first
   all? f xs = length (filter f xs) == length xs
   any? f xs = length (filter f xs) > 0
-  take n xs = fold (acc o: ((length acc) < n) ? (acc ++ [o]) : acc) [] xs
+  take n xs = fold (acc o: ((length acc) < n) ? (acc + [o]) : acc) [] xs
   drop n xs = reverse xs |> take (length xs - n) |> reverse
-  span f xs = fold ((accA, accB) x: f x && empty? accB ? (accA ++ [x], accB) : (accA, accB ++ [x]) ) ([], []) xs
-  break f xs = fold ((accA, accB) x: (!(f x) && empty? accB) ? (accA ++ [x], accB) : (accA, accB ++ [x]) ) ([], []) xs // doable with function composition of span (not . f)?
+  span f xs = fold ((accA, accB) x: f x && empty? accB ? (accA + [x], accB) : (accA, accB + [x]) ) ([], []) xs
+  break f xs = fold ((accA, accB) x: (!(f x) && empty? accB) ? (accA + [x], accB) : (accA, accB + [x]) ) ([], []) xs // doable with function composition of span (not . f)?
   dropWhile f xs = let (_, d) = span f xs: d
   takeWhile f xs = let (t, _) = span f xs: t
   dict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
