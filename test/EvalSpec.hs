@@ -303,6 +303,14 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "empty? []")
         val `shouldBe` BoolVal True
 
+      it "break" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "break (x: x > 3) [1,2,3,4,1,2,3,4]")
+        val `shouldBe` TupleVal [ListVal [IntVal 1, IntVal 2, IntVal 3], ListVal [IntVal 4, IntVal 1, IntVal 2, IntVal 3, IntVal 4]]
+
+      it "span" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "span (x: x < 3) [1,2,3,4,1,2,3,4]")
+        val `shouldBe` TupleVal [ListVal [IntVal 1, IntVal 2], ListVal [IntVal 3, IntVal 4, IntVal 1, IntVal 2, IntVal 3, IntVal 4]]
+
       it "takeWhile" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "takeWhile (x: x < 3) [1,2,3,4,1,2,3,4]")
         val `shouldBe` ListVal [IntVal 1, IntVal 2]
@@ -315,13 +323,21 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "max [1, 2]")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
-      it "head" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "head [1]")
+      it "first!" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "first! [1]")
+        val `shouldBe` IntVal 1
+
+      it "first" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "first [1]")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 1]
 
-      it "stdlib fold function leveraging foldInternal" $ \stdLibEnv -> do
+      it "stdlib fold function" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "fold (acc x: acc * x) 1 [2, 3]")
         val `shouldBe` IntVal 6
+
+      it "scan function" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "scan (acc x: acc * x) 1 [2, 3]")
+        val `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 6]
 
       it "applied map" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "map (n: n * 2) [1]")
@@ -355,8 +371,8 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "drop 2 [1,2,3,4,5]")
         val `shouldBe` ListVal [IntVal 3, IntVal 4, IntVal 5]
 
-      it "toList" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.toList {a: 1, b: 2}")
+      it "Dict.list" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.list {a: 1, b: 2}")
         val `shouldBe` ListVal [TupleVal [StringVal "a", IntVal 1], TupleVal [StringVal "b", IntVal 2]]
 
       it "values" $ \stdLibEnv -> do
@@ -371,13 +387,17 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "Dict.merge {a: 1} {b: 2}")
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
-      it "toDict" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "toDict [(\"a\", 1)]")
+      it "dict" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "dict [(\"a\", 1)]")
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
       describe "Stdlib Types" $ do
         it "fmap" $ \stdLibEnv -> do
           let (val, _) = evalIn stdLibEnv (parseExpr "fmap (x: x*2) (Some 1)")
+          val `shouldBe` DataVal "Maybe" "Some" [2]
+
+        it "fmap with stdlib function on maybe" $ \stdLibEnv -> do
+          let (val, _) = evalIn stdLibEnv (parseExpr "fmap first (Some [1])")
           val `shouldBe` DataVal "Maybe" "Some" [2]
 
         it "ap" $ \stdLibEnv -> do
@@ -501,10 +521,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         evals (parseExprs "a [] = 1; a b = 2; a []") `shouldBe` IntVal 1
 
       it "cons" $ \stdLibEnv ->
-        evals (parseExprs "1 :: []") `shouldBe` ListVal [IntVal 1]
+        evals (parseExprs "1 | []") `shouldBe` ListVal [IntVal 1]
 
       it "nested functions can use the same variable name" $ \stdLibEnv -> do
-        let fold = "jfold _ initOrAcc [] = initOrAcc; jfold b initOrAcc (k::ks) = let val = (b initOrAcc k): jfold b val ks;"
+        let fold = "jfold _ initOrAcc [] = initOrAcc; jfold b initOrAcc (k | ks) = let val = (b initOrAcc k): jfold b val ks;"
         let args = "[1,2,3]; s 3"
         let notOverlapping = fold ++ "filter' f xs = jfold (acc uU: (f uU) ? (acc ++ [uU]) : acc) [] xs; s x = filter' (a: a < x)" ++ args -- `uU` is unique
         let overlapping = fold ++ "filter' f xs = jfold (acc xX: (f xX) ? (acc ++ [xX]) : acc) [] xs; s xX = filter' (a: a < xX)" ++ args -- `xX` is not unique
@@ -557,10 +577,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     describe "Range" $ do
       it "range" $ \stdLibEnv ->
-        eval (parseExpr "(1..3)") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+        eval (parseExpr "[1..3]") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
       it "range on atom" $ \stdLibEnv ->
-        evals (parseExprs "a = 3; (1..a)") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
+        evals (parseExprs "a = 3; [1..a]") `shouldBe` ListVal [IntVal 1, IntVal 2, IntVal 3]
 
     describe "Runtime type system" $ do
       xit "Can't declare Integer as String" $ \stdLibEnv ->
@@ -652,29 +672,29 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     describe "Cons list" $ do
       it "destructuring list in let-in" $ \stdLibEnv ->
-        evals (parseExprs "let (x::xs) = [1,2,3]: x") `shouldBe` IntVal 1
+        evals (parseExprs "let (x | xs) = [1,2,3]: x") `shouldBe` IntVal 1
 
       it "function destructuring x" $ \stdLibEnv ->
-        evals (parseExprs "a (x::xs) = x; a [1,2,3]") `shouldBe` IntVal 1
+        evals (parseExprs "a (x | xs) = x; a [1,2,3]") `shouldBe` IntVal 1
 
       it "function destructuring xs" $ \stdLibEnv ->
-        evals (parseExprs "a (x::xs) = xs; a [1,2,3]") `shouldBe` ListVal [IntVal 2, IntVal 3]
+        evals (parseExprs "a (x | xs) = xs; a [1,2,3]") `shouldBe` ListVal [IntVal 2, IntVal 3]
 
       it "function destructuring empty xs" $ \stdLibEnv ->
-        evals (parseExprs "a (x::xs) = xs; a [1]") `shouldBe` ListVal []
+        evals (parseExprs "a (x | xs) = xs; a [1]") `shouldBe` ListVal []
 
       it "function destructuring doesn't match on empty list" $ \stdLibEnv ->
-        evaluate (evals (parseExprs "a (x::xs) = x; a []")) `shouldThrow` anyException
+        evaluate (evals (parseExprs "a (x | xs) = x; a []")) `shouldThrow` anyException
 
       it "function destructuring falls to cons list" $ \stdLibEnv ->
-        evals (parseExprs "a [] = 1; a (x :: xs) = x; a [2]") `shouldBe` IntVal 2
+        evals (parseExprs "a [] = 1; a (x | xs) = x; a [2]") `shouldBe` IntVal 2
 
     describe "Recursion" $ do
       it "recurs" $ \stdLibEnv ->
         evals (parseExprs "a b = (b == 0) ? [] : (a (b-1)); a 1") `shouldBe` ListVal []
 
       it "recursive map" $ \stdLibEnv ->
-        evals (parseExprs "xmap _ [] = []; xmap f (x::xs) = (f x) :: (xmap f xs); xmap (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
+        evals (parseExprs "xmap _ [] = []; xmap f (x | xs) = f x | xmap f xs; xmap (x: x * 2) [1,2]") `shouldBe` ListVal [IntVal 2, IntVal 4]
 
     describe "Data" $ do
       it "Defines and constructs zero-argument value" $ \stdLibEnv ->
@@ -832,7 +852,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           let (val, _) = evalsIn stdLibEnv $ parseExprs expr
           val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 
-        it "toJSON [STDLIB]" $ \stdLibEnv -> do
+        it "json [STDLIB]" $ \stdLibEnv -> do
           let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.encode {a: 1, b: 2, c: None}"
           val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
 

@@ -14,7 +14,6 @@ import Text.Megaparsec.Error (errorBundlePretty)
 import Text.Pretty.Simple
 import TypeCheck
 import Types
-import Types (Env (envInStdLib))
 
 haskelineSettings :: Settings IO
 haskelineSettings =
@@ -26,10 +25,10 @@ haskelineSettings =
 repl :: IO ()
 repl = do
   env <- evaledStdLibEnv
-  replWithEnv (env {envInStdLib = False})
+  replWithEnv env
 
 replWithEnv :: Env -> IO ()
-replWithEnv env = runInputT haskelineSettings $ loop env
+replWithEnv !env = runInputT haskelineSettings $ loop env
   where
     loop :: Env -> InputT IO ()
     loop !env = do

@@ -9,16 +9,18 @@ not b = !b
 const b _ = b
 empty? [] = true
 empty? s = false
-notEmpty? s = !(empty? s)
-head [] = None
-head (x::_) = Some x
-zipWith f (x::xs) (y::ys) = f x y :: zipWith f xs ys
+present? s = !(empty? s)
+first! [] = false // undefined
+first! (x | _) = x
+first [] = None
+first (x | _) = Some x
+zipWith f (x | xs) (y | ys) = f x y | zipWith f xs ys
 zipWith _ [] _ = []
 zipWith _ _ [] = []
 zip xs ys = zipWith (x y: (x, y)) xs ys
 
 sort [] = []
-sort (y::xs) = let smaller = filter (a: a <= y) xs,
+sort (y | xs) = let smaller = filter (a: a <= y) xs,
                     larger = filter (a: a > y) xs:
                   sort smaller ++ [y] ++ sort larger
 
@@ -32,30 +34,38 @@ either ef of e = case e {
 
 at Integer, [a] => Maybe a
 at i xs =
-  zip xs (0 .. length xs)
+  zip xs [0 .. length xs]
   |> find ((a, b): b == i)
+  ||> first
 at i [] = None
+
+// at! Integer, [a] => a
+// at! i xs =
+//   zip xs [0 .. length xs]
+//   |> find ((a, b): b == i)
+//   ||> first!
 
 even? n = n % 2 == 0
 odd? n = not (odd? n)
 
 // FILES
 module File {
-  readFile p = (HFI readFile [p])
-  writeFile path body = (HFI writeFile [path, body])
+  read p = (HFI readFile [p])
+  write path body = (HFI writeFile [path, body])
 }
 
 module JSON {
   parse json = (HFI decodeJSON [json])
   decode json = parse json
-  toJSON a = (HFI encodeJSON [a])
-  encode a = toJSON a
+  json a = (HFI encodeJSON [a])
+  encode a = json a
 }
+
 // DICTIONARIES
 module Dict {
-  toList xs = (HFI dictToList [xs])
-  keys dict = toList dict |> map ((a, b): a)
-  values dict = toList dict |> map ((a, b): b)
+  list xs = (HFI dictToList [xs])
+  keys dict = list dict |> map ((a, b): a)
+  values dict = list dict |> map ((a, b): b)
   merge d1 d2 = { d1 | d2 }
 }
 

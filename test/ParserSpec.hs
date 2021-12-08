@@ -150,10 +150,10 @@ spec = describe "Parser" $ do
     s (parseExpr "(HFI head [xs])") `shouldBe` s (HFI "head" (PList anyTypeSig [Atom anyTypeSig "xs"]))
 
   it "range" $
-    s (parseExpr "(1..3)") `shouldBe` s (PRange anyTypeSig (PInteger 1) (PInteger 3))
+    s (parseExpr "[1..3]") `shouldBe` s (PRange anyTypeSig (PInteger 1) (PInteger 3))
 
   it "range to atom" $
-    s (parseExpr "(1..a)") `shouldBe` s (PRange anyTypeSig (PInteger 1) (Atom anyTypeSig "a"))
+    s (parseExpr "[1..a]") `shouldBe` s (PRange anyTypeSig (PInteger 1) (Atom anyTypeSig "a"))
 
   it "tuple" $
     s (parseExpr "(1, a)") `shouldBe` s (PTuple anyTypeSig [PInteger 1, Atom anyTypeSig "a"])
@@ -262,7 +262,7 @@ spec = describe "Parser" $ do
 
   describe "Cons list" $
     it "function definition" $
-      show (parseExpr "a (x::xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [ConsList ["x", "xs"]] (PInteger 1)))
+      show (parseExpr "a (x | xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [ConsList ["x", "xs"]] (PInteger 1)))
 
   describe "Data" $ do
     it "True and false" $

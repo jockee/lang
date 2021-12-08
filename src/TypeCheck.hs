@@ -11,8 +11,9 @@ import Types
 
 matchingDefinition :: Env -> Val -> Val -> Bool
 matchingDefinition env passedArg (FunctionVal _ ts args@(expectedArgExp : _) _) =
-  typesMatch env (Right (ts, Just $ length args)) passedArg
-    && patternMatch expectedArgExp passedArg
+  trace ("Y:" ++ show passedArg) $
+    typesMatch env (Right (ts, Just $ length args)) passedArg
+      && patternMatch expectedArgExp passedArg
 matchingDefinition _ _ _ = False
 
 typesMatch :: Env -> Either LangType (TypeSig, Maybe Int) -> Val -> Bool
@@ -77,7 +78,7 @@ concreteTypesMatch :: Env -> LangType -> LangType -> Bool
 concreteTypesMatch env (DataConstructorType dcons) (TypeConstructorType tcons _) =
   case inScope env dcons of
     [DataConstructorDefinitionVal envTCons _] -> tcons == envTCons
-    _ -> error $ "Got more than one definition for " ++ show dcons
+    _ -> error $ "Got fewer or more than one definition for " ++ show dcons
 concreteTypesMatch env (FunctionType expInArgs expRtrn) (FunctionType gotInArgs gotRtrn) =
   all (uncurry (concreteTypesMatch env)) (zip expInArgs gotInArgs)
     && length expInArgs == length gotInArgs

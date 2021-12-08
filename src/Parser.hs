@@ -94,7 +94,7 @@ formula = makeExprParser juxta table <?> "formula"
     lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
     orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
     concatOp = InfixL (try $ spaceC *> string "++" <* spaceC >> return (Binop Concat))
-    consOp = InfixL (try $ spaceC *> string "::" <* spaceC >> return (Binop Cons))
+    consOp = InfixL (try $ spaceC *> string "|" <* notFollowedBy (char '>' <|> char '|') <* spaceC >> return (Binop Cons))
     fmapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop FmapPipe))
     pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return pipe)
 
@@ -112,7 +112,7 @@ rws = ["module", "case", "let", "else"]
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    p = (:) <$> (letterChar <|> char '_' <|> char '@') <*> many (alphaNumChar <|> char '?' <|> char '\'')
+    p = (:) <$> (letterChar <|> char '_' <|> char '@') <*> many (alphaNumChar <|> char '?' <|> char '!' <|> char '\'')
     check x =
       if x `elem` rws
         then fail $ "keyword " ++ show x ++ " cannot be an identifier"
@@ -163,7 +163,7 @@ dictContents = do
 consList :: Parser Expr
 consList = lexeme $ do
   char '(' <* space
-  consContents <- identifier `sepBy2` (hspace *> string "::" <* hspace)
+  consContents <- identifier `sepBy2` (hspace *> string "|" <* hspace)
   space *> char ')'
   return $ ConsList consContents
 
@@ -219,11 +219,11 @@ juxtaFormula = formula <|> juxta
 
 range :: Parser Expr
 range = do
-  char '(' <* space
+  char '[' <* hspace
   lBound <- term -- FIXME: we want juxta here too
-  string ".." <* space
+  hspace *> string ".." <* hspace
   uBound <- juxtaFormula
-  char ')'
+  char ']'
   return (PRange (sig [AnyType] AnyType) lBound uBound)
 
 tuple :: Parser Expr
@@ -268,7 +268,7 @@ case' = do
   where
     singleCase = do
       casePred <- try (term <* string ":") <* spaceC
-      caseDo <- juxtaFormula
+      caseDo <- expr
       return (casePred, caseDo)
 
 let' :: Parser Expr

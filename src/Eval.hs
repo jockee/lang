@@ -57,7 +57,7 @@ evalIn env (PDataConstructor name exprArgs) =
 evalIn env (PTypeSig ts) = (Undefined, typeSigToEnv env ts)
 evalIn env (PCase ts cond cases) =
   let condVal = fst $ evalIn env cond
-      findFun (pred, predDo) = matchingDefinition env condVal (FunctionVal emptyLambdaEnv ts [pred] predDo)
+      findFun (pred, predDo) = trace ("O:") $ matchingDefinition env condVal (FunctionVal emptyLambdaEnv ts [pred] predDo)
    in case List.find findFun cases of
         Just (pred, predDo) -> evalIn (extend env env pred cond) predDo
 evalIn env (Lambda lambdaEnv ts args e) =
@@ -91,7 +91,7 @@ evalIn env (DictAccess k dict) =
     (DictVal m) ->
       let kv = fst $ evalIn env k
        in (fromJust (Map.lookup kv m), env)
-    s -> error $ show s
+    s -> error $ "DictAccess: " ++ show s
 -- evalIn env (PDictKeyLookup k) =
 --   evalIn env $
 --     App
@@ -270,14 +270,16 @@ hfiFun env f argsList = case evaledArgsList of
     fun "cons" (a : b : _) = case (a, b) of
       (a', ListVal bs) -> ListVal $ a' : bs
       (StringVal a', StringVal bs) -> StringVal $ T.append a' bs -- NOTE: this concats instead of conses
-      s -> error $ show s
+      s -> error $ "HFI cons" ++ show s
       (a', ListVal bs) -> ListVal $ a' : bs
       (StringVal a', StringVal bs) -> StringVal $ T.append a' bs -- NOTE: this concats instead of conses
-      s -> error $ show s
+      s -> error $ "HFI cons 2?" ++ show s
     fun "concat" (a : b : _) = case (a, b) of
       (ListVal a', ListVal bs) -> ListVal $ a' ++ bs
       (StringVal a', StringVal bs) -> StringVal $ T.append a' bs
-      s -> error $ show s
+      s -> error $ "HFI concat" ++ show s
+    fun "downcase" ((StringVal s) : _) = StringVal $ T.toLower s
+    fun "uppercase" ((StringVal s) : _) = StringVal $ T.toUpper s
     fun "toChars" ((StringVal s) : _) = ListVal $ map (StringVal . T.singleton) (T.unpack s)
     fun "dictToList" (dict : _) = case dict of
       (DictVal d) -> ListVal $ map (\(DictKey k, v) -> TupleVal [StringVal $ T.pack k, v]) (Map.toList d)
@@ -294,31 +296,31 @@ hfiFun env f argsList = case evaledArgsList of
     fun x r = error ("No such HFI " ++ show x ++ show r)
     funToExpr (FunctionVal lambdaEnv ts args e) = Lambda lambdaEnv ts args e
     funToExpr (Pattern defs) = PatternExpr defs
-    funToExpr r = error $ show r
+    funToExpr r = error $ "FuntoExpr : " ++ show r
     evaledArgsList = fst $ evalIn env $ toExpr argsList
 
 apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
-    (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
+    (Pattern definitions, env') -> trace ("X:" ++ show e1 ++ show passedArg) $ case List.filter (matchingDefinition env' passedArg) definitions of
       [] -> error "Could not find matching function definition - none matched criteria"
       [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args e2 e3
       funs@((FunctionVal lambdaEnv ts args e3) : _) ->
         if functionFullyApplied args
-          then callFullyAppliedFunction env' lambdaEnv ts args e2 e3
+          then callFullyAppliedFunction env' lambdaEnv ts args e2 e3 -- if many matches, fully apply first
           else
-            let (appliedFuns, accEnv) = foldl' toFunVal ([], env') funs
+            let (partiallyAppliedFuns, accEnv) = foldl' toFunVal ([], env') funs
                 toFunVal (accFuns, accEnv) fun = case fun of
                   FunctionVal lambdaEnv' ts args e3 ->
                     let (val, env'') = callPartiallyAppliedFunction accEnv lambdaEnv' ts args e2 e3
                      in (accFuns ++ [val], env'')
                   _ -> error "Non-function application"
-             in (Pattern appliedFuns, accEnv)
+             in (Pattern partiallyAppliedFuns, accEnv)
     (FunctionVal lambdaEnv ts args e3, env') -> callFunction env' lambdaEnv ts args e2 e3
     (val, env) -> error ("Cannot apply value" ++ show val ++ " in env: " ++ show env)
   where
     (passedArg, _) = evalIn env $ toExpr e2
-    functionFullyApplied args = length args == 1
+    functionFullyApplied remainingArgs = length remainingArgs == 1
     callFunction env lambdaEnv ts args e2 e3 =
       if functionFullyApplied args
         then callFullyAppliedFunction env lambdaEnv ts args e2 e3
@@ -359,3 +361,9 @@ evalsIn env = foldl' fl (Undefined, env)
 
 evals :: [Expr] -> Val
 evals exprs = fst $ evalsIn emptyEnv exprs
+
+traceUnlessStdLib :: forall a. Env -> String -> a -> a
+traceUnlessStdLib env s a =
+  if envInStdLib env
+    then a
+    else trace s a

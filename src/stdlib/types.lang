@@ -17,7 +17,7 @@ trait Monad m {
 
 implement Functor for List {
   fmap _ [] = []
-  fmap i (h::hs) = f h :: fmap i hs
+  fmap i (h | hs) = f h | fmap i hs
 }
 
 implement Functor for Maybe {
@@ -66,37 +66,41 @@ trait Foldable f { // ok
   product xs = fold (acc n: n * acc) 1 xs
   includes? x xs = fold (acc p: (p == x) ? true : false) false xs
   unique xs = fold (acc x: (includes? x acc) ? acc : (acc ++ [x])) [] xs
-  last xs = reverse xs |> head
-  find f xs = filter f xs |> head
-  reverse xs = fold (acc x: x :: acc) [] xs
-  max xs = sort xs |> reverse |> head
-  min xs = sort xs |> head
+  last xs = reverse xs |> first
+  last! xs = reverse xs |> first!
+  find f xs = filter f xs |> first
+  reverse xs = fold (acc x: x | acc) [] xs
+  max xs = sort xs |> reverse |> first
+  min xs = sort xs |> first
   all? f xs = length (filter f xs) == length xs
   any? f xs = length (filter f xs) > 0
   take n xs = fold (acc o: ((length acc) < n) ? (acc ++ [o]) : acc) [] xs
   drop n xs = reverse xs |> take (length xs - n) |> reverse
-  span f xs = fold ([accA, accB] x: (f x && empty? accB) ? [accA ++ [x], accB] : [accA, accB ++ [x]] ) [[], []] xs
-  dropWhile f xs = let [_, d] = span f xs: d
-  takeWhile f xs = let [t, _] = span f xs: t
-  toDict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
+  span f xs = fold ((accA, accB) x: f x && empty? accB ? (accA ++ [x], accB) : (accA, accB ++ [x]) ) ([], []) xs
+  break f xs = fold ((accA, accB) x: (!(f x) && empty? accB) ? (accA ++ [x], accB) : (accA, accB ++ [x]) ) ([], []) xs // doable with function composition of span (not . f)?
+  dropWhile f xs = let (_, d) = span f xs: d
+  takeWhile f xs = let (t, _) = span f xs: t
+  dict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
 }
 
 implement Foldable for List {
   fold _ initOrAcc [] = initOrAcc
-  fold b initOrAcc (o::os) = fold b (b initOrAcc o) os
+  fold b initOrAcc (o | os) = fold b (b initOrAcc o) os
+  scan _ initOrAcc [] = [initOrAcc]
+  scan b initOrAcc (o | os) = initOrAcc | (scan b (b initOrAcc o) os)
 }
 
 implement Foldable for String {
   fold _ initOrAcc [] = initOrAcc
   fold c initOrAcc cs = foldString c initOrAcc (HFI toChars [cs])
-  foldString _ initOrAcc [] = initOrAcc; foldString f initOrAcc (o::os) = foldString f (f initOrAcc o) os
+  foldString _ initOrAcc [] = initOrAcc; foldString f initOrAcc (o | os) = foldString f (f initOrAcc o) os
 }
 
 implement Foldable for Dict {
   fold _ initOrAcc [] = initOrAcc
   fold m initOrAcc bs = foldDict m initOrAcc (HFI dictToList [bs])
   foldDict _ initOrAcc [] = initOrAcc
-  foldDict b initOrAcc (o::os) = foldDict b (b initOrAcc o) os
+  foldDict b initOrAcc (o | os) = foldDict b (b initOrAcc o) os
   key? z xs = fold (acc (k, _): (k == z) ? true : false) false xs
 }
 
@@ -107,33 +111,40 @@ trait Monoid t {
 }
 
 implement Monoid for String {
-  // concat (x::xs) = x :: (concat xs)
-  append a b = a :: b
+  // concat (x | xs) = x | (concat xs)
+  append a b = a | b
   empty = ""
 }
 
 implement Monoid for List {
-  // concat (x::xs) = x :: (concat xs)
-  append a b = a :: b
+  // concat (x | xs) = x | (concat xs)
+  append a b = a | b
   empty = []
 }
 
+trait Stringable {
+  toChars String => [String]
+}
+
+implement Stringable for String {
+  toChars s = (HFI toChars [s])
+  // join String, [String] => String
+  join m xs = fold (acc x: length acc > 0 ? (acc | m | x) : x) "" xs
+  capitalize s = let (x | xs) = toChars s: join "" ((uppercase x) | xs) // FIXME: xs does not exist in scope
+  uppercase c = (HFI uppercase [c])
+  downcase c = (HFI downcase [c])
+}
+
 implement Monoid for Dict {
-  // concat (x::xs) = x :: (concat xs)
+  // concat (x | xs) = x | (concat xs)
   append a b = { a | b}
   empty = {}
 }
 
-module String {
-  join m xs = fold (acc x: length acc > 0 ? (acc :: m :: x) : x) "" xs
-  // * om match första: do nothing
-  // * om inte match, lägg till i senaste strängen
-  // * om match senare: ny sträng
-  // * om match sista: do nothing
-  // split m xs = fold (acc c: (x == m) ? acc ++ [c] : acc) [] xs
-// * strip
-// * capitalize
-// * upcase
-// * downcas
-}
-
+split d ss = wordsWhen (x: x == d) (String.toChars ss) // |> (x: String.join "" (print x))
+// split' d [] = []
+// split' d s = let (x,y) = span (x: x != d) s: x | split' d (drop 1 y)
+wordsWhen p s = case (print (dropWhile p s)) {
+                  "": []
+                  s': let (w, s'') = break p s': w | wordsWhen p s''
+                }
