@@ -458,6 +458,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
     it "destructuring dict, requiring matching other values - succeeding" $ \stdLibEnv ->
       evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 1}: b") `shouldBe` IntVal 2
 
+    it "destructuring dict, requiring matching other values - succeeding" $ \stdLibEnv ->
+      evals (parseExprs "let {a: x, b: 1.2, c: [], d: (1,2)} = {a: 2, b: 1.2, c: [], d: (1, 2)}: x") `shouldBe` IntVal 2
+
+    it "destructuring dict, requiring matching other values - failing" $ \stdLibEnv ->
+      evaluate (evals (parseExprs "let {a: x, b: 1.2, c: []} = {a: 2, b: 1.3, c: []}: x")) `shouldThrow` anyException
+
     it "destructuring dict, requiring matching other values - failing" $ \stdLibEnv ->
       evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2}: b")) `shouldThrow` anyException
 
@@ -599,7 +605,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
       it "Called with wrong type" $ \stdLibEnv ->
         evaluate (evals (parseExprs "a Integer => Integer; a b = b + 1; a \"s\"")) `shouldThrow` anyException
 
-      xit "Called with wrong type second argument" $ \stdLibEnv ->
+      it "Called with wrong type second argument" $ \stdLibEnv ->
         evaluate (evals (parseExprs "a Integer, Integer => Integer; a b c = b + 1; a 1 \"s\"")) `shouldThrow` anyException
 
       it "Correct types, two different" $ \stdLibEnv ->

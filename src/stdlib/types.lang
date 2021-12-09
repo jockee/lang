@@ -122,15 +122,21 @@ implement Monoid for List {
 
 trait Stringable {
   toChars String => [String]
+  join String, [String] => String
+  join m xs = fold (acc x: length acc > 0 ? (acc | m | x) : x) "" xs
+  capitalize s = let (x | xs) = toChars s: join "" ((uppercase x) | xs)
+  uppercase c = (HFI uppercase [c])
+  downcase c = (HFI downcase [c])
+  split String, String => [String]
+  split d ss = split' (x: x == d) (toChars ss) |> map (x: join "" x) // (x |> String.join "")
+  split' p s = case (dropWhile p s) {
+                    []: []
+                    s': let (w, s'') = break p s': w | split' p s''
+                  }
 }
 
 implement Stringable for String {
   toChars s = (HFI toChars [s])
-  // join String, [String] => String
-  join m xs = fold (acc x: length acc > 0 ? (acc | m | x) : x) "" xs
-  capitalize s = let (x | xs) = toChars s: join "" ((uppercase x) | xs) // FIXME: xs does not exist in scope
-  uppercase c = (HFI uppercase [c])
-  downcase c = (HFI downcase [c])
 }
 
 implement Monoid for Dict {
@@ -138,11 +144,3 @@ implement Monoid for Dict {
   append a b = { a | b}
   empty = {}
 }
-
-split d ss = wordsWhen (x: x == d) (String.toChars ss) // |> (x: String.join "" (print x))
-// split' d [] = []
-// split' d s = let (x,y) = span (x: x != d) s: x | split' d (drop 1 y)
-wordsWhen p s = case (print (dropWhile p s)) {
-                  "": []
-                  s': let (w, s'') = break p s': w | wordsWhen p s''
-                }

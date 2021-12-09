@@ -2,11 +2,10 @@
 
 # KEY
 
- - fmap using function with multiple definitions
- - throw error on empty in `head!`
+ - lets can have functions in them
  - import module "non-qualified"
-  - read in functions from HFI straight into std lib?
-    - difficult to do into modules?
+ - read in functions from HFI straight into std lib?
+   - difficult to do into modules?
 
 # MID
 
@@ -19,7 +18,8 @@
   - function from implementation overrides trait function (efficient `length` for strings, for instance)
   - pattern matching
     - dict partial - spread operator
-    - with specific values `{[], "world", 42}`. currently sets values, but doesn't `throw` non mismatched specific
+  - destructuring
+    - nested extension: within tuple/list
 
   ## USABILITY
   - TODO: sockets, for tcp server
@@ -39,13 +39,18 @@
 
 # BACKLOG
 
+  - ghcjs
   - flatMap, flatten
   - pin operator
   - TODO: sets
-  - TODO: where clause
+    // intersection
+    // difference
+  - TODO: where clause. how to group?
+
   - TODO: guard clause
     fun x a
     | x > 1 = true
+  - debug({x}) -> {x: 1.2}
 
 # IDEAS
 
