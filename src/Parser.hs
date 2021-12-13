@@ -212,6 +212,7 @@ sepBy2 p sep = liftM2 (:) p (some (sep >> p))
 listContents :: Parser [Expr]
 listContents = juxtaFormula `sepBy` many (spaceChar <|> char ',')
 
+juxtaFormula :: Parser Expr
 juxtaFormula = formula <|> juxta
 
 range :: Parser Expr
@@ -488,7 +489,7 @@ parseExprs' = parse (manyExpressions <* eof)
 interpolatedString :: Parser Expr
 interpolatedString = do
   string "\""
-  parts <- some $ between (symbol "#{") (symbol "}") (formula <|> term) <|> parseStringContent
+  parts <- some $ between (symbol "#{") (symbol "}") expr <|> parseStringContent
   string "\""
   return $ PInterpolatedString parts
 

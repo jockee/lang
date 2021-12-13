@@ -1,7 +1,7 @@
 #!/usr/bin/env langc
-passed-args = drop 1 get-args
+passedArgs = drop 1 getArgs
 
-case head passed-args {
-  Some x: print "hello #{x}"
+case first passedArgs {
+  Some x: print "🚀 hello #{x}"
   None: print "no args - can't say hello"
 }

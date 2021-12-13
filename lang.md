@@ -2,19 +2,20 @@
 
 # KEY
 
- - lets can have functions in them
- - import module "non-qualified"
- - read in functions from HFI straight into std lib?
-   - difficult to do into modules?
-
 # MID
 
+  - lets can have functions in them
+  - read in functions from HFI straight into std lib?
+    - difficult to do into modules?
+  - import module "non-qualified"
   - monoid for use with `join` for instance
   - function composition
     - pipes (maybe only for pipes?)
     - pipe always constructs new lambda?
       - zero argument lambda? if not: can we easily judge whether it should be a lambda or a binop pipe returned?
-  - string split
+      - we cant know in parsing whether functions are fully applied
+      - when evaluating, we can return a lambda'd pipe if partial?
+      - composing with pipes - require parens?
   - function from implementation overrides trait function (efficient `length` for strings, for instance)
   - pattern matching
     - dict partial - spread operator
@@ -50,11 +51,21 @@
   - TODO: guard clause
     fun x a
     | x > 1 = true
-  - debug({x}) -> {x: 1.2}
+  - debug({x}) -> {x: 1.2} punning
+    - punning character = {name, role} -> ch
 
 # IDEAS
 
-* should data definitions use `type` instead of `data`? mixes up what a 'type constructor' is
+* should data definitions use `type` instead of `data`? mixes up what a 'type constructor' is, but
+  that's only internal cruft
+* built in testing lib?
+* how to handle multi-expression blocks? surrounding anything in braces makes it
+  multi-expressionable? ie, doesn't have to be built-in for any expressions?
+    asd ? {
+      do1
+      do2
+    } : do3
+
 
 # REFACTORING
 

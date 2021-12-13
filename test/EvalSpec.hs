@@ -387,6 +387,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         let (val, _) = evalIn stdLibEnv (parseExpr "dict [(\"a\", 1)]")
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
+      it "string split" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "split \",\" \"aba,sd\"")
+        val `shouldBe` (ListVal [(StringVal "aba"), (StringVal "sd")])
+
       describe "Stdlib Types" $ do
         it "map" $ \stdLibEnv -> do
           let (val, _) = evalIn stdLibEnv (parseExpr "map (x: x*2) (Some 1)")

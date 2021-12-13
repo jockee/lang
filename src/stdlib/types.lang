@@ -127,7 +127,7 @@ trait Stringable {
   capitalize s = let (x | xs) = toChars s: join "" ((uppercase x) | xs)
   uppercase c = (HFI uppercase [c])
   downcase c = (HFI downcase [c])
-  split String, String => [String]
+  // split String, String => [String]
   split d ss = split' (x: x == d) (toChars ss) |> map (x: join "" x) // (x |> String.join "")
   split' p s = case (dropWhile p s) {
                     []: []

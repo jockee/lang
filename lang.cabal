@@ -27,6 +27,7 @@ library
   exposed-modules:
       Eval
       Exceptions
+      Extension
       Http
       Lang
       Parser

@@ -53,6 +53,9 @@ spec = describe "Parser" $ do
   it "let-in" $
     s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
+  xit "let-in with function bound" $
+    s (parseExpr "let x s = s: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
+
   it "lambda" $
     s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1)))
 
