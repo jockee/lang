@@ -117,7 +117,7 @@ data Expr where
   PTrait :: Name -> [Expr] -> [Expr] -> Expr
   PImplementation :: Name -> DataConstructor -> [Expr] -> Expr
   PCase :: TypeSig -> Expr -> [Case] -> Expr
-  ConsList :: [String] -> Expr
+  Cons :: [Expr] -> Expr
   PInteger :: Integer -> Expr
   PFloat :: Double -> Expr
   PImport :: Expr -> Expr
@@ -140,7 +140,7 @@ type Id = String
 
 type Case = (Expr, Expr)
 
-data Op = AddOrConcat | Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | MapPipe | Assign | Cons | Pow
+data Op = AddOrConcat | Add | Sub | Mul | Div | Eql | NotEql | Mod | And | Or | Pipe | MapPipe | Assign | Pow
   deriving stock (Show, Data)
 
 data UnOp = ToFloat | ToInteger | Sqrt | Not | Floor | Round | Ceiling | Abs
@@ -173,7 +173,7 @@ showWithTypes (PDictKey key) = "(PDictKey " ++ show key ++ ")"
 showWithTypes (PDictKeyLookup key) = "(PDictKeyLookup " ++ show key ++ ")"
 showWithTypes (PDictUpdate dict update) = "(PDictUpdate " ++ showWithTypes dict ++ " " ++ showWithTypes update ++ ")"
 showWithTypes (HFI f argList) = "(HFI " ++ show f ++ " " ++ showWithTypes argList ++ ")"
-showWithTypes (ConsList cs) = "(ConsList [" ++ joinCommaSep cs ++ "])"
+showWithTypes (Cons cs) = "(Cons [" ++ joinCommaSep cs ++ "])"
 showWithTypes (PCase _ts cond cases) = "(PCase " ++ showWithTypes cond ++ " " ++ show cases ++ ")"
 showWithTypes (App e1 e2) = "(App " ++ showWithTypes e1 ++ " " ++ show e2 ++ ")"
 showWithTypes (Lambda lambdaEnv ts remainingArgs e) = "(Lambda " ++ show lambdaEnv ++ " " ++ showTypeSig ts ++ " [" ++ joinCommaSep remainingArgs ++ "] " ++ show e ++ ")"
@@ -477,7 +477,7 @@ instance LangTypeable Expr where
     Cmp {} -> UndefinedType
     PTypeSig {} -> UndefinedType
     PNoop {} -> UndefinedType
-    ConsList {} -> ListType AnyType
+    Cons {} -> ListType AnyType
     PDataConstructor name _ -> DataConstructorType name
     PTrait {} -> UndefinedType
     s -> error (show s)

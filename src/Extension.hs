@@ -19,8 +19,8 @@ extend' env bindable argExpr val = case argExpr of
   (PDict _ts exprPairs) -> case val of
     (DictVal valMap) -> extendWithDict env bindable exprPairs valMap
     _ -> error "Non-dict value received for dict destructuring"
-  (ConsList bindings) -> case val of
-    (ListVal vals) -> extendWithConsList env bindable bindings vals
+  (Cons bindings) -> case val of
+    (ListVal vals) -> extendWithCons env bindable bindings vals
     _ -> error "Non-list value received for cons destructuring"
   (PTuple _ts bindings) -> case val of
     (TupleVal vals) -> extendWithListable env bindable bindings vals
@@ -50,19 +50,18 @@ extendWithDict env bindable exprPairs valMap = foldl' foldFun bindable exprPairs
   where
     foldFun accBindable expr = case expr of
       (PDictKey a, ex) -> case (ex, Map.lookup (DictKey a) valMap) of
-        (Atom {}, Just val) -> extend' env bindable ex val
-        (_, Just _) -> accBindable
+        (_, Just val) -> extend' env accBindable ex val
         (_, Nothing) -> error "Dictionary doesn't contain key"
 
-extendWithConsList :: HasBindings h => Env -> h -> [String] -> [Val] -> h
-extendWithConsList env bindable bindings vs
+extendWithCons :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
+extendWithCons env bindable bindings vs
   | length bindings - 1 > length vs = error $ "Too many bindings. Wanted " ++ show (length bindings) ++ ", but got " ++ show (length vs)
   | otherwise =
     let llast = (last bindings, ListVal $ drop (length bindings - 1) vs)
         linit = zip (take (length bindings - 1) bindings) vs
      in foldFun llast (foldr foldFun bindable linit)
   where
-    foldFun (binding, val) accBindable = extend' env accBindable (Atom anyTypeSig binding) val
+    foldFun (binding, val) accBindable = extend' env accBindable binding val
 
 extendWithDataConstructor :: HasBindings h => Env -> h -> [Expr] -> [Val] -> h
 extendWithDataConstructor env bindable exprs vals = foldl' foldFun bindable (zip exprs vals)

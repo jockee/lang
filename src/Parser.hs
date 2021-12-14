@@ -38,13 +38,13 @@ expr =
     *> ( import'
            <|> ifelse
            <|> let'
+           <|> try cons
            <|> case'
            <|> trait
            <|> dataDefinition
            <|> implementation
-           <|> try lambda
            <|> try ternary
-           <|> try (function Nothing Nothing)
+           <|> try (binding Nothing Nothing)
            <|> try (typeDef [])
            <|> formula
        )
@@ -63,7 +63,7 @@ formula = makeExprParser juxta table <?> "formula"
         [andOp],
         [orOp],
         [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
-        [consOp],
+        -- [consOp],
         [pipeOp, mapPipe]
       ]
     prefix name fun = Prefix (do string name; return fun)
@@ -92,7 +92,6 @@ formula = makeExprParser juxta table <?> "formula"
     gteOp = InfixL (try $ spaceC *> string ">=" <* spaceC >> return (Cmp ">="))
     lteOp = InfixL (try $ spaceC *> string "<=" <* spaceC >> return (Cmp "<="))
     orOp = InfixL (try $ spaceC *> string "||" <* notFollowedBy (char '>') <* spaceC >> return (Binop Or))
-    consOp = InfixL (try $ spaceC *> string "|" <* notFollowedBy (char '>' <|> char '|') <* spaceC >> return (Binop Cons))
     mapPipe = InfixL (try $ spaceC *> string "||>" <* spaceC >> return (Binop MapPipe))
     pipeOp = InfixL (try $ spaceC *> string "|>" <* spaceC >> return pipe)
 
@@ -124,6 +123,7 @@ term =
   lexeme
     ( try parseFloat
         <|> try (parens internalFunction)
+        <|> try (parens lambda)
         <|> try parseInteger
         <|> try dataConstructor
         <|> moduleAccess
@@ -158,12 +158,10 @@ dictContents = do
       val <- expr
       return (key, val)
 
-consList :: Parser Expr
-consList = lexeme $ do
-  char '(' <* space
-  consContents <- identifier `sepBy2` (hspace *> string "|" <* hspace)
-  space *> char ')'
-  return $ ConsList consContents
+cons :: Parser Expr
+cons = lexeme $ do
+  consContents <- juxta `sepBy2` (hspace *> string "|" <* notFollowedBy (char '>' <|> char '|') <* hspace)
+  return $ Cons consContents
 
 dict :: Parser Expr
 dict = do
@@ -181,7 +179,7 @@ dictUpdate = do
   updates <- try dictContents <|> variable
   spaceC *> char '}'
   hspace *> optional (char '}')
-  return (PDictUpdate dct updates) -- NOTE: could probably be converted to 'App' of stdlib `#merge` function when it exists
+  return (PDictUpdate dct updates)
 
 dictAccess :: Parser Expr
 dictAccess = dotKey <|> try dictDotKey
@@ -272,17 +270,13 @@ case' = do
 let' :: Parser Expr
 let' = do
   string "let" <* spaceC
-  pairs <- pair `sepBy1` many (spaceChar <|> char ',')
+  pairs <- binding Nothing Nothing `sepBy1` many (spaceChar <|> char ',')
   spaceC *> string ":" <* spaceC
   body <- expr
   return $ foldr foldFun body pairs
   where
-    foldFun (pairKey, pairVal) acc =
-      App (Lambda emptyLambdaEnv (sig [AnyType] AnyType) [pairKey] acc) pairVal
-    pair = do
-      key <- spaceC *> ((try consList <|> term) <* string "=") <* spaceC
-      val <- juxtaFormula
-      return (key, val)
+    foldFun kv acc = case kv of
+      Binop Assign name body -> App (Lambda emptyLambdaEnv (sig [AnyType] AnyType) [name] acc) body
 
 moduleAccess :: Parser Expr
 moduleAccess = do
@@ -342,10 +336,10 @@ typeBinding typeConstructors = funcType <|> try variableTypeConstructor <|> type
       let (tp : _) = bindings
       return $ ListType tp
 
-function :: Maybe TypeConstructor -> Maybe String -> Parser Expr
-function traitBinding implementationBinding = do
+binding :: Maybe TypeConstructor -> Maybe String -> Parser Expr
+binding traitBinding implementationBinding = do
   name <- term
-  args <- (try consList <|> term <|> list) `sepBy` hspace
+  args <- (term <|> list) `sepBy` hspace
   string "=" <* space
   body <- expr
   let Atom _ nameStr = name
@@ -361,8 +355,8 @@ pipe = Binop Pipe
 
 lambda :: Parser Expr
 lambda = do
-  identifiers <- (try consList <|> variable <|> list <|> tuple) `sepBy` hspace
-  string ":" <* notFollowedBy (string ":")
+  identifiers <- (try (parens cons) <|> variable <|> list <|> tuple) `sepBy` hspace
+  string ":" <* notFollowedBy (string ":") -- NOTE: can remove since :: is not a thing?
   Lambda emptyLambdaEnv (sig (replicate (length identifiers) AnyType) AnyType) identifiers <$> expr
 
 import' :: Parser Expr
@@ -409,7 +403,7 @@ trait = do
   vars <- many identifier
   let typeConstructors = [(head vars, name) | not (null vars)]
   hspace *> string "{" <* spaceC
-  bindings <- (try (function (Just name) Nothing) <|> typeDef typeConstructors) `endBy1` (expressionSep <* spaceC)
+  bindings <- (try (binding (Just name) Nothing) <|> typeDef typeConstructors) `endBy1` (expressionSep <* spaceC)
   space *> string "}"
   let (types, funs) =
         List.partition
@@ -427,9 +421,9 @@ implementation = do
   hspace *> string "for" <* hspace
   typeConstructor <- identifier
   hspace *> string "{" <* spaceC
-  functions <- try (function (Just trait) (Just typeConstructor)) `endBy` (expressionSep <* spaceC)
+  bindings <- try (binding (Just trait) (Just typeConstructor)) `endBy` (expressionSep <* spaceC)
   spaceC *> string "}"
-  return $ PImplementation trait typeConstructor functions
+  return $ PImplementation trait typeConstructor bindings
 
 dataConstructor :: Parser Expr
 dataConstructor = do

@@ -43,7 +43,6 @@ at i xs =
 even? n = n % 2 == 0
 odd? n = not (odd? n)
 
-// FILES
 module File {
   read p = (HFI readFile [p])
   write path body = (HFI writeFile [path, body])
@@ -56,7 +55,6 @@ module JSON {
   encode a = json a
 }
 
-// DICTIONARIES
 module Dict {
   list xs = (HFI dictToList [xs])
   keys dict = list dict |> map ((a, b): a)

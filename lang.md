@@ -1,14 +1,8 @@
 # WIP
 
+
 # KEY
 
-# MID
-
-  - lets can have functions in them
-  - read in functions from HFI straight into std lib?
-    - difficult to do into modules?
-  - import module "non-qualified"
-  - monoid for use with `join` for instance
   - function composition
     - pipes (maybe only for pipes?)
     - pipe always constructs new lambda?
@@ -16,27 +10,26 @@
       - we cant know in parsing whether functions are fully applied
       - when evaluating, we can return a lambda'd pipe if partial?
       - composing with pipes - require parens?
+
+# MID
+
+  - read in functions from HFI straight into std lib?
+    - difficult to do into modules?
+  - import module "non-qualified"
+  - monoid for use with `join` for instance
   - function from implementation overrides trait function (efficient `length` for strings, for instance)
-  - pattern matching
-    - dict partial - spread operator
-  - destructuring
-    - nested extension: within tuple/list
-
-  ## USABILITY
-  - TODO: sockets, for tcp server
-
-  ## PARSING
-  - TODO: Type classes/traits:
+  - Type classes/traits:
     * Num? (arithmetic)
       * Add Num constraint to function doing addition
 
-  - TODO: (STATIC) TYPE SYSTEM #typesystem
-    - TODO: if function is defined with set list in a position, that argument must be a list for all definitions
-    - TODO: handle lists and tuples as input types
-    - TODO: handle tuple, dict, list
-    - TODO: handle functions as input types
-    - TODO: check return type on return - after `evalIn`
-    - TODO: parse nested type definition
+  - (STATIC) TYPE SYSTEM [typesystem]
+    - if function is defined with set list in a position, that argument must be a list for all definitions
+    - handle lists and tuples as input types
+    - handle tuple, dict, list
+    - handle functions as input types
+    - check return type on return - after `evalIn`
+    - parse nested type definition
+  - sockets, for tcp server [usability]
 
 # BACKLOG
 
@@ -47,7 +40,6 @@
     // intersection
     // difference
   - TODO: where clause. how to group?
-
   - TODO: guard clause
     fun x a
     | x > 1 = true
@@ -65,12 +57,15 @@
       do1
       do2
     } : do3
+- pattern matching
+  - dict partial - spread operator - currently always matching on partial
 
 
 # REFACTORING
 
 * strings seem very slow
-* ReaderT, StateT? MTL
+* ReaderT, StateT? MTL (start out with readert as it's the most basic?) -- not sure anything like
+  this really fits this project
 * Boolean could be defined as `data Boolean = True | False`
 
 # NOTES

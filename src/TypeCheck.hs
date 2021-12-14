@@ -51,7 +51,7 @@ patternMatch (PList _ ls) (ListVal ls') = length ls == length ls'
 patternMatch (PList _ _) _ = False
 patternMatch (PString str) (StringVal val) = str == val
 patternMatch (PDataConstructor exprName _) (DataVal _ valName _) = exprName == valName
-patternMatch (ConsList bindings) (ListVal xs) = length xs >= length bindings - 1
+patternMatch (Cons bindings) (ListVal xs) = length xs >= length bindings - 1
 patternMatch (PBool a) (BoolVal b) = a == b
 patternMatch (PInteger e) (IntVal v) = e == v
 patternMatch (PFloat e) (FloatVal v) = e == v

@@ -56,6 +56,9 @@ spec = describe "Parser" $ do
   xit "let-in with function bound" $
     s (parseExpr "let x s = s: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
+  it "let-in with cons list" $
+    s (parseExpr "let (x | xs) = [1,2,3]: x") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Cons [Atom anyTypeSig "x", Atom anyTypeSig "xs"])]) (Atom anyTypeSig "x")) (PList anyTypeSig [(PInteger 1), (PInteger 2), (PInteger 3)]))
+
   it "lambda" $
     s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1)))
 
@@ -265,7 +268,7 @@ spec = describe "Parser" $ do
 
   describe "Cons list" $
     it "function definition" $
-      show (parseExpr "a (x | xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [ConsList ["x", "xs"]] (PInteger 1)))
+      show (parseExpr "a (x | xs) = 1") `shouldBe` show (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [Cons [Atom anyTypeSig "x", Atom anyTypeSig "xs"]] (PInteger 1)))
 
   describe "Data" $ do
     it "True and false" $

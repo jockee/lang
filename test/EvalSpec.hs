@@ -146,6 +146,9 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         it "let-in binding list" $ \stdLibEnv ->
           eval (parseExpr "let x = [5]: x") `shouldBe` ListVal [IntVal 5]
 
+        it "let-in binding function" $ \stdLibEnv ->
+          eval (parseExpr "let x a = a * 2: x 2") `shouldBe` IntVal 4
+
         it "let-in binding list" $ \stdLibEnv ->
           eval (parseExpr "let (a, b) = (1,2): a+b") `shouldBe` IntVal 3
 
@@ -470,6 +473,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     it "destructuring dict, requiring matching other values - failing" $ \stdLibEnv ->
       evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2}: b")) `shouldThrow` anyException
+
+    it "pattern matching and destructuring nested - succeeding" $ \stdLibEnv ->
+      evals (parseExprs "let {a: x, b: 1.2, c: [b], d: (1,2)} = {a: 2, b: 1.2, c: [1], d: (1, 2)}: b") `shouldBe` IntVal 1
+
+    it "pattern matching and destructuring nested - succeeding" $ \stdLibEnv ->
+      evals (parseExprs "let {c: [b]} = {c: [1]}: b") `shouldBe` IntVal 1
 
     describe "General" $ do
       it "adds to global scope [STDLIB]" $ \stdLibEnv -> do

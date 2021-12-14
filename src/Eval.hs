@@ -114,7 +114,9 @@ evalIn env (PTuple _ts es) = (TupleVal $ map (fst . evalIn env) es, env)
 evalIn env (PBool n) = (BoolVal n, env)
 evalIn env (Binop Pipe e1 e2) = evalIn env (App e2 e1)
 evalIn env (Binop MapPipe e1 e2) = evalIn env (App (App (Atom anyTypeSig "map") e1) e2)
-evalIn env (Binop Cons e1 e2) = evalIn env (App (App (hfiLambda 2 "cons") e1) e2)
+evalIn env (Cons exprs) = evalIn env $ foldl1 foldFun exprs
+  where
+    foldFun acc ex = App (App (hfiLambda 2 "cons") acc) ex
 evalIn env (Binop Assign atom@(Atom _ts funName) (Lambda lambdaEnv ts args e)) =
   let ts' = fromMaybe ts $ typeFromEnv env funName
       value = fst $ evalIn (mergeLambdaEnvIntoEnv env ts' lambdaEnv) (Lambda lambdaEnv ts' args e)
