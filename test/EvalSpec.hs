@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module EvalSpec where
 
@@ -392,7 +393,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
       it "string split" $ \stdLibEnv -> do
         let (val, _) = evalIn stdLibEnv (parseExpr "split \",\" \"aba,sd\"")
-        val `shouldBe` (ListVal [(StringVal "aba"), (StringVal "sd")])
+        val `shouldBe` ListVal [StringVal "aba", StringVal "sd"]
 
       describe "Stdlib Types" $ do
         it "map" $ \stdLibEnv -> do
@@ -413,7 +414,11 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     describe "Function composition" $ do
       xit "using pipe" $ \stdLibEnv ->
-        evals (parseExprs "length s f= f; (.body |> length) {body: \"asd\"}") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
+        evals (parseExprs "length s = 1; (.body |> length) {body: \"asd\"}") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
+
+      xit "pipe fmap" $ \stdLibEnv -> do
+        let (val, _) = evalIn stdLibEnv (parseExpr "(.body ||> length) {body: \"asd\"}")
+        val `shouldBe` DataVal "Maybe" "Some" [3]
 
     describe "Multiple expressions" $ do
       it "evals works for one expression" $ \stdLibEnv ->
@@ -680,9 +685,12 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
             |]
         let (val, env) = evalsIn stdLibEnv $ parseExprs expr
         val `shouldBe` IntVal 1
-    describe "String interpolation" $
+    describe "String interpolation" $ do
       it "atoms and integer" $ \stdLibEnv ->
         evals (parseExprs "a=1; \"before#{a+1}after\"") `shouldBe` StringVal "before2after"
+
+      it "ternary interpolated" $ \stdLibEnv ->
+        evals (parseExprs "a = 1; \"#{a > 1 ? \"yes\" : \"no\"}\"") `shouldBe` StringVal "no"
 
     describe "Cons list" $ do
       it "destructuring list in let-in" $ \stdLibEnv ->

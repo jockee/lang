@@ -24,6 +24,11 @@ evalsInStdLibWithEnv rawExprs = do
   env <- evaledStdLibEnv
   pure $ evalsIn env $ parseExprs rawExprs
 
+runFile :: String -> IO Val
+runFile path = do
+  contents <- readFile path
+  evalsInStdLib contents
+
 evaledStdLibEnv :: IO Env
 evaledStdLibEnv = do
   langPath <- lookupEnv "LANG_PATH"

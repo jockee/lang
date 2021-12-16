@@ -19,7 +19,7 @@ spaceC :: Parser (Maybe Expr)
 spaceC = space *> optional comment <* space
 
 doesntLineBreak :: String
-doesntLineBreak = ['!', ',', '+', '-', '{', '[', '/', '(', '|', '=', ':', '?']
+doesntLineBreak = ['!', ',', '+', '-', '}', '{', '[', '/', '(', '|', '=', ':', '?']
 
 type Parser = Parsec Void String
 
@@ -47,6 +47,7 @@ expr =
            <|> try (binding Nothing Nothing)
            <|> try (typeDef [])
            <|> formula
+           <|> block
        )
     <?> "expr"
 
@@ -63,7 +64,6 @@ formula = makeExprParser juxta table <?> "formula"
         [andOp],
         [orOp],
         [abs, sqrt, toFloat, toInteger, floor, round, ceiling],
-        -- [consOp],
         [pipeOp, mapPipe]
       ]
     prefix name fun = Prefix (do string name; return fun)
@@ -104,7 +104,7 @@ parens = between (symbol "(") (symbol ")")
 brackets = between (symbol "[") (symbol "]")
 
 rws :: [String]
-rws = ["module", "case", "let", "else"]
+rws = ["module", "case", "let", "else", "then"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -135,6 +135,7 @@ term =
         <|> false
         <|> try interpolatedString
         <|> parseString
+        <|> escapedString -- HACK? to allow escaped strings inside interpolated strings
         <|> variable
         <|> try tuple
         <|> list
@@ -150,7 +151,7 @@ false = try $ string "false" >> return (PBool False)
 
 dictContents :: Parser Expr
 dictContents = do
-  pairs <- pair `sepBy` many (spaceChar <|> char ',')
+  pairs <- pair `endBy` many (spaceChar <|> char ',')
   return (PDict (sig [AnyType] AnyType) pairs)
   where
     pair = do
@@ -208,7 +209,7 @@ sepBy2 :: MonadPlus m => m a -> m sep -> m [a]
 sepBy2 p sep = liftM2 (:) p (some (sep >> p))
 
 listContents :: Parser [Expr]
-listContents = juxtaFormula `sepBy` many (spaceChar <|> char ',')
+listContents = juxtaFormula `endBy` many (spaceChar <|> char ',')
 
 juxtaFormula :: Parser Expr
 juxtaFormula = formula <|> juxta
@@ -216,7 +217,7 @@ juxtaFormula = formula <|> juxta
 range :: Parser Expr
 range = do
   char '[' <* hspace
-  lBound <- term -- FIXME: we want juxta here too
+  lBound <- term -- FIXME: we want juxtaFormula here too
   hspace *> string ".." <* hspace
   uBound <- juxtaFormula
   char ']'
@@ -368,19 +369,18 @@ ifelse :: Parser Expr
 ifelse = do
   string "if" <* hspace
   cond <- juxtaFormula
-  space *> string ":" <* spaceC
-  tr <- juxtaFormula
-  -- space *> string "else" <* spaceC
-  string "else" <* hspace
-  tr2 <- juxtaFormula
+  spaceC *> string "then" <* spaceC
+  tr <- lexeme block <|> juxtaFormula
+  string "else" <* spaceC
+  tr2 <- lexeme block <|> juxtaFormula
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 ternary :: Parser Expr
 ternary = do
   cond <- juxtaFormula <* string "?" <* spaceC
-  tr <- juxtaFormula
-  string ":" <* hspace
-  tr2 <- juxtaFormula
+  tr <- lexeme block <|> juxtaFormula
+  string ":" <* spaceC
+  tr2 <- lexeme block <|> juxtaFormula
   return $ PCase (sig [AnyType] AnyType) cond [(PBool True, tr), (PBool False, tr2)]
 
 dataDefinition :: Parser Expr
@@ -413,6 +413,14 @@ trait = do
           )
           bindings
   return $ PTrait name types funs
+
+block :: Parser Expr
+block = do
+  hspace *> string "{" <* spaceC
+  -- exprs <- manyExpressions
+  exprs <- (expr <|> noop) `endBy1` expressionSep
+  spaceC *> string "}"
+  return $ Block exprs
 
 implementation :: Parser Expr
 implementation = do
@@ -481,28 +489,43 @@ parseExprs' :: String -> String -> Either (ParseErrorBundle String Void) [Expr]
 parseExprs' = parse (manyExpressions <* eof)
 
 interpolatedString :: Parser Expr
-interpolatedString = do
-  string "\""
-  parts <- some $ between (symbol "#{") (symbol "}") expr <|> parseStringContent
-  string "\""
-  return $ PInterpolatedString parts
+interpolatedString =
+  PInterpolatedString <$> between (char '"') (char '"') (some $ between (string "#{") (string "}") expr <|> parseStringContent)
+
+escapedString :: Parser Expr
+escapedString =
+  PString . T.pack <$> between (string "\\\"") (string "\\\"") (many escapedLangChar)
+  where
+    escapedLangChar = alphaNumChar
 
 parseString :: Parser Expr
-parseString = do
-  string "\""
-  s <- many $ escapedChars <|> noneOf ['\\', '"']
-  string "\""
-  return $ PString $ T.pack s
+parseString =
+  PString . T.pack <$> between (char '"') (char '"') (many langChar)
 
 parseStringContent :: Parser Expr
 parseStringContent = do
-  s <- escapedChars <|> noneOf ['\\', '"']
+  s <- langChar
   return $ PString $ T.pack [s]
 
-escapedChars :: Parser Char
-escapedChars = do
-  char '\\'
-  oneOf ['\\', '"']
+langChar :: Parser Char
+langChar = unescaped <|> escaped
+  where
+    unescaped = noneOf ['\\', '"']
+    escaped = char '\\' *> escapedChar
+
+escapedChar :: Parser Char
+escapedChar = choice $ map ch alist
+  where
+    ch (x, y) = y <$ char x
+    alist =
+      [ ('b', '\b'),
+        ('f', '\f'),
+        ('n', '\n'),
+        ('r', '\r'),
+        ('t', '\t'),
+        ('\\', '\\'),
+        ('\"', '\"')
+      ]
 
 sig :: [LangType] -> LangType -> TypeSig
 sig inn out = TypeSig {typeSigName = Nothing, typeSigModule = Nothing, typeSigTraitBinding = Nothing, typeSigImplementationBinding = Nothing, typeSigIn = inn, typeSigReturn = out}

@@ -9,8 +9,8 @@ data LangException
   | EvalException String
   | RuntimeException String
   | TypeException String
-  deriving (Show, Eq, Typeable)
+  deriving stock (Show, Eq)
 
 instance Exception LangException where
   toException e = SomeException e
-  fromException (SomeException e) = cast e -- uses Typeable
+  fromException (SomeException e) = cast e

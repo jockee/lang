@@ -1,6 +1,7 @@
 import "src/stdlib/types.lang"
 
 print a = (HFI print [a])
+printn a = (HFI printNoNewline [a])
 debugEnv a = (HFI debugEnv [a])
 getArgs = (HFI getArgs [])
 debug debugString outVal = (HFI debug [debugString, outVal])
@@ -66,3 +67,24 @@ module HTTP {
   get url = (HFI httpRequest [url, "GET", ""])
   post url body = (HFI httpRequest [url, "POST", body])
 }
+
+module UnitTest {
+  context description tests' = {
+    print "Testing #{description}\n"
+    tests' }
+  test description assertion = assertion
+  assert a = a == true ? TestPass : TestFail "Assertion failed. Expected true, got #{a}"
+  refute r = r == false ? TestPass : TestFail "Assertion failed. Expected false, got #{r}"
+  assertEqual a b = a == b ? TestPass : TestFail "Assertion failed. #{a} is not equal to #{b}"
+}
+
+runTests testResults =
+  let foldFun (succs, fails) testResult =
+        testResult == TestPass ? {printn "."; (succs + 1, fails)} : {printn "x"; (succs, fails + 1)},
+      (succs, fails) = fold foldFun (0, 0) testResults:
+      {
+        print ""
+        map (_: printn "-") [1..80]
+        print "\nRan #{succs + fails} in 0.0000s"
+        print "\n#{fails > 0 ? \"FAILED\" : \"OK\"}"
+        []}

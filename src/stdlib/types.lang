@@ -1,5 +1,6 @@
 data Maybe = Some a | None
 data Result = Ok a | Err b
+data UnitTestResult = TestFail a | TestPass
 
 trait Functor f {
   map (a: b), f a => f b
@@ -34,6 +35,17 @@ implement Applicative for Maybe {
 implement Monad for Maybe {
   bind (Some a) k = k a
   bind None _ = None
+}
+
+implement Functor for Test {
+  map _ Pass = Pass
+  map fm (Fail x) = Fail (fm x)
+}
+
+implement Applicative for Test {
+  ap (Fail f) m = map f m
+  ap _ _ = Pass
+  pure a = Fail a
 }
 
 implement Functor for Result {

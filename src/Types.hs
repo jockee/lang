@@ -133,8 +133,13 @@ data Expr where
   PTypeSig :: TypeSig -> Expr
   PRange :: TypeSig -> Expr -> Expr -> Expr
   PNoop :: Expr
+  Block :: [Expr] -> Expr
   Evaluated :: Val -> Expr -- NOTE: Only needed to "uneval" a pattern
   PatternExpr :: [Val] -> Expr -- NOTE: Only needed to "uneval" a pattern
+
+instance Eq Expr where
+  PNoop == PNoop = True
+  _ == _ = False -- NOTE: this may cause issues
 
 type Id = String
 
@@ -180,6 +185,7 @@ showWithTypes (Lambda lambdaEnv ts remainingArgs e) = "(Lambda " ++ show lambdaE
 showWithTypes (Unaryop t d) = "(Unaryop " ++ show t ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (Binop t s d) = "(Binop " ++ show t ++ " " ++ showWithTypes s ++ " " ++ showWithTypes d ++ ")"
 showWithTypes (PatternExpr defs) = "PatternExpr"
+showWithTypes (Block exprs) = "(Block [" ++ joinCommaSep exprs ++ "])"
 showWithTypes (Evaluated defs) = "Evaluated"
 showWithTypes _ = "UNKNOWN"
 
@@ -277,7 +283,7 @@ prettyVal (ModuleVal name) = "<module " ++ show name ++ ">"
 prettyVal (FunctionVal _ts _lambdaEnv _remainingArgs _) = "<fun>"
 prettyVal (Pattern definitions) = "<pattern " ++ joinCommaSep definitions ++ ">"
 prettyVal (DataConstructorDefinitionVal n args) = "DataConstructorDefinitionVal " ++ show n ++ " " ++ show args
-prettyVal (DataVal _dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSep args)
+prettyVal (DataVal _dtype n args) = n ++ (if null args then "" else " " ++ joinCommaSepWithShowFun prettyVal args)
 prettyVal (IntVal n) = show n
 prettyVal (FloatVal n) = show n
 prettyVal (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
@@ -503,3 +509,6 @@ showTypeSig TypeSig {typeSigName = name, typeSigIn = inn, typeSigReturn = rtrn} 
 
 joinCommaSep :: Show a => [a] -> String
 joinCommaSep contents = intercalate ", " (map show contents)
+
+joinCommaSepWithShowFun :: (a -> String) -> [a] -> String
+joinCommaSepWithShowFun fun contents = intercalate ", " (map fun contents)

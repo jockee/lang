@@ -44,20 +44,26 @@ spec = describe "Parser" $ do
   it "string" $
     s (parseExpr "\"test\"") `shouldBe` s (PInterpolatedString [PString "t", PString "e", PString "s", PString "t"])
 
+  it "string" $
+    s (parseExpr "\"r #{a + b} r\"") `shouldBe` s (PInterpolatedString [PString "r", PString " ", Binop AddOrConcat (Atom anyTypeSig "a") (Atom anyTypeSig "b"), PString " ", PString "r"])
+
+  it "string" $
+    s (parseExpr "\"r #{\\\"ok\\\"}\"") `shouldBe` s (PInterpolatedString [PString "r", PString " ", PString "ok"])
+
   it "ternary" $
     s (parseExpr "true ? 1 : 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "if-then-else" $
-    s (parseExpr "if true: 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
+    s (parseExpr "if true then 1 else 2") `shouldBe` s (PCase anyTypeSig (PBool True) [(PBool True, PInteger 1), (PBool False, PInteger 2)])
 
   it "let-in" $
     s (parseExpr "let x = 5: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
 
-  xit "let-in with function bound" $
-    s (parseExpr "let x s = s: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
+  it "let-in with function bound" $
+    s (parseExpr "let x s = s: x + 1") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "x")] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "s")] (Atom anyTypeSig "s")))
 
   it "let-in with cons list" $
-    s (parseExpr "let (x | xs) = [1,2,3]: x") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Cons [Atom anyTypeSig "x", Atom anyTypeSig "xs"])]) (Atom anyTypeSig "x")) (PList anyTypeSig [(PInteger 1), (PInteger 2), (PInteger 3)]))
+    s (parseExpr "let (x | xs) = [1,2,3]: x") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [(Cons [Atom anyTypeSig "x", Atom anyTypeSig "xs"])] (Atom anyTypeSig "x")) (PList anyTypeSig [PInteger 1, PInteger 2, PInteger 3]))
 
   it "lambda" $
     s (parseExpr "(x: x + 1)") `shouldBe` s (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1)))
@@ -66,10 +72,10 @@ spec = describe "Parser" $ do
     s (parseExpr "5 |> (x: x + 1)") `shouldBe` s (Binop Pipe (PInteger 5) (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))))
 
   it "fully applied pipe" $
-    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "dictInPDictKeyLookup")] (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
 
   it "partially applied pipe (function composition)" $
-    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
+    s (parseExpr "(.body 1 |> length)") `shouldBe` s (Binop Pipe (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "dictInPDictKeyLookup")] (DictAccess (PDictKey "body") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PInteger 1)) (Atom anyTypeSig "length"))
 
   it "lambda application" $
     s (parseExpr "(x: x + 1) 5") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop AddOrConcat (Atom anyTypeSig "x") (PInteger 1))) (PInteger 5))
@@ -129,10 +135,10 @@ spec = describe "Parser" $ do
     s (parseExpr "{}") `shouldBe` s (PDict anyTypeSig [])
 
   it "dict access on atom dot key" $
-    s (parseExpr ".key exampledict") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (Atom anyTypeSig "exampledict"))
+    s (parseExpr ".key exampledict") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "dictInPDictKeyLookup")] (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (Atom anyTypeSig "exampledict"))
 
   it "dict access on inline dot key" $
-    s (parseExpr ".key {a: 1}") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "dictInPDictKeyLookup")]) (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDict anyTypeSig [((PDictKey "a"), (PInteger 1))]))
+    s (parseExpr ".key {a: 1}") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "dictInPDictKeyLookup")] (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDict anyTypeSig [(PDictKey "a", PInteger 1)]))
 
   it "dict access" $
     s (parseExpr "exampledict.key") `shouldBe` s (DictAccess (PDictKey "key") (Atom anyTypeSig "exampledict"))
@@ -168,7 +174,7 @@ spec = describe "Parser" $ do
     s (parseExpr "(a, b) = (1, 2)") `shouldBe` s (Binop Assign (PTuple anyTypeSig [Atom anyTypeSig "a", Atom anyTypeSig "b"]) (PTuple anyTypeSig [PInteger 1, PInteger 2]))
 
   it "destructuring list" $
-    s (parseExpr "[a] = [1]") `shouldBe` s (Binop Assign (PList anyTypeSig [(Atom anyTypeSig "a")]) (PList anyTypeSig [(PInteger 1)]))
+    s (parseExpr "[a] = [1]") `shouldBe` s (Binop Assign (PList anyTypeSig [Atom anyTypeSig "a"]) (PList anyTypeSig [PInteger 1]))
 
   describe "Type definition" $ do
     it "Binding definition" $
@@ -238,10 +244,10 @@ spec = describe "Parser" $ do
 
   describe "Presedence" $ do
     it "no parens needed in value expression of let" $
-      show (parseExpr "let a = span f xs: d") `shouldBe` show (App (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "a")]) (Atom anyTypeSig "d")) (App (App (Atom anyTypeSig "span") (Atom anyTypeSig "f")) (Atom anyTypeSig "xs")))
+      show (parseExpr "let a = span f xs: d") `shouldBe` show (App (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "a")] (Atom anyTypeSig "d")) (App (App (Atom anyTypeSig "span") (Atom anyTypeSig "f")) (Atom anyTypeSig "xs")))
 
     it "no parens needed in operator expression in list" $
-      show (parseExpr "[a + b]") `shouldBe` show (PList anyTypeSig [(Binop AddOrConcat (Atom anyTypeSig "a") (Atom anyTypeSig "b"))])
+      show (parseExpr "[a + b]") `shouldBe` show (PList anyTypeSig [Binop AddOrConcat (Atom anyTypeSig "a") (Atom anyTypeSig "b")])
 
   describe "Expression separation" $ do
     it "can end on semicolon" $
@@ -295,7 +301,7 @@ spec = describe "Parser" $ do
       s (parseExpr "trait Mappable { map (a: b): a => b }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])
 
     it "function definition in trait" $
-      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [Binop Assign (Atom anyTypeSig "bap") (Lambda emptyLambdaEnv anyTypeSig ([(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")]) (PInteger 1))])
+      s (parseExpr "trait Mappable { bap (a: b): a => b; bap f xs = 1 }") `shouldBe` s (PTrait "Mappable" [PTypeSig (TypeSig {typeSigName = Just "bap", typeSigIn = [FunctionType [AnyType] AnyType, AnyType], typeSigReturn = AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [Binop Assign (Atom anyTypeSig "bap") (Lambda emptyLambdaEnv anyTypeSig [(Atom anyTypeSig "f"), (Atom anyTypeSig "xs")] (PInteger 1))])
 
     it "handles type variables" $
       s (parseExpr "trait Functor f { map (a: b), f a => f b }") `shouldBe` s (PTrait "Functor" [PTypeSig (TypeSig {typeSigName = Just "map", typeSigIn = [FunctionType [AnyType] AnyType, TraitVariableType "Functor" AnyType], typeSigReturn = TraitVariableType "Functor" AnyType, typeSigModule = Nothing, typeSigImplementationBinding = Nothing, typeSigTraitBinding = Nothing})] [])

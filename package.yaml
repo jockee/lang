@@ -64,7 +64,7 @@ library:
     TypeFamilies
     MultiParamTypeClasses
   source-dirs: src
-  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns -fwrite-ide-info -hiedir=.hie
+  ghc-options: -Weverything -Wno-all-missed-specialisations -Wno-missed-specialisations -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-type-defaults -Wno-name-shadowing -O0 -Wno-incomplete-patterns -fwrite-ide-info -hiedir=.hie -Wno-implicit-prelude
 
 executables:
   langc:

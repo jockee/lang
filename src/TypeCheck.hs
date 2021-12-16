@@ -107,7 +107,6 @@ expectedType env ts argsRemaining =
         then maybe AnyType (`typeAtPos` argsRemaining) (typeFromEnv env name)
         else typeAtPos ts argsRemaining
     Nothing -> AnyType -- not named, so for the time being not typed
-  where
 
 typeFromEnv :: Env -> String -> Maybe TypeSig
 typeFromEnv env name = Map.lookup name (typeSigs env)

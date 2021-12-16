@@ -1,0 +1,7 @@
+tests _ = UnitTest.context "Lang" [
+  UnitTest.test "does thing" (let x = true: UnitTest.refute false),
+  UnitTest.test "does thing" (let x = true: UnitTest.assert false),
+  UnitTest.test "does thing" (let x = true: UnitTest.assert true)
+]
+
+runTests (tests 1)

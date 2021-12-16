@@ -1,5 +1,8 @@
 # WIP
 
+  - parser: allow newline before block ending `}`
+  - when specifying module, the atom needs to exist in that specific module
+  - runTests in UnitTest module: Exception: EvalException "Atom a does not exist in scope"
 
 # KEY
 
@@ -10,6 +13,7 @@
       - we cant know in parsing whether functions are fully applied
       - when evaluating, we can return a lambda'd pipe if partial?
       - composing with pipes - require parens?
+      - it cant be just a regular apply, can it?
 
 # MID
 
@@ -33,8 +37,26 @@
 
 # BACKLOG
 
+  - looks like bound things are evaluated both on definition and call. test with a print
+  - multiple expressions (for IO) in brackets?
   - ghcjs
-  - flatMap, flatten
+  - extend STDLIB
+    - flatMap, flatten
+    - testing lib (assert, refute, assertEqual)
+      ```
+        ...
+        ----------------------------------------------------------------------
+        Ran 3 tests in 0.000s
+
+        OK
+      ```
+    - coercion (to string)
+    - regexp
+    - readline
+    - struct?
+    - date/time
+    - randomness
+    - encoding base64/md5 etc
   - pin operator
   - TODO: sets
     // intersection
@@ -59,6 +81,7 @@
     } : do3
 - pattern matching
   - dict partial - spread operator - currently always matching on partial
+- remove 'let' keyword from let bindings `a = 1, b = 2: b + a`
 
 
 # REFACTORING

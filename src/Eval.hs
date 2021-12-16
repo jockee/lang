@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-unused-local-binds #-}
 
-module Eval where
+module Eval (evals, eval, evalsIn, extend, evalIn) where
 
 import Control.Concurrent
 import Control.Exception
@@ -30,6 +30,9 @@ import Util
 evalIn :: Env -> Expr -> (Val, Env)
 evalIn env (Evaluated val) = (val, env)
 evalIn env (PatternExpr modVals) = (Pattern modVals, env)
+evalIn env (Block exprs) = foldl' (\acc ex -> acc `seq` evalIn env ex) (Undefined, env) exprsWithoutEndingNoop
+  where
+    exprsWithoutEndingNoop = reverse $ dropWhile (== PNoop) $ reverse exprs
 evalIn env (PImport stringExpr) = case fst $ evalIn env stringExpr of
   (StringVal filePath) ->
     let contents = unsafePerformIO $ readFile' (envLangPath env ++ T.unpack filePath)
@@ -162,11 +165,6 @@ hfiLambda argCount name = Lambda emptyLambdaEnv ts args $ HFI name $ PList anyTy
     ts = anyTypeSig {typeSigIn = replicate argCount AnyType}
     args = take argCount $ map (\x -> Atom anyTypeSig (x : (name ++ "LambdaArg"))) ['a' ..]
 
-extend :: (Evaluatable e, HasBindings h) => Env -> h -> Expr -> e -> h
-extend env bindable argExpr e = extend' env bindable argExpr val
-  where
-    !val = fst . evalIn env $ toExpr e
-
 hfiFun :: Env -> Id -> Expr -> (Val, Env)
 hfiFun env f argsList = case evaledArgsList of
   ListVal evaledArgs -> (fun f evaledArgs, env)
@@ -191,6 +189,7 @@ hfiFun env f argsList = case evaledArgsList of
     fun "sleep" (a : _) = unsafePerformIO (threadDelay 1000000 >> pure a)
     fun "httpRequest" (StringVal url : StringVal method : StringVal body : _) = unsafePerformIO $ HTTP.request (T.unpack method) (T.unpack url) [] (T.unpack body)
     fun "getArgs" _ = ListVal $ map (StringVal . T.pack) $ unsafePerformIO getArgs
+    fun "printNoNewline" (a : _) = unsafePerformIO (putStr (showRaw a) >> pure a)
     fun "print" (a : _) = unsafePerformIO (putStrLn (showRaw a) >> pure a)
     fun "decodeJSON" ((StringVal s) : _) = jsonToVal $ BS.pack $ T.unpack s
     fun "encodeJSON" (a : _) = StringVal . T.pack . BS.unpack $ encode a
@@ -203,7 +202,11 @@ apply :: Evaluatable e => Env -> Expr -> e -> (Val, Env)
 apply env e1 e2 =
   case evalIn env e1 of
     (Pattern definitions, env') -> case List.filter (matchingDefinition env' passedArg) definitions of
-      [] -> error "Could not find matching function definition - none matched criteria"
+      [] ->
+        let FunctionVal _ TypeSig {typeSigName = tsn} _ _ = head definitions
+         in case tsn of
+              Just name -> error $ "Could not find matching function definition '" ++ name ++ "' - none matched criteria"
+              Nothing -> error "Could not find matching anonymous function - none matched criteria"
       [FunctionVal lambdaEnv ts args e3] -> callFunction env' lambdaEnv ts args passedArg e3
       funs@((FunctionVal lambdaEnv ts args e3) : _) ->
         if functionFullyApplied args
@@ -239,7 +242,7 @@ callFullyAppliedFunction env lambdaEnv ts argsList val1 e3 =
       callWithScope = (mergeLambdaEnvIntoEnv env ts withLastArgExtended) {inModule = typeSigModule ts}
       (arg : remainingargs') = argsList
       (val, env'') = evalIn callWithScope (toExpr e3)
-   in (val, env)
+   in val `seq` (val, env)
 
 mergeLambdaEnvIntoEnv :: Env -> TypeSig -> LambdaEnv -> Env
 mergeLambdaEnvIntoEnv env ts lambdaEnv =
@@ -271,6 +274,11 @@ extendWithImplementation env bindable trait = foldl' foldFun bindable
         _ -> Nothing
       _ -> error $ "Got more than one trait definition for " ++ show trait
     findDef funName (PTypeSig ts) = typeSigName ts == Just funName
+
+extend :: (Evaluatable e, HasBindings h) => Env -> h -> Expr -> e -> h
+extend env bindable argExpr e = extend' env bindable argExpr val
+  where
+    !val = fst . evalIn env $ toExpr e
 
 eval :: Expr -> Val
 eval = fst . evalIn emptyEnv
