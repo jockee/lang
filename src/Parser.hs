@@ -417,8 +417,7 @@ trait = do
 block :: Parser Expr
 block = do
   hspace *> string "{" <* spaceC
-  -- exprs <- manyExpressions
-  exprs <- (expr <|> noop) `endBy1` expressionSep
+  exprs <- (expr <|> noop) `endBy1` (expressionSep <* spaceC)
   spaceC *> string "}"
   return $ Block exprs
 

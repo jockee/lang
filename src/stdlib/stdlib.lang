@@ -71,7 +71,8 @@ module HTTP {
 module UnitTest {
   context description tests' = {
     print "Testing #{description}\n"
-    tests' }
+    tests'
+  }
   test description assertion = assertion
   assert a = a == true ? TestPass : TestFail "Assertion failed. Expected true, got #{a}"
   refute r = r == false ? TestPass : TestFail "Assertion failed. Expected false, got #{r}"
@@ -82,9 +83,10 @@ runTests testResults =
   let foldFun (succs, fails) testResult =
         testResult == TestPass ? {printn "."; (succs + 1, fails)} : {printn "x"; (succs, fails + 1)},
       (succs, fails) = fold foldFun (0, 0) testResults:
-      {
-        print ""
-        map (_: printn "-") [1..80]
-        print "\nRan #{succs + fails} in 0.0000s"
-        print "\n#{fails > 0 ? \"FAILED\" : \"OK\"}"
-        []}
+  {
+    print ""
+    map (_: printn "-") [1..80]
+    print "\nRan #{succs + fails} in 0.0000s"
+    print "\n#{fails > 0 ? \"FAILED\" : \"OK\"}"
+    []
+  }

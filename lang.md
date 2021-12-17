@@ -1,8 +1,5 @@
 # WIP
 
-  - parser: allow newline before block ending `}`
-  - when specifying module, the atom needs to exist in that specific module
-  - runTests in UnitTest module: Exception: EvalException "Atom a does not exist in scope"
 
 # KEY
 
@@ -17,6 +14,8 @@
 
 # MID
 
+  - when specifying module, the atom needs to exist in that specific module
+  - runTests in UnitTest module: Exception: EvalException "Atom a does not exist in scope"
   - read in functions from HFI straight into std lib?
     - difficult to do into modules?
   - import module "non-qualified"
@@ -81,14 +80,12 @@
     } : do3
 - pattern matching
   - dict partial - spread operator - currently always matching on partial
-- remove 'let' keyword from let bindings `a = 1, b = 2: b + a`
-
+- remove 'let' keyword from let bindings? `a = 1, b = 2: b + a`
 
 # REFACTORING
 
 * strings seem very slow
-* ReaderT, StateT? MTL (start out with readert as it's the most basic?) -- not sure anything like
-  this really fits this project
+* ReaderT, StateT? MTL (start out with readert as it's the most basic?) -- not sure anything like this really fits this project
 * Boolean could be defined as `data Boolean = True | False`
 
 # NOTES
