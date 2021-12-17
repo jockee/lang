@@ -1,6 +1,8 @@
 tests _ = UnitTest.context "Lang" [
   UnitTest.test "does thing" (let x = true: UnitTest.refute false),
-  UnitTest.test "does thing" (let x = true: UnitTest.assertEqual true false),
+
+  UnitTest.test "map works" UnitTest.assertEqual (map (x: x*2) [1,2]) [2,4],
+
   UnitTest.test "does thing" (let x = true: UnitTest.assert true)
 ]
 

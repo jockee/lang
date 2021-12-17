@@ -90,7 +90,7 @@ trait Foldable f { // ok
   break f xs = fold ((accA, accB) x: (!(f x) && empty? accB) ? (accA + [x], accB) : (accA, accB + [x]) ) ([], []) xs // doable with function composition of span (not . f)?
   dropWhile f xs = let (_, d) = span f xs: d
   takeWhile f xs = let (t, _) = span f xs: t
-  dict xs = fold (acc (k, v): { acc | { k => v } }) {} xs
+  dict xs = fold (acc (k, v): %{ acc | %{ k => v } }) %{} xs
 }
 
 implement Foldable for List {
@@ -153,6 +153,6 @@ implement Stringable for String {
 
 implement Monoid for Dict {
   // concat (x | xs) = x | (concat xs)
-  append a b = { a | b}
-  empty = {}
+  append a b = %{ a | b}
+  empty = %{}
 }

@@ -60,7 +60,7 @@ module Dict {
   list xs = (HFI dictToList [xs])
   keys dict = list dict |> map ((a, b): a)
   values dict = list dict |> map ((a, b): b)
-  merge d1 d2 = { d1 | d2 }
+  merge d1 d2 = %{ d1 | d2 }
 }
 
 module HTTP {

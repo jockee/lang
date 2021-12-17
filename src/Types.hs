@@ -270,7 +270,7 @@ instance Show Val where
   show (FloatVal n) = "(FloatVal " ++ show n ++ ")"
   show (TupleVal ns) = "(TupleVal (" ++ joinCommaSep ns ++ "))"
   show (ListVal ns) = "(ListVal [" ++ joinCommaSep ns ++ "])"
-  show (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
+  show (DictVal m) = "%{" ++ intercalate "," (map (\(k, v) -> show k ++ ": " ++ show v) (Map.toList m)) ++ "}"
   show (DictKey n) = "(DictKey " ++ show n ++ ")"
   show (TraitVal name defs) = "(TraitVal " ++ show name ++ " " ++ joinCommaSep defs ++ ")"
   show (StringVal n) = "(StringVal " ++ show n ++ ")"
@@ -288,7 +288,7 @@ prettyVal (IntVal n) = show n
 prettyVal (FloatVal n) = show n
 prettyVal (TupleVal ns) = "(" ++ joinCommaSep ns ++ ")"
 prettyVal (ListVal ns) = "[" ++ joinCommaSep ns ++ "]"
-prettyVal (DictVal m) = "{" ++ intercalate "," (map (\(k, v) -> prettyVal k ++ ": " ++ prettyVal v) (Map.toList m)) ++ "}"
+prettyVal (DictVal m) = "%{" ++ intercalate "," (map (\(k, v) -> prettyVal k ++ ": " ++ prettyVal v) (Map.toList m)) ++ "}"
 prettyVal (DictKey n) = show n
 prettyVal (TraitVal name defs) = "TraitVal " ++ show name ++ " " ++ joinCommaSep defs
 prettyVal (StringVal n) = show $ T.unpack n

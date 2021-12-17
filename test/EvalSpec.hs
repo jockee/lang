@@ -77,7 +77,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         evals (parseExprs "module A { a x = 1; b i = a i }; A.b 1") `shouldBe` IntVal 1
 
       it "can call without namespacing inside module [STDLIB]" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv (parseExprs "module Dict2 { toList2 xs = (HFI dictToList [xs]); keys dict = map ((a, b): a) (toList2 dict) }; Dict2.keys {a:1}")
+        let (val, _) = evalsIn stdLibEnv (parseExprs "module Dict2 { toList2 xs = (HFI dictToList [xs]); keys dict = map ((a, b): a) (toList2 dict) }; Dict2.keys %{a:1}")
         val `shouldBe` ListVal [StringVal "a"]
 
     describe "Boolean" $ do
@@ -275,7 +275,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
       it "dict key as function in map [STDLIB]" $ \stdLibEnv -> do
-        let (val, _) = evalsIn stdLibEnv (parseExprs "map .body (Some {body: 1})")
+        let (val, _) = evalsIn stdLibEnv (parseExprs "map .body (Some %{body: 1})")
         val `shouldBe` DataVal "Maybe" "Some" [IntVal 1]
 
     describe "STDLIB" $ do
@@ -372,19 +372,19 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
         val `shouldBe` ListVal [IntVal 3, IntVal 4, IntVal 5]
 
       it "Dict.list" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.list {a: 1, b: 2}")
+        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.list %{a: 1, b: 2}")
         val `shouldBe` ListVal [TupleVal [StringVal "a", IntVal 1], TupleVal [StringVal "b", IntVal 2]]
 
       it "values" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.values {a: 1, b: 2}")
+        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.values %{a: 1, b: 2}")
         val `shouldBe` ListVal [IntVal 1, IntVal 2]
 
       it "keys" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.keys {a: 1, b: 2}")
+        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.keys %{a: 1, b: 2}")
         val `shouldBe` ListVal [StringVal "a", StringVal "b"]
 
       it "merge" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.merge {a: 1} {b: 2}")
+        let (val, _) = evalIn stdLibEnv (parseExpr "Dict.merge %{a: 1} %{b: 2}")
         val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2)])
 
       it "dict" $ \stdLibEnv -> do
@@ -414,10 +414,10 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     describe "Function composition" $ do
       xit "using pipe" $ \stdLibEnv ->
-        evals (parseExprs "length s = 1; (.body |> length) {body: \"asd\"}") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
+        evals (parseExprs "length s = 1; (.body |> length) %{body: \"asd\"}") `shouldBe` DataVal "Maybe" "Some" [IntVal 2]
 
       xit "pipe fmap" $ \stdLibEnv -> do
-        let (val, _) = evalIn stdLibEnv (parseExpr "(.body ||> length) {body: \"asd\"}")
+        let (val, _) = evalIn stdLibEnv (parseExpr "(.body ||> length) %{body: \"asd\"}")
         val `shouldBe` DataVal "Maybe" "Some" [3]
 
     describe "Multiple expressions" $ do
@@ -438,52 +438,52 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
 
     describe "Dict" $ do
       it "dict" $ \stdLibEnv ->
-        eval (parseExpr "{a: 1}") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
+        eval (parseExpr "%{a: 1}") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
       it "dict lookup using dotkey on atom" $ \stdLibEnv ->
-        evals [parseExpr "dict = {a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
+        evals [parseExpr "dict = %{a: 1, b: 2}", parseExpr ".a dict"] `shouldBe` IntVal 1
 
       it "dict lookup using dotkey on dict" $ \stdLibEnv ->
-        eval (parseExpr ".a {a: 1, b: 2}") `shouldBe` IntVal 1
+        eval (parseExpr ".a %{a: 1, b: 2}") `shouldBe` IntVal 1
 
       it "dict lookup using dict.key on atom" $ \stdLibEnv ->
-        evals [parseExpr "dict = {a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
+        evals [parseExpr "dict = %{a: 1, b: 2}", parseExpr "dict.a"] `shouldBe` IntVal 1
 
       it "dict update" $ \stdLibEnv ->
-        eval (parseExpr "{ {a: 0} | a: 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
+        eval (parseExpr "%{ %{a: 0} | a: 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1)])
 
       it "dict update new key" $ \stdLibEnv ->
-        eval (parseExpr "{ {a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 0), (DictKey "b", IntVal 1)])
+        eval (parseExpr "%{ %{a: 0} | b: 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 0), (DictKey "b", IntVal 1)])
 
       it "dict update on atom" $ \stdLibEnv ->
-        evals [parseExpr "dict = {b: 2}", parseExpr "{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [(DictKey "b", IntVal 1)])
+        evals [parseExpr "dict = %{b: 2}", parseExpr "%{ dict | b: 1 }"] `shouldBe` DictVal (Map.fromList [(DictKey "b", IntVal 1)])
 
     it "dict dynamic key" $ \stdLibEnv ->
-      evals (parseExprs "a = \"s\"; { a => 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "s", IntVal 1)])
+      evals (parseExprs "a = \"s\"; %{ a => 1 }") `shouldBe` DictVal (Map.fromList [(DictKey "s", IntVal 1)])
 
     it "dict update dynamic key" $ \stdLibEnv ->
-      evals (parseExprs "a = \"s\"; { {a: 1} | a => 2 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "s", IntVal 2)])
+      evals (parseExprs "a = \"s\"; %{ %{a: 1} | a => 2 }") `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "s", IntVal 2)])
 
     it "destructuring dict basic" $ \stdLibEnv ->
-      evals (parseExprs "let {a: b} = {a: 2}: b") `shouldBe` IntVal 2
+      evals (parseExprs "let %{a: b} = %{a: 2}: b") `shouldBe` IntVal 2
 
     it "destructuring dict, requiring matching other values - succeeding" $ \stdLibEnv ->
-      evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 1}: b") `shouldBe` IntVal 2
+      evals (parseExprs "let %{a: b, c: 1} = %{a: 2, c: 1}: b") `shouldBe` IntVal 2
 
     it "destructuring dict, requiring matching other values - succeeding" $ \stdLibEnv ->
-      evals (parseExprs "let {a: x, b: 1.2, c: [], d: (1,2)} = {a: 2, b: 1.2, c: [], d: (1, 2)}: x") `shouldBe` IntVal 2
+      evals (parseExprs "let %{a: x, b: 1.2, c: [], d: (1,2)} = %{a: 2, b: 1.2, c: [], d: (1, 2)}: x") `shouldBe` IntVal 2
 
     it "destructuring dict, requiring matching other values - failing" $ \stdLibEnv ->
-      evaluate (evals (parseExprs "let {a: x, b: 1.2, c: []} = {a: 2, b: 1.3, c: []}: x")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "let %{a: x, b: 1.2, c: []} = %{a: 2, b: 1.3, c: []}: x")) `shouldThrow` anyException
 
     it "destructuring dict, requiring matching other values - failing" $ \stdLibEnv ->
-      evaluate (evals (parseExprs "let {a: b, c: 1} = {a: 2, c: 2}: b")) `shouldThrow` anyException
+      evaluate (evals (parseExprs "let %{a: b, c: 1} = %{a: 2, c: 2}: b")) `shouldThrow` anyException
 
     it "pattern matching and destructuring nested - succeeding" $ \stdLibEnv ->
-      evals (parseExprs "let {a: x, b: 1.2, c: [b], d: (1,2)} = {a: 2, b: 1.2, c: [1], d: (1, 2)}: b") `shouldBe` IntVal 1
+      evals (parseExprs "let %{a: x, b: 1.2, c: [b], d: (1,2)} = %{a: 2, b: 1.2, c: [1], d: (1, 2)}: b") `shouldBe` IntVal 1
 
     it "pattern matching and destructuring nested - succeeding" $ \stdLibEnv ->
-      evals (parseExprs "let {c: [b]} = {c: [1]}: b") `shouldBe` IntVal 1
+      evals (parseExprs "let %{c: [b]} = %{c: [1]}: b") `shouldBe` IntVal 1
 
     describe "General" $ do
       it "adds to global scope [STDLIB]" $ \stdLibEnv -> do
@@ -796,7 +796,7 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           val `shouldBe` IntVal 3
           let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 \"ok\"")
           val `shouldBe` IntVal 2
-          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 {a:1, b:2}")
+          let (val, env) = evalsIn stdLibEnv $ parseExprs (baseExpr ++ "length2 %{a:1, b:2}")
           val `shouldBe` IntVal 2
 
         it "Uses the right function - non-last argument [STDLIB]" $ \stdLibEnv -> do
@@ -875,9 +875,9 @@ spec = beforeAll (let !std = evaledStdLibEnv in std) $
           val `shouldBe` ListVal [IntVal 1, DataVal "Maybe" "None" [], FloatVal 2.3]
 
         it "json [STDLIB]" $ \stdLibEnv -> do
-          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.encode {a: 1, b: 2, c: None}"
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.encode %{a: 1, b: 2, c: None}"
           val `shouldBe` StringVal "{\"a\":1,\"b\":2,\"c\":null}"
 
         it "idempotent [STDLIB]" $ \stdLibEnv -> do
-          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.parse (JSON.encode {a: 1, b: 2, c: None})"
+          let (val, _) = evalsIn stdLibEnv $ parseExprs "JSON.parse (JSON.encode %{a: 1, b: 2, c: None})"
           val `shouldBe` DictVal (Map.fromList [(DictKey "a", IntVal 1), (DictKey "b", IntVal 2), (DictKey "c", DataVal "Maybe" "None" [])])

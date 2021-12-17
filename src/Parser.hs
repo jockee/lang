@@ -166,17 +166,17 @@ cons = lexeme $ do
 
 dict :: Parser Expr
 dict = do
-  char '{' <* spaceC
+  string "%{" <* spaceC
   x <- try dictContents
   spaceC *> char '}'
   return x
 
 dictUpdate :: Parser Expr
 dictUpdate = do
-  char '{' <* spaceC
+  string "%{" <* spaceC
   dct <- variable <|> dict
   spaceC *> char '|' <* spaceC
-  optional $ char '{' <* spaceC
+  optional $ string "%{" <* spaceC
   updates <- try dictContents <|> variable
   spaceC *> char '}'
   hspace *> optional (char '}')

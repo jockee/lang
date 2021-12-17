@@ -1,6 +1,9 @@
 # WIP
 
 
+- dict syntax is %{} so that blocks can be used everywhere
+  - a block can be juxtad
+
 # KEY
 
   - function composition

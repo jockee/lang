@@ -129,31 +129,31 @@ spec = describe "Parser" $ do
     s (parseExpr "1 > 0") `shouldBe` s (Cmp ">" (PInteger 1) (PInteger 0))
 
   it "dict" $
-    s (parseExpr "{a: 1, b: 2}") `shouldBe` s (PDict anyTypeSig [(PDictKey "a", PInteger 1), (PDictKey "b", PInteger 2)])
+    s (parseExpr "%{a: 1, b: 2}") `shouldBe` s (PDict anyTypeSig [(PDictKey "a", PInteger 1), (PDictKey "b", PInteger 2)])
 
   it "empty dict" $
-    s (parseExpr "{}") `shouldBe` s (PDict anyTypeSig [])
+    s (parseExpr "%{}") `shouldBe` s (PDict anyTypeSig [])
 
   it "dict access on atom dot key" $
     s (parseExpr ".key exampledict") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "dictInPDictKeyLookup"] (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (Atom anyTypeSig "exampledict"))
 
   it "dict access on inline dot key" $
-    s (parseExpr ".key {a: 1}") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "dictInPDictKeyLookup"] (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDict anyTypeSig [(PDictKey "a", PInteger 1)]))
+    s (parseExpr ".key %{a: 1}") `shouldBe` s (App (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "dictInPDictKeyLookup"] (DictAccess (PDictKey "key") (Atom anyTypeSig "dictInPDictKeyLookup"))) (PDict anyTypeSig [(PDictKey "a", PInteger 1)]))
 
   it "dict access" $
     s (parseExpr "exampledict.key") `shouldBe` s (DictAccess (PDictKey "key") (Atom anyTypeSig "exampledict"))
 
   it "dict update" $
-    s (parseExpr "{ {a: 1} | a:2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(PDictKey "a", PInteger 2)]))
+    s (parseExpr "%{ %{a: 1} | a:2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(PDictKey "a", PInteger 2)]))
 
   it "dict update alternative syntax (merge)" $
-    s (parseExpr "{ {a: 1} | {a:2} }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(PDictKey "a", PInteger 2)]))
+    s (parseExpr "%{ %{a: 1} | %{a:2} }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(PDictKey "a", PInteger 2)]))
 
   it "dict dynamic key" $
-    s (parseExpr "{ a => 1 }") `shouldBe` s (PDict anyTypeSig [(Atom anyTypeSig "a", PInteger 1)])
+    s (parseExpr "%{ a => 1 }") `shouldBe` s (PDict anyTypeSig [(Atom anyTypeSig "a", PInteger 1)])
 
   it "dict update dynamic key" $
-    s (parseExpr "{ {a: 1} | a => 2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(Atom anyTypeSig "a", PInteger 2)]))
+    s (parseExpr "%{ %{a: 1} | a => 2 }") `shouldBe` s (PDictUpdate (PDict anyTypeSig [(PDictKey "a", PInteger 1)]) (PDict anyTypeSig [(Atom anyTypeSig "a", PInteger 2)]))
 
   it "function definiton" $
     s (parseExpr "s x = x * 2") `shouldBe` s (Binop Assign (Atom anyTypeSig "s") (Lambda emptyLambdaEnv anyTypeSig [Atom anyTypeSig "x"] (Binop Mul (Atom anyTypeSig "x") (PInteger 2))))
@@ -223,10 +223,10 @@ spec = describe "Parser" $ do
       s (parseExpr "a ( b, c ) = 1") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [PTuple anyTypeSig [Atom anyTypeSig "b", Atom anyTypeSig "c"]] (PInteger 1)))
 
     it "dict full match" $
-      s (parseExpr "a {b: c} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [PDict anyTypeSig [(PDictKey "b", Atom anyTypeSig "c")]] (Atom anyTypeSig "c")))
+      s (parseExpr "a %{b: c} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [PDict anyTypeSig [(PDictKey "b", Atom anyTypeSig "c")]] (Atom anyTypeSig "c")))
 
     xit "dict partial match" $
-      s (parseExpr "a {b: c, ...} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [PDict anyTypeSig [(PDictKey "b", Atom anyTypeSig "c")]] (Atom anyTypeSig "c")))
+      s (parseExpr "a %{b: c, ...} = c") `shouldBe` s (Binop Assign (Atom anyTypeSig "a") (Lambda emptyLambdaEnv anyTypeSig [PDict anyTypeSig [(PDictKey "b", Atom anyTypeSig "c")]] (Atom anyTypeSig "c")))
 
   describe "Modules" $
     it "parses module" $
