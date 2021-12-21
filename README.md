@@ -3,6 +3,23 @@
 A functional language. Soon to be statically typed.
 
 ```swift
+a = %{a: 1} // dict
+b = [1, 2] // list
+c = (1, 2) // tuple
+```
+
+```swift
+trait Functor f { // create trait (type class)
+  map (a: b), f a => f b // definition
+}
+
+implement Functor for Maybe { // implements trait
+  map _ None = None
+  map fm (Some x) = Some (fm x)
+}
+```
+
+```swift
 sort [] = []
 sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching on cons, let binding, lambda
                     larger = filter (a: a > y) xs:
