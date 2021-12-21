@@ -1,5 +1,7 @@
 # lang
 
+A functional language. Soon to be statically typed.
+
 ```swift
 sort [] = []
 sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching on cons, let binding, lambda
