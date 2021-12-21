@@ -2,7 +2,7 @@
 
 ```swift
 sort [] = []
-sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching on cons, let binding
+sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching on cons, let binding, lambda
                     larger = filter (a: a > y) xs:
                   sort smaller + [y] + sort larger // concat
 ``` 
@@ -23,6 +23,8 @@ either ef of e = case e { // case expression
 at _ [] = None
 at i xs = // multiple definitions
   zip xs [0 .. length xs] // function application, range
-  |> find ((a, b): b == i) // lambda
+  |> find ((a, b): b == i) // find is total and returns a Maybe
   ||> first // fmap pipe
 ```
+
+Written in Haskell using Megaparsec.
