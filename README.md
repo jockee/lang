@@ -21,7 +21,7 @@ implement Functor for Maybe { // implements trait
 
 ```swift
 sort [] = []
-sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching on cons, let binding, lambda
+sort (y | xs) = let smaller = filter (a: a <= y) xs, // pattern matching and destructuring with cons, let binding, lambda
                     larger = filter (a: a > y) xs:
                   sort smaller + [y] + sort larger // concat
 ``` 
